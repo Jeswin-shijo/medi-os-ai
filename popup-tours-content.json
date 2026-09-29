@@ -1,0 +1,1703 @@
+{
+  "packages": [
+    {
+      "slug": "thailand",
+      "title": "Thailand",
+      "category": "international",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 50,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1508009603885-50cf7c579365?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1563492065599-3520f775eeed?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1508009603885-50cf7c579365?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1528181304800-259b08848526?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Thailand",
+      "destinationTitle": "Thailand Coastline Escape",
+      "destinationDescription": "Discover island views, ornate temples, food markets, and a balance of city energy with easy beach downtime.",
+      "overview": "Discover the vibrant culture, tropical coastlines, and warm hospitality of Thailand with a journey that blends Bangkok highlights, temple visits, and island moments into one easy-paced escape.",
+      "highlights": [
+        "Immersive cultural experiences with local guidance",
+        "Comfortable stays and seamless transfers",
+        "A balanced itinerary with city, food, and coastal time"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in Bangkok",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive in Bangkok and settle into your hotel after a smooth airport transfer."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Explore nearby markets and get your first taste of Thai street food."
+            },
+            {
+              "time": "Evening",
+              "text": "Unwind with a relaxed evening walk through the city."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Temple and City Highlights",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit landmark temples and historic city corners with a local guide."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Enjoy a riverfront lunch and time for shopping or café stops."
+            },
+            {
+              "time": "Evening",
+              "text": "Take in the city lights with a dinner cruise or night market visit."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Island Transfer",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Head toward the coast for a slower beachside stretch of the trip."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Check in, relax at the resort, and enjoy the shoreline."
+            },
+            {
+              "time": "Evening",
+              "text": "Watch sunset by the water and settle into an easy evening."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Selected hotel stays in Bangkok and the island region",
+        "Airport pickups, local transfers, and intercity movement",
+        "Breakfast and sightseeing listed in the plan",
+        "Basic local assistance throughout the trip"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Bangkok, Thailand",
+      "relatedSlugs": [
+        "bali",
+        "sri-lanka",
+        "maldives"
+      ]
+    },
+    {
+      "slug": "bali",
+      "title": "Bali",
+      "category": "international",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 52,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1555400038-63f5ba517a47?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Bali",
+      "destinationTitle": "Bali Temple and Villa Retreat",
+      "destinationDescription": "From rice terraces and cliff temples to calm villa stays, Bali brings together culture and a soft resort rhythm.",
+      "overview": "Bali offers a rich blend of lush interiors, coastal stays, temple visits, and slow afternoons. This package is designed for travelers who want both scenic beauty and a peaceful vacation rhythm.",
+      "highlights": [
+        "Temple visits, scenic drives, and curated villa stays",
+        "Flexible pace with time for cafés, spas, and shopping",
+        "A balanced mix of iconic and quieter Bali experiences"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in Bali",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive in Bali and transfer to your stay with time to refresh."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Take a short orientation drive through the nearby area."
+            },
+            {
+              "time": "Evening",
+              "text": "Enjoy a relaxed dinner with tropical views."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Cultural and Temple Day",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit a signature temple and scenic countryside viewpoints."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Pause for lunch and a rice terrace walk or swing experience."
+            },
+            {
+              "time": "Evening",
+              "text": "Return for a calm evening and optional spa time."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Leisure by the Coast",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Start with a slow breakfast and beachside time."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Explore boutiques, cafés, or a local art market."
+            },
+            {
+              "time": "Evening",
+              "text": "Watch sunset from a clifftop setting."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Bali, Indonesia",
+      "relatedSlugs": [
+        "thailand",
+        "sri-lanka",
+        "maldives"
+      ]
+    },
+    {
+      "slug": "sri-lanka",
+      "title": "Sri Lanka",
+      "category": "international",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 48,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Sri Lanka",
+      "destinationTitle": "Sri Lanka Heritage and Hills",
+      "destinationDescription": "Blend tea country, heritage sites, and coastal stretches into one trip with a calm and scenic pace.",
+      "overview": "Sri Lanka is ideal for travelers who want diversity without rushing. This route brings together cultural heritage, green hill landscapes, and coast-facing downtime in one well-paced itinerary.",
+      "highlights": [
+        "Tea country scenery and heritage-focused sightseeing",
+        "Flexible stops across city, hills, and coast",
+        "Comfortable pacing for couples, families, and small groups"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival and Transfer",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive and travel to your first stay with a comfortable check-in."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Explore the nearby neighborhood or a heritage site."
+            },
+            {
+              "time": "Evening",
+              "text": "Settle in with a relaxed dinner."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Hill Country Journey",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Travel through greener inland stretches and tea landscapes."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Stop at viewpoints and local cafés along the route."
+            },
+            {
+              "time": "Evening",
+              "text": "Enjoy a cooler evening in the hills."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Culture and Coast",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit a cultural landmark or local market in the morning."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Move toward the coast for a change of pace."
+            },
+            {
+              "time": "Evening",
+              "text": "Spend the evening with a quiet beach walk."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Colombo, Sri Lanka",
+      "relatedSlugs": [
+        "thailand",
+        "bali",
+        "munnar"
+      ]
+    },
+    {
+      "slug": "malaysia",
+      "title": "Malaysia",
+      "category": "international",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 46,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1508062878650-88b52897f298?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1587437043326-7e9f2730725c?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1622665645573-b0b5dea09d98?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1566914447826-bf04e54bf1be?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Malaysia",
+      "destinationTitle": "Malaysia City and Island Trail",
+      "destinationDescription": "Kuala Lumpur skylines, heritage streets, and Langkawi shorelines come together in one comfortable route.",
+      "overview": "Malaysia pairs a modern capital with easy island time. This route moves from Kuala Lumpur's landmarks and food streets to quieter coastal days, keeping travel time short and the schedule flexible.",
+      "highlights": [
+        "City landmarks, heritage lanes, and local food stops",
+        "A short hop to the coast for slower island days",
+        "Comfortable stays with simple transfers between stops"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in Kuala Lumpur",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive in Kuala Lumpur and transfer to your city stay."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Walk the park and shopping streets around the twin towers."
+            },
+            {
+              "time": "Evening",
+              "text": "See the towers lit up and settle in with dinner nearby."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "City Sights and Street Food",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Explore the old town quarter, markets, and landmark viewpoints with a local guide."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Break for lunch and time at a museum, mall, or heritage street."
+            },
+            {
+              "time": "Evening",
+              "text": "Try a night market or hawker street for dinner."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Island Time in Langkawi",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Take a short flight or transfer toward the Langkawi coast."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Check in and spend the afternoon by the beach or pool."
+            },
+            {
+              "time": "Evening",
+              "text": "Watch sunset over the water and keep the evening easy."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Kuala Lumpur, Malaysia",
+      "relatedSlugs": [
+        "thailand",
+        "bali",
+        "sri-lanka"
+      ]
+    },
+    {
+      "slug": "munnar",
+      "title": "Munnar",
+      "category": "domestic",
+      "days": 5,
+      "nights": 4,
+      "startingPrice": "₹ 22,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1566552881560-0be862a7c445?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1566552881560-0be862a7c445?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Munnar",
+      "destinationTitle": "Munnar Tea Valley Escape",
+      "destinationDescription": "Cool mountain air, tea estates, winding roads, and misty sunrise moments make this an easy hill retreat.",
+      "overview": "Munnar is perfect for travelers looking for fresh air, slower mornings, and scenic drives through tea country. This package keeps the pace relaxed while covering the region's most loved viewpoints.",
+      "highlights": [
+        "Tea plantations, cool weather, and mountain-view stays",
+        "Leisure-first itinerary with scenic road trips",
+        "Ideal for quick breaks, couples, and family travel"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in the Hills",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Travel into Munnar and check in to your stay."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Take a light drive through tea estate roads and viewpoints."
+            },
+            {
+              "time": "Evening",
+              "text": "Relax with a quiet evening overlooking the hills."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Tea Trails and Viewpoints",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Start with a fresh hillside morning and local breakfast."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Visit tea gardens, a museum, or top viewpoints in the area."
+            },
+            {
+              "time": "Evening",
+              "text": "Return for bonfire time or a calm dinner."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Nature and Leisure",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Head out for a waterfall stop or lake-facing visit."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Keep the afternoon free for rest, cafés, or light shopping."
+            },
+            {
+              "time": "Evening",
+              "text": "Wrap up with sunset views over the valley."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Munnar, Kerala",
+      "relatedSlugs": [
+        "wayanad",
+        "coorg",
+        "sri-lanka"
+      ]
+    },
+    {
+      "slug": "wayanad",
+      "title": "Wayanad",
+      "category": "domestic",
+      "days": 5,
+      "nights": 4,
+      "startingPrice": "₹ 24,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1593696954577-ab3d39317b97?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1593696954577-ab3d39317b97?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1593696954577-ab3d39317b97?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Wayanad",
+      "destinationTitle": "Wayanad Forest and Falls Journey",
+      "destinationDescription": "A green, slow, and refreshing route through forest roads, lookouts, and waterfall-backed stays.",
+      "overview": "Wayanad brings together greenery, cooler weather, and a nature-heavy mood that works beautifully for relaxed domestic travel. This package keeps things scenic and easy.",
+      "highlights": [
+        "Forest roads, waterfalls, and hillside viewpoints",
+        "Great for nature lovers and slower group trips",
+        "Comfortable stays with time for local discovery"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival and Check-in",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive in Wayanad and settle into your property."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Head out for a light local drive and scenic stop."
+            },
+            {
+              "time": "Evening",
+              "text": "Enjoy the calm pace of the hills in the evening."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Waterfalls and Viewpoints",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit a waterfall or forest-side attraction in the morning."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Continue to a lookout point or heritage spot nearby."
+            },
+            {
+              "time": "Evening",
+              "text": "Return for a quiet resort evening."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Leisure and Local Finds",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Start the day at your own pace with a relaxed breakfast."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Explore local produce shops, cafés, or short nature walks."
+            },
+            {
+              "time": "Evening",
+              "text": "Spend the evening unwinding in the cool weather."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Wayanad, Kerala",
+      "relatedSlugs": [
+        "munnar",
+        "coorg",
+        "manali"
+      ]
+    },
+    {
+      "slug": "coorg",
+      "title": "Coorg",
+      "category": "domestic",
+      "days": 5,
+      "nights": 4,
+      "startingPrice": "₹ 23,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Coorg",
+      "destinationTitle": "Coorg Coffee Trail Retreat",
+      "destinationDescription": "Coffee estates, mist, winding roads, and estate-style stays make Coorg an easy mountain reset.",
+      "overview": "Coorg is a strong choice for travelers who want a green domestic break without a rushed schedule. Coffee estate scenery and quiet resort stays set the tone throughout the trip.",
+      "highlights": [
+        "Estate stays and coffee-country views",
+        "Easy-paced local sightseeing and nature time",
+        "Good fit for short domestic escapes"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in Coorg",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Travel into Coorg and check in to your stay."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Take a short orientation drive through estate roads."
+            },
+            {
+              "time": "Evening",
+              "text": "Enjoy an early evening in the cool air."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Estate and Viewpoint Day",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit coffee estates or nearby gardens in the morning."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Continue to a scenic viewpoint or riverside stop."
+            },
+            {
+              "time": "Evening",
+              "text": "Return for a warm dinner and rest."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Slow Exploration",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Keep the morning flexible for leisure or short walks."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Explore a local market, café, or cultural landmark nearby."
+            },
+            {
+              "time": "Evening",
+              "text": "Wrap up with one final hill-view evening."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Coorg, Karnataka",
+      "relatedSlugs": [
+        "munnar",
+        "wayanad",
+        "kashmir"
+      ]
+    },
+    {
+      "slug": "andaman",
+      "title": "Andaman",
+      "category": "domestic",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 29,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1586359716568-3e1907e4cf9f?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1586359716568-3e1907e4cf9f?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1721834058855-b9d0570722b4?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1638459032642-c658d3d888c0?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1586053226626-febc8817962f?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1599325601183-042bed55081c?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Andaman",
+      "destinationTitle": "Andaman Island Break",
+      "destinationDescription": "Clear water, quiet beaches, and short ferry rides between islands make the Andamans an easy tropical reset.",
+      "overview": "The Andaman Islands suit travelers who want beach time without a long flight. This route covers Port Blair, a ferry crossing to Havelock, and unhurried days by the sea.",
+      "highlights": [
+        "White-sand beaches and calm swimming water",
+        "Ferry crossings between Port Blair and Havelock",
+        "Optional snorkeling and glass-bottom boat time"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in Port Blair",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive in Port Blair and transfer to your stay near the coast."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Visit Cellular Jail and the waterfront nearby."
+            },
+            {
+              "time": "Evening",
+              "text": "Stay for the light and sound show or an easy walk by the water."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Ferry to Havelock",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Board the morning ferry across to Havelock Island."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Check in and spend time at Radhanagar Beach."
+            },
+            {
+              "time": "Evening",
+              "text": "Watch sunset from the shore and keep dinner relaxed."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Beaches and Reef Time",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Head out for snorkeling or a glass-bottom boat ride."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Keep the afternoon free for beach time or a cycle around the island."
+            },
+            {
+              "time": "Evening",
+              "text": "Wind down with a slow seaside evening."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Port Blair, Andaman and Nicobar Islands",
+      "relatedSlugs": [
+        "munnar",
+        "wayanad",
+        "maldives"
+      ]
+    },
+    {
+      "slug": "maldives",
+      "title": "Maldives",
+      "category": "honeymoon",
+      "days": 5,
+      "nights": 4,
+      "startingPrice": "₹ 68,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1540202404-a2f29016b523?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1540202404-a2f29016b523?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Maldives",
+      "destinationTitle": "Maldives Overwater Escape",
+      "destinationDescription": "For honeymooners and slow travelers, this trip is all about turquoise water, quiet stays, and signature resort moments.",
+      "overview": "The Maldives is built for travelers who want beautiful simplicity. This package leans into resort time, sea views, and a relaxed island pace with minimal friction.",
+      "highlights": [
+        "Overwater or island-style resort stays",
+        "Low-stress pacing with plenty of free time",
+        "Great fit for honeymoon and celebratory travel"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival and Island Transfer",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive and connect to your island transfer with resort assistance."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Check in and spend the afternoon taking in the property."
+            },
+            {
+              "time": "Evening",
+              "text": "Ease into the trip with a sunset dinner by the water."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Leisure in Paradise",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Enjoy a slow breakfast and time on the deck or beach."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Choose a spa session, snorkeling, or simply rest at the resort."
+            },
+            {
+              "time": "Evening",
+              "text": "Wrap up with golden-hour views and dinner."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Signature Island Experience",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Keep the morning open for water activities or photos."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Add a sandbank picnic, cruise, or private resort activity."
+            },
+            {
+              "time": "Evening",
+              "text": "Spend the evening in a calm, intimate setting."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Resort stay with breakfast and selected transfers",
+        "Welcome assistance and curated island coordination",
+        "Leisure-focused itinerary with room for optional add-ons",
+        "Trip support for confirmations and planning help"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Male, Maldives",
+      "relatedSlugs": [
+        "bali",
+        "thailand",
+        "kashmir"
+      ]
+    },
+    {
+      "slug": "kashmir",
+      "title": "Kashmir",
+      "category": "honeymoon",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 38,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1595815771614-ade9d652a65d?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1595815771614-ade9d652a65d?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1595815771614-ade9d652a65d?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Kashmir",
+      "destinationTitle": "Kashmir Valley Romance",
+      "destinationDescription": "Houseboats, mountain air, gardens, and long scenic drives make Kashmir feel cinematic and unhurried.",
+      "overview": "Kashmir works beautifully for travelers looking for cool weather, mountain scenery, and a romantic pace. This route balances sightseeing with time to simply enjoy the landscape.",
+      "highlights": [
+        "Valley views, gardens, and scenic water-side stays",
+        "Flexible pace with mountain drives and local stops",
+        "Ideal for honeymoon and calm group travel"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival in Srinagar",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Arrive and transfer into Srinagar with time to settle in."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Enjoy a relaxed shikara ride or lakeside stop."
+            },
+            {
+              "time": "Evening",
+              "text": "Spend the evening soaking in the mountain air."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Gardens and Local Sights",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit some of Kashmir's best-known gardens and viewpoints."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Take your time with lunch, photos, and local shopping."
+            },
+            {
+              "time": "Evening",
+              "text": "Return for a quiet evening back at the stay."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Valley Excursion",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Head out for a scenic drive deeper into the valley."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Stop at meadows, riversides, or seasonal snow viewpoints."
+            },
+            {
+              "time": "Evening",
+              "text": "Come back to Srinagar for a cozy dinner."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Srinagar, Kashmir",
+      "relatedSlugs": [
+        "manali",
+        "maldives",
+        "coorg"
+      ]
+    },
+    {
+      "slug": "manali",
+      "title": "Manali",
+      "category": "honeymoon",
+      "days": 6,
+      "nights": 5,
+      "startingPrice": "₹ 28,000",
+      "heroBackgroundImage": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1600&q=80",
+      "galleryImages": [
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1300&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80"
+      ],
+      "cardImage": "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1000&q=80",
+      "destinationTag": "Manali",
+      "destinationTitle": "Manali Mountain Getaway",
+      "destinationDescription": "Snowline views, pine-covered roads, and quiet resort evenings make Manali an easy romantic hill escape.",
+      "overview": "Manali is a go-to mountain break for travelers who want crisp weather, scenic roads, and simple time away. This package stays easy, romantic, and well-paced.",
+      "highlights": [
+        "Hill views, pine forests, and cozy weather",
+        "Low-stress pacing with sightseeing and leisure",
+        "A strong fit for couples and mountain lovers"
+      ],
+      "itinerary": [
+        {
+          "day": 1,
+          "title": "Arrival and Check-in",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Reach Manali and settle into your stay with time to unwind."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Take a short local drive or market stroll in the afternoon."
+            },
+            {
+              "time": "Evening",
+              "text": "Relax into the mountain air over dinner."
+            }
+          ]
+        },
+        {
+          "day": 2,
+          "title": "Valley Sightseeing",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Visit river-facing spots and local attractions in the morning."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Continue with a scenic drive through the surrounding roads."
+            },
+            {
+              "time": "Evening",
+              "text": "Return for a slow evening in town or at the resort."
+            }
+          ]
+        },
+        {
+          "day": 3,
+          "title": "Leisure in the Hills",
+          "details": [
+            {
+              "time": "Morning",
+              "text": "Keep the morning free for café time or a short walk."
+            },
+            {
+              "time": "Afternoon",
+              "text": "Choose an optional viewpoint excursion or rest day."
+            },
+            {
+              "time": "Evening",
+              "text": "Watch the light change over the hills before dinner."
+            }
+          ]
+        }
+      ],
+      "costIncludes": [
+        "Accommodation in quality stays selected for the route",
+        "Daily breakfast and essential local transfers",
+        "Sightseeing and guided experiences listed in the itinerary",
+        "On-trip support for coordination and assistance"
+      ],
+      "costExcludes": [
+        "Personal expenses, shopping, and optional add-ons",
+        "Travel insurance unless specifically included",
+        "Activities not mentioned in the itinerary"
+      ],
+      "mapQuery": "Manali, Himachal Pradesh",
+      "relatedSlugs": [
+        "kashmir",
+        "wayanad",
+        "munnar"
+      ]
+    }
+  ],
+  "blogPosts": [
+    {
+      "slug": "maldives-packing-guide",
+      "title": "Crystal Clear Waters, Overwater Villas & Sunset Dreams Await!",
+      "subtitle": "A soft-paced Maldives guide for travelers planning a stylish island stay without the guesswork",
+      "excerpt": "What to pack, how to choose the right island, and the small decisions that make a Maldives trip feel effortless.",
+      "date": "2025-08-08",
+      "category": "International",
+      "tags": [
+        "Maldives",
+        "Honeymoon",
+        "Packing",
+        "Island"
+      ],
+      "readingTime": "5 min read",
+      "cardImage": "https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=900&q=80",
+      "heroImage": "https://images.unsplash.com/photo-1573843981267-be1999ff37cd?auto=format&fit=crop&w=1600&q=80",
+      "lead": "Close your eyes: you wake up to the gentle lapping of waves beneath your overwater villa. The turquoise waters stretch endlessly before you, and as you sip on fresh coconut water, you realize you are in paradise. Welcome to the Maldives.",
+      "sections": [
+        {
+          "heading": "Packing Checklist for the Maldives",
+          "listStyle": "checklist",
+          "items": [
+            "Breezy beachwear, light kaftans, swimwear, and sandals are all you need for effortless resort days.",
+            "An underwater camera helps you capture reef moments and the Maldives' vivid marine life while snorkeling.",
+            "A waterproof dry bag keeps your essentials safe on speedboat rides, sandbank stops, and beach days.",
+            "A sun hat and good sunglasses matter more than you think. The island light gets bright quickly."
+          ]
+        },
+        {
+          "heading": "Pro Tips for a Seamless Maldives Experience",
+          "listStyle": "tips",
+          "items": [
+            "Choose the right island for your pace. Some islands are best for honeymooners, while others suit active travelers or families.",
+            "All-inclusive stays can save money if you plan to dine, relax, and enjoy property activities without moving around much.",
+            "Seaplane rides deliver incredible aerial views, while speedboats can be more practical for shorter transfers and tighter budgets.",
+            "Book a private sandbank picnic if you want one signature memory that feels intimate, cinematic, and completely removed from the usual resort rhythm."
+          ]
+        }
+      ],
+      "closing": "The Maldives is waiting for you. From floating breakfasts to sunset decks and island-hopping moments, the right plan turns a beautiful destination into a calm and unforgettable escape."
+    },
+    {
+      "slug": "dubai-travel-tricks",
+      "title": "Dubai Unveiled: Smart Travel Tricks for a Luxurious Arabian Escape",
+      "subtitle": "A practical guide to enjoying Dubai's polished side without overspending time, energy, or budget",
+      "excerpt": "Timing, neighborhoods, transport, and easy planning ideas for travelers who want Dubai to feel smooth instead of overwhelming.",
+      "date": "2025-08-06",
+      "category": "International",
+      "tags": [
+        "Dubai",
+        "Luxury",
+        "City Break",
+        "Shopping"
+      ],
+      "readingTime": "6 min read",
+      "cardImage": "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?auto=format&fit=crop&w=900&q=80",
+      "heroImage": "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?auto=format&fit=crop&w=1600&q=80",
+      "lead": "Dubai feels cinematic from the very first evening: glass towers glowing at sunset, desert light softening the skyline, and a city that moves quickly but rewards travelers who plan with intention.",
+      "sections": [
+        {
+          "heading": "Choose the Right Area for Your Stay",
+          "paragraphs": [
+            "Downtown Dubai works well if you want major attractions, polished dining, and a central base. Marina and JBR are better if you want a more resort-like rhythm with easy waterfront walks.",
+            "If shopping is your priority, stay somewhere with quick metro or taxi access so you are not losing time in traffic between malls, old souks, and evening plans."
+          ]
+        },
+        {
+          "heading": "Easy Ways to Make the Trip Feel Premium",
+          "listStyle": "tips",
+          "items": [
+            "Book Burj Khalifa or fountain-view experiences ahead of time instead of deciding on the day.",
+            "Schedule desert safari and old-city exploration on different days so the trip feels balanced.",
+            "Use indoor plans during the hottest hours and keep outdoor views, marina walks, and rooftop dinners for the evening.",
+            "Reserve one or two signature meals instead of trying to make every outing feel like a luxury event."
+          ]
+        }
+      ],
+      "closing": "Dubai feels best when the itinerary stays sharp and uncluttered. A few well-chosen experiences will leave a stronger memory than trying to do everything at once."
+    },
+    {
+      "slug": "long-haul-family-trips",
+      "title": "7 Ways to Keep Long-Haul Family Trips Smooth and Memorable",
+      "subtitle": "Family travel gets easier when the journey is designed around comfort, not just the destination",
+      "excerpt": "Simple strategies for pacing airport days, choosing the right flights, and keeping children engaged without turning travel into stress.",
+      "date": "2025-08-04",
+      "category": "Travel Tips",
+      "tags": [
+        "Family",
+        "Planning",
+        "Long Haul",
+        "Comfort"
+      ],
+      "readingTime": "4 min read",
+      "cardImage": "https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=900&q=80",
+      "heroImage": "https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=1600&q=80",
+      "lead": "Long-haul family travel can feel daunting, but most of the stress comes from rushed decisions. Once the timing, packing, and airport pacing are handled, the trip becomes far more enjoyable for everyone.",
+      "sections": [
+        {
+          "heading": "Make the Journey Predictable",
+          "paragraphs": [
+            "Choose flights that match your family's energy instead of chasing the cheapest option. A slightly easier layover or better arrival time can completely change how the first day feels.",
+            "Keep the first evening light. Families settle faster when they are not expected to sightsee immediately after a demanding travel day."
+          ]
+        },
+        {
+          "heading": "What Helps Most in Practice",
+          "listStyle": "checklist",
+          "items": [
+            "Pack one easy-to-access pouch with snacks, wipes, chargers, medicines, and one comfort item per child.",
+            "Pre-book airport transfers so the arrival feels guided, not chaotic.",
+            "Mix one major sightseeing block with generous downtime instead of planning full-day activity marathons.",
+            "Let each child help choose one part of the trip. Small ownership often improves mood more than extra entertainment does."
+          ]
+        }
+      ],
+      "closing": "The goal is not a perfectly controlled family trip. The goal is a trip with enough breathing room that everyone remembers the fun parts more than the friction."
+    },
+    {
+      "slug": "bali-villa-retreat-guide",
+      "title": "Bali Villa Days, Temple Mornings, and Slow Sunset Evenings",
+      "subtitle": "A calm Bali planning guide for travelers who want beauty, culture, and breathing room in the same trip",
+      "excerpt": "How to combine scenic drives, gentle sightseeing, and villa time without turning Bali into a rushed checklist.",
+      "date": "2025-08-02",
+      "category": "Adventure",
+      "tags": [
+        "Bali",
+        "Camera",
+        "Camp",
+        "Temple"
+      ],
+      "readingTime": "5 min read",
+      "cardImage": "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?auto=format&fit=crop&w=900&q=80",
+      "heroImage": "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?auto=format&fit=crop&w=1600&q=80",
+      "lead": "Bali is at its best when you leave room for the island to breathe. Temple visits, green interiors, coastal cafés, and quiet villa afternoons all feel better when they are not squeezed into a rigid schedule.",
+      "sections": [
+        {
+          "heading": "Build Around Two Good Bases",
+          "paragraphs": [
+            "Many Bali trips feel smoother when you divide your time between one inland base and one coastal base. That reduces constant transfers and gives each part of the island a different mood.",
+            "If photography matters to you, sunrise temples and late-afternoon rice terrace visits usually produce a much calmer, more flattering visual experience than midday sightseeing."
+          ]
+        },
+        {
+          "heading": "A Better Bali Rhythm",
+          "listStyle": "tips",
+          "items": [
+            "Pair temple or nature mornings with lazy villa afternoons.",
+            "Keep one day completely open for cafés, spa time, or a driver-led scenic detour.",
+            "Reserve only a few high-demand places in advance and leave the rest flexible.",
+            "Choose stays with strong atmosphere instead of trying to upgrade every transfer or activity."
+          ]
+        }
+      ],
+      "closing": "Bali rarely rewards speed. The more thoughtfully you pace the island, the more cinematic and memorable it becomes."
+    },
+    {
+      "slug": "singapore-night-market-guide",
+      "title": "Singapore After Dark: Food Streets, Skyline Views, and Easy City Planning",
+      "subtitle": "A guide to enjoying Singapore's clean, efficient rhythm while leaving space for local flavor after sunset",
+      "excerpt": "Night markets, hawker centers, city walks, and practical planning notes for a smart Singapore city break.",
+      "date": "2025-07-31",
+      "category": "International",
+      "tags": [
+        "Singapore",
+        "Food",
+        "City Break",
+        "International"
+      ],
+      "readingTime": "4 min read",
+      "cardImage": "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=900&q=80",
+      "heroImage": "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1600&q=80",
+      "lead": "Singapore is one of the easiest cities to travel through well. The transport is intuitive, the neighborhoods are distinct, and evenings are where the city becomes especially rewarding.",
+      "sections": [
+        {
+          "heading": "Plan Around Neighborhoods, Not Just Attractions",
+          "paragraphs": [
+            "Treat Marina Bay, Chinatown, Kampong Glam, and Sentosa as separate mood zones. Grouping experiences by neighborhood keeps the city from feeling like one long sequence of transit hops.",
+            "Hawker centers are part of the pleasure, not just a convenience. Build evening plans around them instead of treating them as a quick stop between landmarks."
+          ]
+        },
+        {
+          "heading": "Simple Planning Tips",
+          "listStyle": "checklist",
+          "items": [
+            "Keep one evening for skyline views and one for food-focused wandering.",
+            "Use the MRT for most movement and taxis only when the day is already long.",
+            "Choose a hotel near an MRT line so late returns stay easy.",
+            "Balance iconic sights with one or two neighborhood evenings that feel more local and unhurried."
+          ]
+        }
+      ],
+      "closing": "Singapore works best when the plan respects its pace: clear, efficient, and polished, but still full of texture once you slow down enough to notice it."
+    }
+  ],
+  "galleryAlbums": [
+    {
+      "title": "Bali",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/bali-1/1400/900",
+        "https://picsum.photos/seed/bali-2/1400/900",
+        "https://picsum.photos/seed/bali-3/1400/900",
+        "https://picsum.photos/seed/bali-4/1400/900",
+        "https://picsum.photos/seed/bali-5/1400/900",
+        "https://picsum.photos/seed/bali-6/1400/900",
+        "https://picsum.photos/seed/bali-7/1400/900",
+        "https://picsum.photos/seed/bali-8/1400/900",
+        "https://picsum.photos/seed/bali-9/1400/900"
+      ]
+    },
+    {
+      "title": "Wayanad",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1593696954577-ab3d39317b97?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/wayanad-1/1400/900",
+        "https://picsum.photos/seed/wayanad-2/1400/900",
+        "https://picsum.photos/seed/wayanad-3/1400/900",
+        "https://picsum.photos/seed/wayanad-4/1400/900",
+        "https://picsum.photos/seed/wayanad-5/1400/900",
+        "https://picsum.photos/seed/wayanad-6/1400/900",
+        "https://picsum.photos/seed/wayanad-7/1400/900",
+        "https://picsum.photos/seed/wayanad-8/1400/900",
+        "https://picsum.photos/seed/wayanad-9/1400/900"
+      ]
+    },
+    {
+      "title": "Kodaikanal",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/kodaikanal-1/1400/900",
+        "https://picsum.photos/seed/kodaikanal-2/1400/900",
+        "https://picsum.photos/seed/kodaikanal-3/1400/900",
+        "https://picsum.photos/seed/kodaikanal-4/1400/900",
+        "https://picsum.photos/seed/kodaikanal-5/1400/900",
+        "https://picsum.photos/seed/kodaikanal-6/1400/900",
+        "https://picsum.photos/seed/kodaikanal-7/1400/900",
+        "https://picsum.photos/seed/kodaikanal-8/1400/900",
+        "https://picsum.photos/seed/kodaikanal-9/1400/900"
+      ]
+    },
+    {
+      "title": "Munnar",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1566552881560-0be862a7c445?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/munnar-1/1400/900",
+        "https://picsum.photos/seed/munnar-2/1400/900",
+        "https://picsum.photos/seed/munnar-3/1400/900",
+        "https://picsum.photos/seed/munnar-4/1400/900",
+        "https://picsum.photos/seed/munnar-5/1400/900",
+        "https://picsum.photos/seed/munnar-6/1400/900",
+        "https://picsum.photos/seed/munnar-7/1400/900",
+        "https://picsum.photos/seed/munnar-8/1400/900",
+        "https://picsum.photos/seed/munnar-9/1400/900"
+      ]
+    },
+    {
+      "title": "Sri Lanka",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/sri-lanka-1/1400/900",
+        "https://picsum.photos/seed/sri-lanka-2/1400/900",
+        "https://picsum.photos/seed/sri-lanka-3/1400/900",
+        "https://picsum.photos/seed/sri-lanka-4/1400/900",
+        "https://picsum.photos/seed/sri-lanka-5/1400/900",
+        "https://picsum.photos/seed/sri-lanka-6/1400/900",
+        "https://picsum.photos/seed/sri-lanka-7/1400/900",
+        "https://picsum.photos/seed/sri-lanka-8/1400/900",
+        "https://picsum.photos/seed/sri-lanka-9/1400/900"
+      ]
+    },
+    {
+      "title": "Thailand",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1508009603885-50cf7c579365?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1563492065599-3520f775eeed?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/thailand-1/1400/900",
+        "https://picsum.photos/seed/thailand-2/1400/900",
+        "https://picsum.photos/seed/thailand-3/1400/900",
+        "https://picsum.photos/seed/thailand-4/1400/900",
+        "https://picsum.photos/seed/thailand-5/1400/900",
+        "https://picsum.photos/seed/thailand-6/1400/900",
+        "https://picsum.photos/seed/thailand-7/1400/900",
+        "https://picsum.photos/seed/thailand-8/1400/900",
+        "https://picsum.photos/seed/thailand-9/1400/900"
+      ]
+    },
+    {
+      "title": "Manali",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/manali-1/1400/900",
+        "https://picsum.photos/seed/manali-2/1400/900",
+        "https://picsum.photos/seed/manali-3/1400/900",
+        "https://picsum.photos/seed/manali-4/1400/900",
+        "https://picsum.photos/seed/manali-5/1400/900",
+        "https://picsum.photos/seed/manali-6/1400/900",
+        "https://picsum.photos/seed/manali-7/1400/900",
+        "https://picsum.photos/seed/manali-8/1400/900",
+        "https://picsum.photos/seed/manali-9/1400/900"
+      ]
+    },
+    {
+      "title": "Ooty",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/ooty-1/1400/900",
+        "https://picsum.photos/seed/ooty-2/1400/900",
+        "https://picsum.photos/seed/ooty-3/1400/900",
+        "https://picsum.photos/seed/ooty-4/1400/900",
+        "https://picsum.photos/seed/ooty-5/1400/900",
+        "https://picsum.photos/seed/ooty-6/1400/900",
+        "https://picsum.photos/seed/ooty-7/1400/900",
+        "https://picsum.photos/seed/ooty-8/1400/900",
+        "https://picsum.photos/seed/ooty-9/1400/900"
+      ]
+    },
+    {
+      "title": "Alappuzha",
+      "count": 12,
+      "images": [
+        "https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=1400&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
+        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80",
+        "https://picsum.photos/seed/alappuzha-1/1400/900",
+        "https://picsum.photos/seed/alappuzha-2/1400/900",
+        "https://picsum.photos/seed/alappuzha-3/1400/900",
+        "https://picsum.photos/seed/alappuzha-4/1400/900",
+        "https://picsum.photos/seed/alappuzha-5/1400/900",
+        "https://picsum.photos/seed/alappuzha-6/1400/900",
+        "https://picsum.photos/seed/alappuzha-7/1400/900",
+        "https://picsum.photos/seed/alappuzha-8/1400/900",
+        "https://picsum.photos/seed/alappuzha-9/1400/900"
+      ]
+    }
+  ],
+  "popularPlaces": [
+    {
+      "slug": "thailand",
+      "label": "Thailand Packages"
+    },
+    {
+      "slug": "malaysia",
+      "label": "Malaysia Packages"
+    },
+    {
+      "slug": "andaman",
+      "label": "Andaman Packages"
+    },
+    {
+      "slug": "bali",
+      "label": "Bali Packages"
+    },
+    {
+      "slug": "manali",
+      "label": "Manali Packages"
+    }
+  ],
+  "homeGalleryTiles": [
+    {
+      "title": "Munnar",
+      "image": "https://images.unsplash.com/photo-1518770660439-4636190af475",
+      "albumSlug": "munnar"
+    },
+    {
+      "title": "Thailand",
+      "image": "https://picsum.photos/400/500?random=2",
+      "albumSlug": "thailand"
+    },
+    {
+      "title": "Munnar",
+      "image": "https://picsum.photos/400/500?random=3",
+      "albumSlug": "munnar"
+    },
+    {
+      "title": "Srilanka",
+      "image": "https://picsum.photos/400/450?random=4",
+      "albumSlug": "sri-lanka"
+    },
+    {
+      "title": "Varkala",
+      "image": "https://picsum.photos/400/350?random=5"
+    },
+    {
+      "title": "Munnar",
+      "image": "https://picsum.photos/400/480?random=6",
+      "albumSlug": "munnar"
+    },
+    {
+      "title": "Munnar",
+      "image": "https://images.unsplash.com/photo-1518770660439-4636190af475",
+      "albumSlug": "munnar"
+    }
+  ],
+  "faqs": [
+    {
+      "question": "How do I book my trip?",
+      "answer": "Through our contact form, or by calling or messaging our official WhatsApp number."
+    },
+    {
+      "question": "Can I customize my travel itinerary?",
+      "answer": "Yes. Our team will customize your itinerary according to your preferences."
+    },
+    {
+      "question": "What's included in the trip itinerary?",
+      "answer": "Transportation, accommodation, food, and the sightseeing places listed in your itinerary."
+    },
+    {
+      "question": "Is there 24/7 customer support during the trip?",
+      "answer": "Yes. Our support team will guide you throughout the trip."
+    }
+  ],
+  "whyChooseUs": [
+    {
+      "icon": "bi-person-badge",
+      "title": "Expert Local Knowledge",
+      "description": "We bring deep local knowledge to every journey, so your travel is made easy from the first day to the last."
+    },
+    {
+      "icon": "bi-house-check",
+      "title": "Customized Services",
+      "description": "We provide itineraries based upon your requirements and preferences, instead of forcing you into a one-size-fits-all package."
+    },
+    {
+      "icon": "bi-shield-check",
+      "title": "Transparent & Trustworthy",
+      "description": "We provide exactly what we promise in your itineraries — clear communication and dependable coordination, before and during your trip."
+    },
+    {
+      "icon": "bi-award",
+      "title": "Proven Track Record",
+      "description": "We have a proven record of successful trips and unforgettable memories that bring travelers back to us again and again."
+    }
+  ],
+  "whyWeAreBetter": [
+    "Team in each location",
+    "Affordable price",
+    "Friendly approach to guests",
+    "24/7 customer support",
+    "Expert travel guidance",
+    "Tailor-made packages"
+  ],
+  "homeStats": [
+    {
+      "value": 10,
+      "decimals": 0,
+      "thousands": false,
+      "suffix": "K+",
+      "label": "Happy Travelers"
+    },
+    {
+      "value": 1200,
+      "decimals": 0,
+      "thousands": true,
+      "suffix": "+",
+      "label": "Customized Trips Completed"
+    },
+    {
+      "value": 7,
+      "decimals": 0,
+      "thousands": false,
+      "suffix": "+ Years",
+      "label": "In Travel & Tourism"
+    },
+    {
+      "value": 4.9,
+      "decimals": 1,
+      "thousands": false,
+      "suffix": "/5",
+      "label": "Customer Rating"
+    }
+  ],
+  "footerColumns": [
+    {
+      "title": "Quick Link",
+      "links": [
+        {
+          "label": "Home",
+          "href": "/"
+        },
+        {
+          "label": "About Us",
+          "href": "/about"
+        },
+        {
+          "label": "International",
+          "href": "/international"
+        },
+        {
+          "label": "Domestic",
+          "href": "/domestic"
+        },
+        {
+          "label": "Honeymoon",
+          "href": "/honeymoon"
+        },
+        {
+          "label": "Gallery",
+          "href": "/gallery"
+        },
+        {
+          "label": "Blogs",
+          "href": "/blog"
+        },
+        {
+          "label": "Contact Us",
+          "href": "/contact"
+        }
+      ]
+    },
+    {
+      "title": "Packages",
+      "links": [
+        {
+          "label": "Domestic Tours",
+          "href": "/domestic"
+        },
+        {
+          "label": "International Tours",
+          "href": "/international"
+        },
+        {
+          "label": "Honeymoon Packages",
+          "href": "/honeymoon"
+        },
+        {
+          "label": "Family Holidays",
+          "href": "/contact?destination=Munnar&vacationType=Family"
+        },
+        {
+          "label": "Group Tours",
+          "href": "/contact?destination=Sri+Lanka&vacationType=Group"
+        },
+        {
+          "label": "Beach Holidays",
+          "href": "/packages/maldives"
+        }
+      ]
+    },
+    {
+      "title": "Cities",
+      "links": [
+        {
+          "label": "Thailand",
+          "href": "/packages/thailand"
+        },
+        {
+          "label": "Bali",
+          "href": "/packages/bali"
+        },
+        {
+          "label": "Sri Lanka",
+          "href": "/packages/sri-lanka"
+        },
+        {
+          "label": "Munnar",
+          "href": "/packages/munnar"
+        },
+        {
+          "label": "Ooty",
+          "href": "/contact?destination=Ooty"
+        },
+        {
+          "label": "Maldives",
+          "href": "/packages/maldives"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "links": [
+        {
+          "label": "Alleppey Backwaters",
+          "href": "/contact?destination=Alleppey+Backwaters"
+        },
+        {
+          "label": "Fort Aguada",
+          "href": "/contact?destination=Fort+Aguada"
+        },
+        {
+          "label": "Botanical Garden",
+          "href": "/contact?destination=Botanical+Garden"
+        },
+        {
+          "label": "Amber Fort",
+          "href": "/contact?destination=Amber+Fort"
+        },
+        {
+          "label": "Radhanagar Beach",
+          "href": "/contact?destination=Radhanagar+Beach"
+        },
+        {
+          "label": "Srinagar, Pahalgam",
+          "href": "/packages/kashmir"
+        }
+      ]
+    }
+  ]
+}
