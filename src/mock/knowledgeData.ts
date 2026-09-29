@@ -10,14 +10,14 @@ export const mockKnowledgeTopics = [
   { id: 'education', title: 'Patient Education', count: 120 }
 ];
 
-export const mockFeaturedKnowledge = [
+export const mockFeaturedKnowledge: { id: string; title: string; subtitle: string; tag: string; date: string; tone: 'green' | 'orange' | 'blue' }[] = [
   {
     id: 'fk-1',
     title: 'Hypertension Management Guidelines',
     subtitle: 'Latest evidence-based guidelines for diagnosis and treatment',
     tag: 'Guideline',
     date: 'Updated 12 Sep 2026',
-    iconColor: '#2563eb'
+    tone: 'green'
   },
   {
     id: 'fk-2',
@@ -25,7 +25,7 @@ export const mockFeaturedKnowledge = [
     subtitle: 'Rational antibiotic use and duration guidelines',
     tag: 'Protocol',
     date: 'Updated 05 Sep 2026',
-    iconColor: '#ec4899'
+    tone: 'orange'
   },
   {
     id: 'fk-3',
@@ -33,7 +33,7 @@ export const mockFeaturedKnowledge = [
     subtitle: 'Early recognition and treatment protocol',
     tag: 'Protocol',
     date: 'Updated 01 Sep 2026',
-    iconColor: '#f59e0b'
+    tone: 'orange'
   },
   {
     id: 'fk-4',
@@ -41,7 +41,7 @@ export const mockFeaturedKnowledge = [
     subtitle: 'Inpatient and outpatient management guidelines',
     tag: 'Guideline',
     date: 'Updated 28 Aug 2026',
-    iconColor: '#8b5cf6'
+    tone: 'blue'
   }
 ];
 
@@ -102,4 +102,35 @@ export const mockKnowledgePromptQuestions = [
   'Pre-operative checklist for surgery?',
   'Normal vital signs range for adults?',
   'Drug interactions with warfarin?'
+];
+
+/** Left "Categories" list on Hospital Knowledge (icons come from specialtyVisuals). */
+export const mockKnowledgeCategories: { name: string; count: number; color?: string }[] = [
+  { name: 'All Topics', count: 1245 },
+  { name: 'Internal Medicine', count: 180 },
+  { name: 'Emergency Medicine', count: 120 },
+  { name: 'Surgery', count: 95 },
+  { name: 'Obstetrics & Gynecology', count: 90 },
+  { name: 'Pediatrics', count: 85 },
+  { name: 'Cardiology', count: 80 },
+  { name: 'Radiology', count: 75 },
+  { name: 'Anesthesiology', count: 60 },
+  { name: 'Orthopedics', count: 55 },
+  { name: 'Infectious Diseases', count: 50 },
+  { name: 'Endocrinology', count: 45, color: 'var(--purple-ai)' },
+  { name: 'Pulmonology', count: 40 },
+  { name: 'Nephrology', count: 40 },
+  { name: 'Gastroenterology', count: 40, color: 'var(--blue-primary)' },
+  { name: 'Dermatology', count: 35 },
+  { name: 'ENT', count: 30 },
+  { name: 'Ophthalmology', count: 30 },
+  { name: 'Oncology', count: 25 },
+  { name: 'Hospital Administration', count: 25 }
+];
+
+export const mockRecentlyViewed: { id: string; title: string; time: string; kind: 'guideline' | 'lab' | 'protocol' | 'alert' }[] = [
+  { id: 'rv-1', title: 'Hypertension Management Guidelines', time: '10 min ago', kind: 'guideline' },
+  { id: 'rv-2', title: 'Normal Lab Reference Ranges', time: '2 hours ago', kind: 'lab' },
+  { id: 'rv-3', title: 'Sepsis Management Protocol', time: '5 hours ago', kind: 'protocol' },
+  { id: 'rv-4', title: 'Antibiotic Stewardship Protocol', time: '1 day ago', kind: 'alert' }
 ];

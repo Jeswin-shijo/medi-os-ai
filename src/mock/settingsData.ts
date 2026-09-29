@@ -69,7 +69,7 @@ export const initialSettings: SettingsState = {
   },
   hospital: {
     name: "St. Mary's Multi Speciality Hospital",
-    address: '123, Church Road, Nagercoil, Kanyakumari District, Tamil Nadu - 629001',
+    address: '123, Church Road, Nagercoil,\nKanyakumari District, Tamil Nadu - 629001',
     phone: '+91 4652 123456',
     email: 'info@stmaryshospital.com',
     timeZone: '(GMT+05:30) Chennai, Kolkata, Mumbai, New Delhi',

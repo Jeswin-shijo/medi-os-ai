@@ -1,6 +1,7 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
-import { Search, Bell, HelpCircle } from 'lucide-react';
+import { useApp } from '../../context/appContextCore';
+import { Search, Bell, CircleHelp, ChevronDown } from 'lucide-react';
+import { DOCTOR_AVATAR, DOCTOR_NAME } from '../../mock/avatars';
 
 export const Header: React.FC = () => {
   const { setIsCommandPaletteOpen, setActiveScreen } = useApp();
@@ -12,7 +13,7 @@ export const Header: React.FC = () => {
         className="global-search-container"
         onClick={() => setIsCommandPaletteOpen(true)}
       >
-        <Search size={16} className="search-icon-left" />
+        <Search size={18} strokeWidth={2} className="search-icon-left" />
         <input
           type="text"
           readOnly
@@ -25,43 +26,37 @@ export const Header: React.FC = () => {
 
       {/* Header Right Actions */}
       <div className="header-right-actions">
-        {/* Notification Bell */}
         <button
           className="header-icon-btn"
           title="Notifications & Alerts"
           onClick={() => setActiveScreen('tasks-alerts')}
         >
-          <Bell size={18} />
+          <Bell size={22} strokeWidth={1.75} />
           <span className="header-bell-badge">3</span>
         </button>
 
-        {/* Help & Documentation */}
+        <span className="header-divider" />
+
         <button
           className="header-icon-btn"
           title="Hospital Knowledge & Guidelines"
           onClick={() => setActiveScreen('hospital-knowledge')}
         >
-          <HelpCircle size={18} />
+          <CircleHelp size={22} strokeWidth={1.75} />
         </button>
 
-        {/* Doctor Identity Pill */}
+        <span className="header-divider" />
+
         <div
           className="header-doctor-pill"
           onClick={() => setActiveScreen('settings')}
-          style={{ cursor: 'pointer' }}
         >
-          <img
-            src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80"
-            alt="Dr. Shajin"
-          />
+          <img src={DOCTOR_AVATAR} alt={DOCTOR_NAME} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
-              Dr. Shajin
-            </span>
-            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-              General Physician
-            </span>
+            <span className="header-doctor-name">{DOCTOR_NAME}</span>
+            <span className="header-doctor-role">General Physician</span>
           </div>
+          <ChevronDown size={18} className="header-doctor-chevron" />
         </div>
       </div>
     </header>

@@ -1,180 +1,177 @@
-import React from 'react';
-import { useApp } from '../../context/AppContext';
-import { ScreenId } from '../../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { useApp } from '../../context/appContextCore';
 import {
-  ChevronLeft,
   ChevronRight,
-  AlertTriangle,
-  Heart,
-  Activity,
-  FileText,
-  UserCheck,
-  History,
-  FlaskConical,
-  ImageIcon,
-  Pill,
-  FileSignature,
-  FileCode,
-  HeartPulse,
-  Receipt,
-  Repeat
+  Phone,
+  Mars,
+  Venus,
+  ClipboardList
 } from 'lucide-react';
+import { Avatar } from '../common/Avatar';
+import { AllergyIcon } from '../common/icons';
+import { ConditionBadge } from '../common/ConditionBadge';
+import { CLINICAL_TABS, type BannerTab } from './patientTabs';
+
+export type { BannerTab };
+
+export interface BannerMetric {
+  label: string;
+  value?: React.ReactNode;
+  sub?: React.ReactNode;
+}
 
 interface PatientBannerProps {
+  /** Right-hand metric cells. Defaults to Last Visit / Next Appointment / Department. */
+  metrics?: BannerMetric[];
+  /** Replaces the default "Patient Summary" button; pass null to hide it. */
+  action?: React.ReactNode | null;
+  /** Extra content rendered after the metric cells (e.g. a Consultation Type select). */
+  extra?: React.ReactNode;
+  tabs?: BannerTab[];
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
+  /** @deprecated use activeTab */
   currentSubtab?: string;
   showSubtabs?: boolean;
 }
 
-export const PatientBanner: React.FC<PatientBannerProps> = ({ currentSubtab, showSubtabs = true }) => {
-  const { activePatient, setActiveScreen, showToast } = useApp();
+export const PatientBanner: React.FC<PatientBannerProps> = ({
+  metrics,
+  action,
+  extra,
+  tabs = CLINICAL_TABS,
+  activeTab,
+  onTabChange,
+  currentSubtab,
+  showSubtabs = true
+}) => {
+  const { activePatient, activeScreen, setActiveScreen } = useApp();
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [canScrollTabs, setCanScrollTabs] = useState(false);
+
+  // Show the "›" affordance (as in the Consultation design) only while tabs overflow.
+  useEffect(() => {
+    const bar = tabsRef.current;
+    if (!bar) return;
+    const update = () => setCanScrollTabs(bar.scrollLeft + bar.clientWidth < bar.scrollWidth - 1);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(bar);
+    bar.addEventListener('scroll', update);
+    return () => {
+      observer.disconnect();
+      bar.removeEventListener('scroll', update);
+    };
+  }, [tabs, showSubtabs, activePatient]);
 
   if (!activePatient) return null;
 
-  const clinicalSubtabs: { id: ScreenId | string; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-    { id: 'consultation', label: 'Consultation', icon: UserCheck },
-    { id: 'emr', label: 'Clinical Notes', icon: FileText },
-    { id: 'timeline', label: 'Timeline', icon: History },
-    { id: 'lab-reports', label: 'Lab Reports', icon: FlaskConical },
-    { id: 'imaging', label: 'Imaging', icon: ImageIcon },
-    { id: 'medications', label: 'Medications', icon: Pill },
-    { id: 'prescriptions', label: 'Prescriptions', icon: FileSignature },
-    { id: 'documents', label: 'Documents', icon: FileCode },
-    { id: 'vitals', label: 'Vitals', icon: HeartPulse },
-    { id: 'billing', label: 'Billing', icon: Receipt },
-    { id: 'follow-ups', label: 'Follow-ups', icon: Repeat }
+  const [nextDate, ...nextTimeParts] = (activePatient.nextAppointment ?? '').split(/\s(?=\d{1,2}:\d{2})/);
+  const cells: BannerMetric[] = metrics ?? [
+    { label: 'Last Visit', value: activePatient.lastVisit },
+    { label: 'Next Appointment', value: nextDate || '—', sub: nextTimeParts.join(' ') || undefined },
+    { label: 'Department', value: activePatient.department }
   ];
 
-  const handleSubtabClick = (tabId: string) => {
-    setActiveScreen(tabId as ScreenId);
+  const selectedTab = (activeTab ?? currentSubtab ?? activeScreen).toLowerCase();
+  const GenderIcon = activePatient.gender === 'Female' ? Venus : Mars;
+
+  const handleTabClick = (tab: BannerTab) => {
+    if (tab.screen && tab.screen !== activeScreen) {
+      setActiveScreen(tab.screen);
+    } else {
+      onTabChange?.(tab.id);
+    }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {/* Top Banner Card */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <div className="patient-banner-card">
-        {/* Left Profile & Meta */}
+        {/* Identity */}
         <div className="patient-banner-left">
           <div className="patient-avatar-box">
-            <img
-              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
-              alt={activePatient.name}
-            />
+            <Avatar name={activePatient.name} size={84} radius="44%" />
           </div>
 
           <div className="patient-info-meta">
             <h3>
               <span>{activePatient.name}</span>
-              <span style={{ color: '#3b82f6', fontSize: '1.05rem' }}>♂</span>
+              <GenderIcon size={18} strokeWidth={2.25} color={activePatient.gender === 'Female' ? '#db2777' : '#1a4fd6'} />
             </h3>
             <div className="patient-meta-sub">
               <span>{activePatient.age} years</span>
-              <span>•</span>
+              <span className="patient-meta-sep" />
               <span>{activePatient.gender}</span>
-              <span>•</span>
+              <span className="patient-meta-sep" />
               <span>UHID: {activePatient.uhid}</span>
-              <span>•</span>
+            </div>
+            <div className="patient-meta-phone">
+              <Phone size={12} fill="currentColor" strokeWidth={0} />
               <span>{activePatient.phone}</span>
             </div>
 
             <div className="patient-badges-row">
-              <span className="badge-tag hypertension">
-                <Heart size={12} />
-                <span>Hypertension</span>
-              </span>
-              <span className="badge-tag diabetes">
-                <Activity size={12} />
-                <span>Type 2 Diabetes</span>
-              </span>
-              <span className="badge-tag allergy">
-                <AlertTriangle size={12} />
-                <span>Allergy: Penicillin</span>
-              </span>
+              {activePatient.conditions.map((c) => <ConditionBadge key={c} condition={c} />)}
+              {activePatient.allergies.map((allergy) => (
+                <span key={allergy} className="badge-tag allergy">
+                  <AllergyIcon />
+                  <span>{allergy.startsWith('Allergy') ? allergy : `Allergy: ${allergy}`}</span>
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Right Metrics & Navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+        {/* Metrics + action */}
+        <div className="patient-banner-right">
           <div className="patient-banner-metrics">
-            <div className="metric-column">
-              <span className="metric-label">Last Visit</span>
-              <span className="metric-value">{activePatient.lastVisit}</span>
-            </div>
-
-            <div className="metric-column">
-              <span className="metric-label">Today's Visit</span>
-              <span className="metric-value">26 Sep 2026</span>
-              <span style={{ fontSize: '0.72rem', color: '#64748b' }}>09:15 AM</span>
-            </div>
-
-            <div className="metric-column">
-              <span className="metric-label">Department</span>
-              <span className="metric-value">{activePatient.department}</span>
-            </div>
-
-            <div className="metric-column">
-              <span className="metric-label">Consultation Type</span>
-              <div style={{ marginTop: '3px' }}>
-                <select
-                  style={{
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    background: '#f8fafc',
-                    cursor: 'pointer'
-                  }}
-                  defaultValue="Follow-up"
-                >
-                  <option value="Follow-up">Follow-up</option>
-                  <option value="New Consultation">New Consultation</option>
-                  <option value="Emergency">Emergency</option>
-                  <option value="Teleconsultation">Teleconsultation</option>
-                </select>
+            {cells.map((cell) => (
+              <div key={cell.label} className="metric-column">
+                <span className="metric-label">{cell.label}</span>
+                {cell.value !== undefined && <span className="metric-value">{cell.value}</span>}
+                {cell.sub && <span className="metric-sub">{cell.sub}</span>}
               </div>
-            </div>
+            ))}
+            {extra}
           </div>
 
-          {/* Previous / Next Patient Quick Navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              className="btn-secondary"
-              style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-              onClick={() => showToast('Navigated to previous patient: Rekha S')}
-            >
-              <ChevronLeft size={14} />
-              <span>Previous Patient</span>
+          {action === undefined ? (
+            <button className="btn-outline-blue patient-banner-action" onClick={() => setActiveScreen('patients')}>
+              <ClipboardList size={18} />
+              <span>Patient Summary</span>
             </button>
-            <button
-              className="btn-secondary"
-              style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-              onClick={() => showToast('Navigated to next patient: David Raj')}
-            >
-              <span>Next Patient</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          ) : (
+            action
+          )}
         </div>
       </div>
 
-      {/* Clinical Subtabs Bar */}
-      {showSubtabs && (
-        <div className="secondary-subtabs-bar">
-          {clinicalSubtabs.map((tab) => {
-            const Icon = tab.icon;
-            const isSelected = (currentSubtab || '').toLowerCase() === tab.id.toLowerCase();
-            return (
-              <button
-                key={tab.id}
-                className={`subtab-pill-btn ${isSelected ? 'active' : ''}`}
-                onClick={() => handleSubtabClick(tab.id)}
-              >
-                <Icon size={14} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+      {showSubtabs && tabs.length > 0 && (
+        <div className="subtabs-wrap">
+          <div className="secondary-subtabs-bar" ref={tabsRef}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  className={`subtab-pill-btn ${selectedTab === tab.id.toLowerCase() ? 'active' : ''}`}
+                  onClick={() => handleTabClick(tab)}
+                >
+                  <Icon size={15} strokeWidth={1.9} />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {canScrollTabs && (
+            <button
+              className="subtabs-scroll-btn"
+              aria-label="More tabs"
+              onClick={() => tabsRef.current?.scrollBy({ left: 240, behavior: 'smooth' })}
+            >
+              <ChevronRight size={16} />
+            </button>
+          )}
         </div>
       )}
     </div>

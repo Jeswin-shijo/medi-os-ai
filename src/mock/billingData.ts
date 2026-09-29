@@ -97,6 +97,80 @@ export const mockBillInvoices: BillInvoice[] = [
     paidAmount: 500,
     balanceDue: 450,
     notes: 'Balance due of ₹450 pending payment on next visit.'
+  },
+  {
+    id: 'b-5',
+    billNumber: 'BILL-2026-0620-001',
+    uhid: 'MHK202500321',
+    patientName: 'Arun Kumar',
+    billDate: '20 Jun 2026',
+    visitType: 'OPD',
+    consultationId: 'CONS-2026-0620-001',
+    createdBy: 'Dr. Shajin',
+    paymentMode: 'UPI',
+    status: 'Paid',
+    items: [
+      { id: 'bi-51', service: 'Consultation Fee', subCategory: 'Dr. Shajin (General Medicine)', category: 'Consultation', qty: 1, unitPrice: 500, discount: 0, amount: 500 },
+      { id: 'bi-52', service: 'Fasting Blood Sugar', category: 'Lab', qty: 1, unitPrice: 250, discount: 0, amount: 250 },
+      { id: 'bi-53', service: 'Registration Fee', category: 'Administrative', qty: 1, unitPrice: 50, discount: 0, amount: 50 }
+    ],
+    subtotal: 800,
+    discount: 0,
+    tax: 0,
+    totalAmount: 800,
+    paidAmount: 800,
+    balanceDue: 0,
+    notes: 'Routine OPD review for blood pressure and sugar control.'
+  },
+  {
+    id: 'b-6',
+    billNumber: 'BILL-2026-0315-001',
+    uhid: 'MHK202500321',
+    patientName: 'Arun Kumar',
+    billDate: '15 Mar 2026',
+    visitType: 'Emergency',
+    consultationId: 'CONS-2026-0315-001',
+    createdBy: 'Dr. Priya',
+    paymentMode: 'Card (Online)',
+    status: 'Paid',
+    items: [
+      { id: 'bi-61', service: 'Emergency Consultation', subCategory: 'Dr. Priya (Emergency Medicine)', category: 'Consultation', qty: 1, unitPrice: 1000, discount: 0, amount: 1000 },
+      { id: 'bi-62', service: 'ECG 12 Lead', category: 'Radiology', qty: 1, unitPrice: 400, discount: 0, amount: 400 },
+      { id: 'bi-63', service: 'Troponin I', category: 'Lab', qty: 1, unitPrice: 900, discount: 0, amount: 900 },
+      { id: 'bi-64', service: 'Disposable Materials', category: 'Others', qty: 1, unitPrice: 150, discount: 0, amount: 150 }
+    ],
+    subtotal: 2450,
+    discount: 0,
+    tax: 0,
+    totalAmount: 2450,
+    paidAmount: 2450,
+    balanceDue: 0,
+    notes: 'Emergency visit for chest discomfort. Cardiac markers normal.'
+  },
+  {
+    id: 'b-7',
+    billNumber: 'BILL-2026-0105-001',
+    uhid: 'MHK202500321',
+    patientName: 'Arun Kumar',
+    billDate: '10 Jan 2026',
+    visitType: 'OPD',
+    consultationId: 'CONS-2026-0105-001',
+    createdBy: 'Dr. Shajin',
+    paymentMode: 'Cash',
+    status: 'Paid',
+    items: [
+      { id: 'bi-71', service: 'Consultation Fee', subCategory: 'Dr. Shajin (General Medicine)', category: 'Consultation', qty: 1, unitPrice: 500, discount: 0, amount: 500 },
+      { id: 'bi-72', service: 'Lipid Profile', category: 'Lab', qty: 1, unitPrice: 850, discount: 0, amount: 850 },
+      { id: 'bi-73', service: 'HbA1c Glycated Hemoglobin', category: 'Lab', qty: 1, unitPrice: 770, discount: 0, amount: 770 },
+      { id: 'bi-74', service: 'Kidney Function Test', category: 'Lab', qty: 1, unitPrice: 860, discount: 0, amount: 860 }
+    ],
+    subtotal: 2980,
+    discount: 0,
+    tax: 0,
+    totalAmount: 2980,
+    paidAmount: 2980,
+    balanceDue: 0,
+    notes: 'Initial consultation with baseline metabolic panel.'
   }
 ];
 

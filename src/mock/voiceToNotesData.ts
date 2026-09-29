@@ -17,7 +17,7 @@ export const mockVoiceTranscript: VoiceTranscriptLine[] = [
 ];
 
 export const mockGeneratedSOAP = {
-  subjective: 'Patient reports feeling better after taking medications. BP under control. Occasional headache. No giddiness, cough or swelling. Denies chest pain, breathlessness, or other complaints.',
+  subjective: 'Patient reports feeling better after taking medications.\nBP under control. Occasional headache. No giddiness, cough or swelling.\nDenies chest pain, breathlessness, or other complaints.',
   objective: [
     'BP: 128/82 mmHg (today)',
     'Pulse: 78/min, regular',

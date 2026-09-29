@@ -1,55 +1,56 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
+import { useApp } from '../../context/appContextCore';
 import { ScreenId } from '../../types';
 import {
-  LayoutDashboard,
-  Users,
-  CalendarDays,
-  UserCheck,
-  FileText,
+  LayoutGrid,
+  UsersRound,
+  CalendarCheck,
+  UserRoundSearch,
+  FileAxis3d,
   FlaskConical,
-  ImageIcon,
+  ImagePlay,
   FileSignature,
-  Pill,
-  Receipt,
-  Repeat,
-  BookOpen,
-  FileCheck2,
+  CircleX,
+  CalendarFold,
+  BookOpenText,
   Mic,
-  BellRing,
-  MessageSquare,
+  Bell,
+  MessageSquareMore,
   Settings,
   LogOut,
-  Sparkles
+  type LucideIcon
 } from 'lucide-react';
+import { Capsules } from '../common/icons';
+import { DOCTOR_AVATAR, DOCTOR_NAME } from '../../mock/avatars';
 
 interface NavItem {
   id: ScreenId;
   label: string;
-  icon: React.ComponentType<{ className?: string; size?: number }>;
+  icon: LucideIcon;
   badge?: number;
+  dot?: boolean;
 }
 
 export const Sidebar: React.FC = () => {
   const { activeScreen, setActiveScreen, unreadMessagesCount, showToast } = useApp();
 
   const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'patients', label: 'Patients', icon: Users },
-    { id: 'appointments', label: 'Appointments', icon: CalendarDays },
-    { id: 'consultation', label: 'Consultation', icon: UserCheck },
-    { id: 'emr', label: 'EMR / Clinical Notes', icon: FileText },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
+    { id: 'patients', label: 'Patients', icon: UsersRound },
+    { id: 'appointments', label: 'Appointments', icon: CalendarCheck },
+    { id: 'consultation', label: 'Consultation', icon: UserRoundSearch },
+    { id: 'emr', label: 'EMR / Clinical Notes', icon: FileAxis3d },
     { id: 'lab-reports', label: 'Lab Reports', icon: FlaskConical },
-    { id: 'imaging', label: 'Imaging (RIS)', icon: ImageIcon },
+    { id: 'imaging', label: 'Imaging (RIS)', icon: ImagePlay },
     { id: 'prescriptions', label: 'Prescriptions', icon: FileSignature },
-    { id: 'medications', label: 'Medications', icon: Pill },
-    { id: 'billing', label: 'Billing', icon: Receipt },
-    { id: 'follow-ups', label: 'Follow-ups', icon: Repeat },
-    { id: 'hospital-knowledge', label: 'Hospital Knowledge', icon: BookOpen },
-    { id: 'clinical-guidelines', label: 'Clinical Guidelines', icon: FileCheck2 },
+    { id: 'medications', label: 'Medications', icon: CircleX },
+    { id: 'billing', label: 'Billing', icon: CalendarFold },
+    { id: 'follow-ups', label: 'Follow-ups', icon: Capsules },
+    { id: 'hospital-knowledge', label: 'Hospital Knowledge', icon: BookOpenText },
+    { id: 'clinical-guidelines', label: 'Clinical Guidelines', icon: BookOpenText },
     { id: 'voice-to-notes', label: 'Voice to Notes', icon: Mic },
-    { id: 'tasks-alerts', label: 'Tasks & Alerts', icon: BellRing },
-    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessagesCount },
+    { id: 'tasks-alerts', label: 'Tasks & Alerts', icon: Bell },
+    { id: 'messages', label: 'Messages', icon: MessageSquareMore, badge: unreadMessagesCount, dot: unreadMessagesCount > 0 },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
@@ -58,10 +59,10 @@ export const Sidebar: React.FC = () => {
       {/* Brand Header */}
       <div className="sidebar-header">
         <div className="brand-icon-box">
-          <Sparkles size={22} />
+          <img src="/logo.svg" alt="" width={42} height={42} />
         </div>
         <div className="brand-text-box">
-          <h2>MediOS AI</h2>
+          <h2>MediOS <span className="brand-ai">AI</span></h2>
           <p>Powered by GPT-6 Astro</p>
         </div>
       </div>
@@ -77,7 +78,10 @@ export const Sidebar: React.FC = () => {
               className={`nav-item-btn ${isActive ? 'active' : ''}`}
               onClick={() => setActiveScreen(item.id)}
             >
-              <Icon size={18} className="nav-item-icon" />
+              <span className="nav-item-icon">
+                <Icon size={22} strokeWidth={1.75} />
+                {item.dot && <span className="nav-item-dot" />}
+              </span>
               <span>{item.label}</span>
               {item.badge && item.badge > 0 ? (
                 <span className="nav-badge-pill">{item.badge}</span>
@@ -90,13 +94,9 @@ export const Sidebar: React.FC = () => {
       {/* Bottom Profile Footer */}
       <div className="sidebar-footer">
         <div className="doctor-profile-card">
-          <img
-            src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80"
-            alt="Dr. Shajin"
-            className="doctor-avatar-circle"
-          />
+          <img src={DOCTOR_AVATAR} alt={DOCTOR_NAME} className="doctor-avatar-circle" />
           <div className="doctor-profile-info">
-            <h4>Dr. Shajin</h4>
+            <h4>{DOCTOR_NAME}</h4>
             <p>General Physician</p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export const Sidebar: React.FC = () => {
           className="logout-btn"
           onClick={() => showToast('Session locked. Doctor signed out.', 'info')}
         >
-          <LogOut size={16} />
+          <LogOut size={20} strokeWidth={1.75} />
           <span>Logout</span>
         </button>
       </div>

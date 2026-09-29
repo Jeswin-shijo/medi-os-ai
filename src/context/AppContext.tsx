@@ -1,28 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScreenId, Patient } from '../types';
 import { patientService } from '../services';
-
-interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-}
-
-interface AppContextType {
-  activeScreen: ScreenId;
-  setActiveScreen: (screen: ScreenId) => void;
-  activePatient: Patient | null;
-  setActivePatient: (patient: Patient | null) => void;
-  isCommandPaletteOpen: boolean;
-  setIsCommandPaletteOpen: (open: boolean) => void;
-  toasts: Toast[];
-  showToast: (message: string, type?: Toast['type']) => void;
-  unreadMessagesCount: number;
-  setUnreadMessagesCount: (count: number) => void;
-  navigateToPatientScreen: (screen: ScreenId, patient: Patient) => void;
-}
-
-const AppContext = createContext<AppContextType | undefined>(undefined);
+import { AppContext, type Toast } from './appContextCore';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeScreen, setActiveScreen] = useState<ScreenId>('dashboard');
@@ -87,12 +66,4 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {children}
     </AppContext.Provider>
   );
-};
-
-export const useApp = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
-  return context;
 };

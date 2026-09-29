@@ -1,5 +1,23 @@
 import { ImagingStudy } from '../types';
 
+// Openly licensed radiology images from Wikimedia Commons (normal studies).
+const WM = 'https://upload.wikimedia.org/wikipedia/commons';
+export const IMAGING_IMAGES = {
+  chestPA: `${WM}/thumb/a/a1/Normal_posteroanterior_%28PA%29_chest_radiograph_%28X-ray%29.jpg/960px-Normal_posteroanterior_%28PA%29_chest_radiograph_%28X-ray%29.jpg`,
+  chestPAThumb: `${WM}/thumb/a/a1/Normal_posteroanterior_%28PA%29_chest_radiograph_%28X-ray%29.jpg/500px-Normal_posteroanterior_%28PA%29_chest_radiograph_%28X-ray%29.jpg`,
+  chestLateral: `${WM}/thumb/8/8f/Normal_lateral_chest_radiograph_%28X-ray%29.jpg/500px-Normal_lateral_chest_radiograph_%28X-ray%29.jpg`,
+  chestCT: `${WM}/thumb/4/4e/CT-Thorax-5.0-B70f-Lungs.jpg/500px-CT-Thorax-5.0-B70f-Lungs.jpg`,
+  usgLiver: `${WM}/thumb/5/55/Ultrasonography_of_a_normal_liver.jpg/500px-Ultrasonography_of_a_normal_liver.jpg`,
+  ctBrain: `${WM}/thumb/9/93/CT_of_a_normal_brain%2C_axial_18.png/500px-CT_of_a_normal_brain%2C_axial_18.png`,
+  ctBrainUpper: `${WM}/thumb/c/ca/CT_of_a_normal_brain%2C_axial_15.png/500px-CT_of_a_normal_brain%2C_axial_15.png`,
+  mriKnee: `${WM}/2/23/Knee_Cor_140234_t2me2d.png`,
+  mriKneeSagittal: `${WM}/thumb/e/e2/Knee_MRI_T1_TSE_Sagittal.jpg/500px-Knee_MRI_T1_TSE_Sagittal.jpg`,
+  xrayKneeAP: `${WM}/thumb/3/35/X-ray_of_a_normal_knee_by_anteroposterior_projection.jpg/500px-X-ray_of_a_normal_knee_by_anteroposterior_projection.jpg`,
+  xrayKneeLateral: `${WM}/thumb/0/09/X-ray_of_a_normal_knee_by_lateral_projection.jpg/500px-X-ray_of_a_normal_knee_by_lateral_projection.jpg`,
+  usgThyroid: `${WM}/thumb/8/8c/Thyroid_ultrasound_110304095541_0957060.jpg/500px-Thyroid_ultrasound_110304095541_0957060.jpg`
+};
+const I = IMAGING_IMAGES;
+
 export const mockImagingStudies: ImagingStudy[] = [
   {
     id: 'img-1',
@@ -11,12 +29,8 @@ export const mockImagingStudies: ImagingStudy[] = [
     bodyPart: 'Chest',
     radiologist: 'Dr. Ravi (Radiologist)',
     status: 'Completed',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=500&auto=format&fit=crop&q=80',
-    slices: [
-      'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=800&auto=format&fit=crop&q=80'
-    ],
+    thumbnailUrl: I.chestPAThumb,
+    slices: [I.chestPA, I.chestLateral, I.chestCT],
     findings: [
       'Lung fields are clear. No focal consolidation.',
       'Cardiomediastinal silhouette is normal.',
@@ -43,8 +57,8 @@ export const mockImagingStudies: ImagingStudy[] = [
     bodyPart: 'Abdomen',
     radiologist: 'Dr. Ravi (Radiologist)',
     status: 'Completed',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=500&auto=format&fit=crop&q=80',
-    slices: ['https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&auto=format&fit=crop&q=80'],
+    thumbnailUrl: I.usgLiver,
+    slices: [I.usgLiver],
     findings: [
       'Liver size is mildly enlarged with increased parenchymal echogenicity.',
       'Gallbladder is normal without calculi.',
@@ -70,8 +84,8 @@ export const mockImagingStudies: ImagingStudy[] = [
     bodyPart: 'Brain',
     radiologist: 'Dr. Ravi (Radiologist)',
     status: 'Completed',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=500&auto=format&fit=crop&q=80',
-    slices: ['https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800&auto=format&fit=crop&q=80'],
+    thumbnailUrl: I.ctBrain,
+    slices: [I.ctBrain, I.ctBrainUpper],
     findings: [
       'Normal grey-white matter differentiation.',
       'Ventricles and basal cisterns are within normal limits.',
@@ -97,8 +111,8 @@ export const mockImagingStudies: ImagingStudy[] = [
     bodyPart: 'Right Knee',
     radiologist: 'Dr. Ravi (Radiologist)',
     status: 'Completed',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=500&auto=format&fit=crop&q=80',
-    slices: ['https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=800&auto=format&fit=crop&q=80'],
+    thumbnailUrl: I.mriKnee,
+    slices: [I.mriKnee, I.mriKneeSagittal],
     findings: [
       'ACL, PCL, MCL, and LCL intact without tear.',
       'Minimal joint effusion noted in suprapatellar bursa.',
@@ -124,8 +138,8 @@ export const mockImagingStudies: ImagingStudy[] = [
     bodyPart: 'Right Knee',
     radiologist: 'Dr. Ravi (Radiologist)',
     status: 'Completed',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=500&auto=format&fit=crop&q=80',
-    slices: ['https://images.unsplash.com/photo-1516549655169-df83a0774514?w=800&auto=format&fit=crop&q=80'],
+    thumbnailUrl: I.xrayKneeAP,
+    slices: [I.xrayKneeAP, I.xrayKneeLateral],
     findings: ['Normal joint space. No fracture, dislocation, or periosteal reaction.'],
     impression: 'Normal radiograph of right knee.',
     confidenceScore: 94,
@@ -147,8 +161,8 @@ export const mockImagingStudies: ImagingStudy[] = [
     bodyPart: 'Neck / Thyroid',
     radiologist: 'Dr. Ravi (Radiologist)',
     status: 'Completed',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=500&auto=format&fit=crop&q=80',
-    slices: ['https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&auto=format&fit=crop&q=80'],
+    thumbnailUrl: I.usgThyroid,
+    slices: [I.usgThyroid],
     findings: ['Both lobes of thyroid gland are normal in size and echotexture.'],
     impression: 'Normal thyroid sonography.',
     confidenceScore: 96,

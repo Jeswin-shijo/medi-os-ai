@@ -18,7 +18,7 @@ export const mockLabReports: LabTestReport[] = [
           { id: 'p3', name: 'Hematocrit (HCT)', result: 32.8, referenceRange: '40 – 50', unit: '%', status: 'Low', relativePosition: 20 },
           { id: 'p4', name: 'MCV', result: 80, referenceRange: '83 – 101', unit: 'fL', status: 'Low', relativePosition: 28 },
           { id: 'p5', name: 'MCH', result: 26, referenceRange: '27 – 32', unit: 'pg', status: 'Low', relativePosition: 25 },
-          { id: 'p6', name: 'MCHC', result: 32.0, referenceRange: '31 – 36', unit: 'g/dL', status: 'Normal', relativePosition: 50 },
+          { id: 'p6', name: 'MCHC', result: '32.0', referenceRange: '31 – 36', unit: 'g/dL', status: 'Normal', relativePosition: 50 },
           { id: 'p7', name: 'RDW', result: 14.6, referenceRange: '11.5 – 14.5', unit: '%', status: 'High', relativePosition: 88 }
         ]
       },

@@ -14,13 +14,13 @@ export const mockMessageThreads: MessageThread[] = [
     online: true,
     condition: 'Type 2 Diabetes Mellitus',
     messages: [
-      { id: 'm1', sender: 'patient', text: 'Good morning doctor. I have taken the medicines as you advised. My BP is better now.', time: '10:12 AM' },
-      { id: 'm2', sender: 'doctor', text: "Good morning Mary. That's good to hear. How are you feeling now? Any headache or giddiness?", time: '10:14 AM', status: 'read' },
+      { id: 'm1', sender: 'patient', text: 'Good morning doctor.\nI have taken the medicines as you advised. My BP is better now.', time: '10:12 AM' },
+      { id: 'm2', sender: 'doctor', text: "Good morning Mary.\nThat's good to hear. How are you feeling now? Any headache or giddiness?", time: '10:14 AM', status: 'read' },
       { id: 'm3', sender: 'patient', text: 'I am feeling much better. No headache now.', time: '10:18 AM' },
-      { id: 'm4', sender: 'doctor', text: 'Continue the same medications. Please monitor your BP daily and share the readings here.', time: '10:20 AM', status: 'read' },
+      { id: 'm4', sender: 'doctor', text: 'Continue the same medications.\nPlease monitor your BP daily and share the readings here.', time: '10:20 AM', status: 'read' },
       { id: 'm5', sender: 'patient', text: 'Sure doctor. I will share the readings.', time: '10:22 AM' },
       { id: 'm6', sender: 'patient', text: '', time: '10:25 AM', attachment: { type: 'image', name: 'BP Reading - 24 Sep 2026', size: 'Image • 248 KB' } },
-      { id: 'm7', sender: 'doctor', text: 'Great. Your BP looks good. Continue the same dose. Next follow-up on 26 Sep as scheduled.', time: '10:28 AM', status: 'read' },
+      { id: 'm7', sender: 'doctor', text: 'Great. Your BP looks good. Continue the same dose.\nNext follow-up on 26 Sep as scheduled.', time: '10:28 AM', status: 'read' },
       { id: 'm8', sender: 'patient', text: 'Thank you doctor. I will follow the same.', time: '10:32 AM' }
     ]
   },
@@ -30,7 +30,7 @@ export const mockMessageThreads: MessageThread[] = [
     category: 'Lab',
     preview: 'CBC report for Antony Raj is ready.',
     time: '10:15 AM',
-    unreadCount: 1,
+    unreadCount: 0,
     online: true,
     messages: [
       { id: 'm21', sender: 'staff', text: 'CBC report for Antony Raj is ready and uploaded to EMR.', time: '10:15 AM' }
