@@ -3,8 +3,7 @@
 const unsplash = (id: string, size = 160) =>
   `https://images.unsplash.com/photo-${id}?w=${size}&h=${size}&fit=crop&crop=faces&auto=format&q=80`;
 
-export const DOCTOR_NAME = 'Dr. Shajin';
-export const DOCTOR_AVATAR = unsplash('1612349317150-e413f6a5b16d');
+const DOCTOR_AVATAR = unsplash('1612349317150-e413f6a5b16d');
 
 const PHOTOS: Record<string, string> = {
   'Dr. Shajin': DOCTOR_AVATAR,

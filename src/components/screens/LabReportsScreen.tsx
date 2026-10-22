@@ -3,8 +3,9 @@ import { useApp } from '../../context/appContextCore';
 import { PatientBanner, type BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockLabReports } from '../../mock/labReportsData';
-import type { LabParameter } from '../../types';
+import type { LabParameter, LabTestReport, LabTrend } from '../../types';
+import { labService } from '../../services';
+import { useLoader } from '../../hooks/useLoader';
 import {
   Plus,
   Search,
@@ -47,32 +48,25 @@ const LAB_TABS: BannerTab[] = [
 const CATEGORIES = ['All', 'Blood', 'Urine', 'Biochemistry', 'Hematology', 'Others'];
 const REPORT_TABS = ['Results', 'Trends', 'Report Details', 'Previous Reports'];
 
-/* List markers per report, as in the design (blue = viewing, rings = pending review). */
+/* List markers per report (blue = viewing, rings = pending review, red = abnormal). */
 type Marker = { color: string; filled: boolean };
-const MARKERS: Record<string, Marker> = {
-  'lab-1': { color: 'var(--chart-green)', filled: true },
-  'lab-2': { color: 'var(--blue-text)', filled: false },
-  'lab-3': { color: 'var(--orange-amber)', filled: false },
-  'lab-4': { color: 'var(--red-rose)', filled: true },
-  'lab-8': { color: 'var(--orange-amber)', filled: false }
-};
+const markerFor = (status: LabTestReport['status']): Marker =>
+  status === 'Abnormal'
+    ? { color: 'var(--red-rose)', filled: true }
+    : status === 'Pending'
+      ? { color: 'var(--orange-amber)', filled: false }
+      : { color: 'var(--chart-green)', filled: true };
 
-/* Hemoglobin-style longitudinal series for the Trends card. */
-const TREND_SERIES: Record<string, { unit: string; min: number; max: number; points: { date: string; value: number }[] }> = {
-  'Hemoglobin (Hb)': {
-    unit: 'g/dL', min: 8, max: 16,
-    points: [{ date: 'Jan 2026', value: 12.8 }, { date: 'Mar 2026', value: 12.1 }, { date: 'Jun 2026', value: 11.6 }, { date: 'Sep 2026', value: 10.4 }]
-  },
-  'RBC Count': {
-    unit: 'mill/µL', min: 3, max: 6,
-    points: [{ date: 'Jan 2026', value: 4.8 }, { date: 'Mar 2026', value: 4.6 }, { date: 'Jun 2026', value: 4.4 }, { date: 'Sep 2026', value: 4.1 }]
-  },
-  'Platelet Count': {
-    unit: 'lakhs/µL', min: 1, max: 4,
-    points: [{ date: 'Jan 2026', value: 2.4 }, { date: 'Mar 2026', value: 2.3 }, { date: 'Jun 2026', value: 2.2 }, { date: 'Sep 2026', value: 2.1 }]
-  }
+/** Chart series for one parameter, with a y range padded around its values. */
+type TrendSeries = { unit: string; min: number; max: number; points: { date: string; value: number }[] };
+const toSeries = (trend: LabTrend): TrendSeries => {
+  const values = trend.history.map((p) => p.value);
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const pad = Math.max((hi - lo) * 0.25, Math.abs(hi) * 0.05, 0.5);
+  return { unit: trend.unit, min: Math.floor(lo - pad), max: Math.ceil(hi + pad), points: trend.history };
 };
-const RANGE_POINTS: Record<string, number> = { '3M': 2, '6M': 3, '1Y': 4, All: 4 };
+const RANGE_POINTS: Record<string, number> = { '3M': 2, '6M': 3, '1Y': 4, All: Number.MAX_SAFE_INTEGER };
 
 const isAbnormal = (p: LabParameter) => p.status !== 'Normal';
 
@@ -119,7 +113,7 @@ const RangeGauge: React.FC<{ param: LabParameter }> = ({ param }) => {
 };
 
 /* Line chart for the Trends card (y axis min..max, points spread across the width). */
-const TrendChart: React.FC<{ series: (typeof TREND_SERIES)[string]; count: number; height?: number; width?: number }> = ({ series, count, height = 128, width = 346 }) => {
+const TrendChart: React.FC<{ series: TrendSeries; count: number; height?: number; width?: number }> = ({ series, count, height = 128, width = 346 }) => {
   const W = width;
   const H = height;
   const left = 30, right = 16, top = 12, bottom = 24;
@@ -170,24 +164,10 @@ const TrendChart: React.FC<{ series: (typeof TREND_SERIES)[string]; count: numbe
 };
 
 const RELATED_ACTIONS: { label: string; icon: LucideIcon; toast: string }[] = [
-  { label: 'Order Follow-up Test', icon: ClipboardPen, toast: 'Follow-up test scheduled in 4 weeks' },
-  { label: 'Compare with Previous', icon: SquareCheckBig, toast: 'Comparing CBC 12 Sep with CBC 15 Jun' },
-  { label: 'Explain this Result', icon: Compass, toast: 'GPT-6 Astro: Microcytic anemia confirmed by MCV 80' },
-  { label: 'Add to Clinical Note', icon: SquarePen, toast: 'Lab findings appended to Clinical EMR' }
-];
-
-const PREVIOUS_REPORTS = [
-  { date: '12 Sep 2026', test: 'Comprehensive Metabolic Panel', status: 'Completed', doctor: 'Dr. Meera' },
-  { date: '05 Aug 2026', test: 'Lipid Profile & Glucose Fasting', status: 'Completed', doctor: 'Dr. Meera' },
-  { date: '21 Mar 2026', test: 'Liver Function Test (LFT)', status: 'Completed', doctor: 'Dr. Meera' },
-  { date: '10 Jan 2026', test: 'Cardiac Biomarkers (Hs-Troponin)', status: 'Completed', doctor: 'Central Lab' }
-];
-
-const REPORT_DETAILS = [
-  { label: 'Specimen Type', value: 'Whole Blood (EDTA Tube)' },
-  { label: 'Collection Time', value: '12 Sep 2026, 09:30 AM' },
-  { label: 'Certifying Pathologist', value: 'Dr. Meera, MD (Pathology)' },
-  { label: 'NABL Accreditation', value: 'Verified • MC-2849', good: true }
+  { label: 'Order Follow-up Test', icon: ClipboardPen, toast: 'Lab ordering is not connected yet' },
+  { label: 'Compare with Previous', icon: SquareCheckBig, toast: 'See the Previous Reports tab for this patient\'s earlier results' },
+  { label: 'Explain this Result', icon: Compass, toast: 'AI explanations are not connected yet' },
+  { label: 'Add to Clinical Note', icon: SquarePen, toast: 'Copy findings into the note from the EMR screen' }
 ];
 
 const sectionHeading = (label: string) => (
@@ -199,18 +179,28 @@ const sectionHeading = (label: string) => (
 
 export const LabReportsScreen: React.FC = () => {
   const { showToast, activePatient } = useApp();
-  const [selectedReportId, setSelectedReportId] = useState('lab-1');
+  const uhid = activePatient?.uhid;
+  const [loaded, setLoaded] = useState<{ uhid: string; reports: LabTestReport[]; trends: LabTrend[] } | null>(null);
+  const { loading } = useLoader(
+    async () => (uhid ? { uhid, reports: await labService.getReports(uhid), trends: await labService.getTrends(uhid) } : null),
+    setLoaded,
+    [uhid]
+  );
+  const reports = loaded && loaded.uhid === uhid ? loaded.reports : [];
+  const trends = loaded && loaded.uhid === uhid ? loaded.trends : [];
+  const [selectedReportId, setSelectedReportId] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [subTab, setSubTab] = useState('Results');
   const [pageTab, setPageTab] = useState('lab-reports');
   const [searchTest, setSearchTest] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [trendParam, setTrendParam] = useState('Hemoglobin (Hb)');
+  const [trendParam, setTrendParam] = useState('');
   const [trendRange, setTrendRange] = useState('1Y');
 
-  const currentReport = mockLabReports.find(r => r.id === selectedReportId) || mockLabReports[0];
+  const currentReport = reports.find(r => r.id === selectedReportId) || reports[0];
+  const otherReports = reports.filter(r => r.id !== currentReport?.id);
 
-  const filteredReports = mockLabReports.filter(r => {
+  const filteredReports = reports.filter(r => {
     const matchesSearch = r.testName.toLowerCase().includes(searchTest.toLowerCase());
     if (activeCategory === 'All') return matchesSearch;
     return matchesSearch && r.category === activeCategory;
@@ -225,8 +215,10 @@ export const LabReportsScreen: React.FC = () => {
     else if (tab) showToast(`${tab.label} opened`, 'info');
   };
 
-  const [nextDate, ...nextTime] = (activePatient?.nextAppointment ?? '26 Sep 2026 10:30 AM').split(/\s(?=\d{1,2}:\d{2})/);
-  const series = TREND_SERIES[trendParam];
+  const [nextDate, ...nextTime] = (activePatient?.nextAppointment ?? '').split(/\s(?=\d{1,2}:\d{2})/);
+  const trend = trends.find(t => t.parameter === trendParam) ?? trends[0];
+  const series = trend ? toSeries(trend) : null;
+  const noTrends = <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', padding: '12px 4px' }}>{loading ? 'Loading…' : 'Trends appear once a parameter has been measured at least twice.'}</p>;
 
   return (
     <div className="page-scroll-body">
@@ -234,9 +226,9 @@ export const LabReportsScreen: React.FC = () => {
 
       <PatientBanner
         metrics={[
-          { label: 'Last Visit', value: activePatient?.lastVisit ?? '12 Sep 2026' },
-          { label: 'Next Appointment', value: nextDate, sub: nextTime.join(' ') || undefined },
-          { label: 'Blood Group', value: activePatient?.bloodGroup ?? 'B+' }
+          { label: 'Last Visit', value: activePatient?.lastVisit || '—' },
+          { label: 'Next Appointment', value: nextDate || '—', sub: nextTime.join(' ') || undefined },
+          { label: 'Blood Group', value: activePatient?.bloodGroup || '—' }
         ]}
         tabs={LAB_TABS}
         activeTab={pageTab}
@@ -304,7 +296,7 @@ export const LabReportsScreen: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10, flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {filteredReports.map(rep => {
               const isSelected = selectedReportId === rep.id;
-              const marker = MARKERS[rep.id] ?? { color: 'var(--chart-green)', filled: true };
+              const marker = markerFor(rep.status);
               return (
                 <div
                   key={rep.id}
@@ -336,7 +328,9 @@ export const LabReportsScreen: React.FC = () => {
               );
             })}
             {filteredReports.length === 0 && (
-              <div style={{ padding: 16, textAlign: 'center', fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>No reports match this filter.</div>
+              <div style={{ padding: 16, textAlign: 'center', fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>
+                {loading ? 'Loading reports…' : reports.length ? 'No reports match this filter.' : 'No lab reports for this patient yet.'}
+              </div>
             )}
           </div>
 
@@ -349,6 +343,12 @@ export const LabReportsScreen: React.FC = () => {
           </button>
         </div>
 
+        {!currentReport ? (
+          <div className="medios-card" style={{ gridColumn: '2 / span 2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p className="data-empty">{loading ? 'Loading lab reports…' : 'Select a report to view its results.'}</p>
+          </div>
+        ) : (
+        <>
         {/* Center: report detail */}
         <div className="medios-card" style={{ padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
@@ -433,7 +433,7 @@ export const LabReportsScreen: React.FC = () => {
                         const abnormal = isAbnormal(param);
                         return (
                           <tr
-                            key={param.id}
+                            key={param.name}
                             style={{ cursor: 'pointer' }}
                             onClick={() => showToast(`${param.name}: ${param.result} ${param.unit} (ref ${param.referenceRange})`, 'info')}
                           >
@@ -465,41 +465,59 @@ export const LabReportsScreen: React.FC = () => {
             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>Longitudinal Biomarker Trends</span>
-                <select className="form-select" style={{ width: 170, height: 30, fontSize: 'var(--fs-xs)' }} value={trendParam} onChange={e => setTrendParam(e.target.value)}>
-                  {Object.keys(TREND_SERIES).map(k => <option key={k}>{k}</option>)}
-                </select>
+                {trend && (
+                  <select className="form-select" style={{ width: 170, height: 30, fontSize: 'var(--fs-xs)' }} value={trend.parameter} onChange={e => setTrendParam(e.target.value)}>
+                    {trends.map(t => <option key={t.parameter}>{t.parameter}</option>)}
+                  </select>
+                )}
               </div>
-              <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 12px' }}>
-                <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  {trendParam} ({series.unit}) · last {series.points.length} results
-                </div>
-                <TrendChart series={series} count={series.points.length} height={200} width={512} />
-              </div>
-              <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 12px', fontSize: 'var(--fs-sm)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontWeight: 600, color: 'var(--red-dark)' }}>HbA1c Trend (Target &lt; 7.0%)</span>
-                  <span style={{ color: 'var(--text-muted)' }}>Past 3 Tests</span>
-                </div>
-                <div style={{ display: 'flex', gap: 18 }}>
-                  {[{ v: '7.1%', d: 'Mar 2026' }, { v: '7.4%', d: 'Jun 2026' }, { v: '7.8%', d: '12 Sep 2026' }].map((h, i) => (
-                    <div key={h.d}>
-                      <div style={{ fontWeight: 700, color: i === 2 ? 'var(--red-rose)' : 'var(--text-primary)' }}>{h.v}</div>
-                      <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{h.d}</div>
+              {trend && series ? (
+                <>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 12px' }}>
+                    <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      {trend.parameter} ({series.unit}) · last {series.points.length} results
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <TrendChart series={series} count={series.points.length} height={200} width={512} />
+                  </div>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 12px', fontSize: 'var(--fs-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontWeight: 600 }}>
+                        {trend.parameter}
+                        {trend.targetRange && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> (Reference {trend.targetRange})</span>}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>Latest {Math.min(3, trend.history.length)} results</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 18 }}>
+                      {trend.history.slice(-3).map(h => (
+                        <div key={h.date}>
+                          <div style={{ fontWeight: 700 }}>
+                            {h.value} {trend.unit}
+                          </div>
+                          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{h.date}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                noTrends
+              )}
             </div>
           )}
 
           {subTab === 'Report Details' && (
             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>Specimen & Laboratory Details</div>
+              <div style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>Report Details</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {REPORT_DETAILS.map(d => (
+                {[
+                  { label: 'Test', value: currentReport.testName },
+                  { label: 'Category', value: currentReport.category },
+                  { label: 'Collected', value: `${currentReport.date}, ${currentReport.time}` },
+                  { label: 'Status', value: currentReport.status }
+                ].map(d => (
                   <div key={d.label} style={{ background: 'var(--bg-subtle)', padding: '9px 12px', borderRadius: 6, border: '1px solid var(--border-color)' }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>{d.label}</div>
-                    <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: d.good ? 'var(--green-dark)' : 'var(--text-primary)' }}>{d.value}</div>
+                    <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>{d.value}</div>
                   </div>
                 ))}
               </div>
@@ -509,16 +527,21 @@ export const LabReportsScreen: React.FC = () => {
           {subTab === 'Previous Reports' && (
             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 'var(--fs-body)', fontWeight: 600 }}>Historical Lab Encounters</div>
-              {PREVIOUS_REPORTS.map(r => (
+              {!otherReports.length && <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>No other reports for this patient.</p>}
+              {otherReports.map(r => (
                 <div
-                  key={r.date + r.test}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border-color)' }}
+                  key={r.id}
+                  onClick={() => {
+                    setSelectedReportId(r.id);
+                    setSubTab('Results');
+                  }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 6, border: '1px solid var(--border-color)', cursor: 'pointer' }}
                 >
                   <div>
-                    <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>{r.test}</div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>{r.date} • {r.doctor}</div>
+                    <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>{r.testName}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>{r.date} • {r.category}</div>
                   </div>
-                  <span className="status-pill completed">{r.status}</span>
+                  <span className={`status-pill ${r.status === 'Abnormal' ? 'red' : r.status === 'Pending' ? 'orange' : 'completed'}`}>{r.status}</span>
                 </div>
               ))}
             </div>
@@ -542,7 +565,8 @@ export const LabReportsScreen: React.FC = () => {
             <div className="ai-section" style={{ padding: '7px 7px 7px 8px' }}>
               {sectionHeading('Key Findings')}
               <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 3, fontSize: 'var(--fs-xs)' }}>
-                {currentReport.aiSummary.findings.map(f => {
+                {!currentReport.aiSummary && <li style={{ color: 'var(--text-muted)' }}>No interpretation recorded for this report.</li>}
+                {(currentReport.aiSummary?.findings ?? []).map(f => {
                   const ok = /normal/i.test(f) && !/abnormal/i.test(f);
                   const Icon = ok ? CircleCheck : CircleX;
                   return (
@@ -557,7 +581,7 @@ export const LabReportsScreen: React.FC = () => {
 
             <div className="ai-section" style={{ padding: '7px 7px 7px 8px' }}>
               {sectionHeading('Clinical Interpretation')}
-              <p style={{ fontSize: 'var(--fs-xs)', lineHeight: 1.6 }}>{currentReport.aiSummary.interpretation}</p>
+              <p style={{ fontSize: 'var(--fs-xs)', lineHeight: 1.6 }}>{currentReport.aiSummary?.interpretation || '—'}</p>
             </div>
 
             <div className="ai-section" style={{ padding: '7px 7px 7px 8px' }}>
@@ -573,7 +597,7 @@ export const LabReportsScreen: React.FC = () => {
                 </button>
               </div>
               <ul style={{ paddingLeft: 15, display: 'flex', flexDirection: 'column', gap: 1, fontSize: 'var(--fs-xs)' }}>
-                {currentReport.aiSummary.recommendations.map(r => (
+                {(currentReport.aiSummary?.recommendations ?? []).map(r => (
                   <li key={r}>{r}</li>
                 ))}
               </ul>
@@ -593,8 +617,8 @@ export const LabReportsScreen: React.FC = () => {
                 </button>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, padding: '0 4px' }}>
-                <select className="form-select" style={{ width: 152, height: 28, fontSize: 'var(--fs-xs)', padding: '0 8px' }} value={trendParam} onChange={e => setTrendParam(e.target.value)}>
-                  {Object.keys(TREND_SERIES).map(k => <option key={k}>{k}</option>)}
+                <select className="form-select" style={{ width: 152, height: 28, fontSize: 'var(--fs-xs)', padding: '0 8px' }} value={trend?.parameter ?? ''} onChange={e => setTrendParam(e.target.value)} disabled={!trend}>
+                  {trends.map(t => <option key={t.parameter}>{t.parameter}</option>)}
                 </select>
                 <div style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 6, background: 'var(--bg-tab)' }}>
                   {['3M', '6M', '1Y', 'All'].map(range => {
@@ -622,7 +646,7 @@ export const LabReportsScreen: React.FC = () => {
                 </div>
               </div>
               <div style={{ marginTop: 6 }}>
-                <TrendChart series={series} count={RANGE_POINTS[trendRange]} height={118} />
+                {series ? <TrendChart series={series} count={RANGE_POINTS[trendRange]} height={118} /> : noTrends}
               </div>
             </div>
 
@@ -638,7 +662,7 @@ export const LabReportsScreen: React.FC = () => {
                   return (
                     <button
                       key={a.label}
-                      onClick={() => showToast(a.toast)}
+                      onClick={() => showToast(a.toast, 'info')}
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -665,6 +689,8 @@ export const LabReportsScreen: React.FC = () => {
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

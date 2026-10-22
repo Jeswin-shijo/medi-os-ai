@@ -27,6 +27,7 @@ import { VoiceToNotesScreen } from './components/screens/VoiceToNotesScreen';
 import { TasksAlertsScreen } from './components/screens/TasksAlertsScreen';
 import { MessagesScreen } from './components/screens/MessagesScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
+import { LoginScreen } from './components/screens/LoginScreen';
 
 const MainLayout: React.FC = () => {
   const { activeScreen } = useApp();
@@ -109,10 +110,28 @@ const MainLayout: React.FC = () => {
   );
 };
 
+/** Sign-in gate: the workstation only renders for a verified session. */
+const SessionGate: React.FC = () => {
+  const { authStatus } = useApp();
+
+  if (authStatus === 'checking') {
+    return <div className="session-checking" role="status">Restoring your session…</div>;
+  }
+  if (authStatus === 'signed-out') {
+    return (
+      <>
+        <LoginScreen />
+        <ToastContainer />
+      </>
+    );
+  }
+  return <MainLayout />;
+};
+
 export default function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      <SessionGate />
     </AppProvider>
   );
 }

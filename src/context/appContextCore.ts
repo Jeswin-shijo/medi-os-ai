@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'react';
-import { ScreenId, Patient } from '../types';
+import { ScreenId, Patient, AuthUser } from '../types';
 
-// The context object lives apart from AppProvider (which imports the mock data
-// services) so hot-reloading a mock file doesn't create a new context identity
+// The context object lives apart from AppProvider (which imports the data
+// services) so hot-reloading a service file doesn't create a new context identity
 // and crash every consumer with "useApp must be used within an AppProvider".
 
 export interface Toast {
@@ -11,15 +11,30 @@ export interface Toast {
   type: 'success' | 'error' | 'info' | 'warning';
 }
 
+/** `checking` while a stored token is being verified on load. */
+export type AuthStatus = 'checking' | 'signed-in' | 'signed-out';
+
 export interface AppContextType {
+  authStatus: AuthStatus;
+  user: AuthUser | null;
+  /** Throws ApiError on bad credentials or when the API is unreachable. */
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => void;
   activeScreen: ScreenId;
   setActiveScreen: (screen: ScreenId) => void;
+  /** All patients, most recently updated first. */
+  patients: Patient[];
+  /** Reloads `patients` (and the active patient's copy) from the API. */
+  refreshPatients: () => Promise<Patient[]>;
   activePatient: Patient | null;
   setActivePatient: (patient: Patient | null) => void;
   isCommandPaletteOpen: boolean;
   setIsCommandPaletteOpen: (open: boolean) => void;
   toasts: Toast[];
   showToast: (message: string, type?: Toast['type']) => void;
+  /** Open critical tasks/alerts (header bell). */
+  openAlertCount: number;
+  setOpenAlertCount: (count: number) => void;
   unreadMessagesCount: number;
   setUnreadMessagesCount: (count: number) => void;
   navigateToPatientScreen: (screen: ScreenId, patient: Patient) => void;

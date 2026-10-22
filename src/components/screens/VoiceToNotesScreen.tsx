@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { PatientBanner } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
+import { SampleBadge } from '../common/SampleBadge';
 import { AutoTextarea } from '../common/AutoTextarea';
 import { mockVoiceTranscript, mockGeneratedSOAP, mockQuickTemplates } from '../../mock/voiceToNotesData';
 import {
@@ -182,7 +183,11 @@ export const VoiceToNotesScreen: React.FC = () => {
 
       <ScreenHeader
         title="Voice to Notes"
-        subtitle="Convert your consultation speech into structured clinical notes with AI"
+        subtitle={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            Convert your consultation speech into structured clinical notes with AI <SampleBadge />
+          </span>
+        }
         actions={
           <>
             <div style={{ position: 'relative' }}>
@@ -578,7 +583,7 @@ export const VoiceToNotesScreen: React.FC = () => {
               <RefreshCw size={13} />
               <span>Regenerate</span>
             </button>
-            <button className="btn-primary" style={{ height: 30, padding: '0 10px', fontSize: 11, gap: 6 }} onClick={() => showToast('Saved directly to Patient EMR')}>
+            <button className="btn-primary" style={{ height: 30, padding: '0 10px', fontSize: 11, gap: 6 }} onClick={() => showToast('Sample note only: nothing was saved. Write the note in EMR / Clinical Notes.', 'info')}>
               <Save size={13} />
               <span>Save to EMR</span>
             </button>

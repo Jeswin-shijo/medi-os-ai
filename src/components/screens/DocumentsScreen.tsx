@@ -3,8 +3,11 @@ import { useApp } from '../../context/appContextCore';
 import { PatientBanner } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockClinicalDocuments } from '../../mock/documentsData';
 import { ClinicalDocument } from '../../types';
+import { documentService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { displayDate } from '../../utils/clinicDate';
 import {
   Files,
   Search,
@@ -17,7 +20,6 @@ import {
   ShieldCheck,
   Upload,
   PenLine,
-  RefreshCw,
   X
 } from 'lucide-react';
 
@@ -60,13 +62,6 @@ const STATUS_PILL: Record<ClinicalDocument['status'], string> = {
   Archived: 'gray'
 };
 
-const KEY_DOCUMENTS = [
-  'ER discharge (10 Jan) – non-cardiac chest pain',
-  'Echo Doppler (02 Feb) – LVEF 62%, normal LV function',
-  'Cardiology referral (12 Sep) – TMT pending',
-  'Lab cumulative report (Sep) – HbA1c 7.8% high'
-];
-
 const FileBadge: React.FC<{ type: ClinicalDocument['fileType'] }> = ({ type }) => (
   <span
     style={{
@@ -89,15 +84,19 @@ const FileBadge: React.FC<{ type: ClinicalDocument['fileType'] }> = ({ type }) =
 );
 
 export const DocumentsScreen: React.FC = () => {
-  const { activePatient, showToast } = useApp();
-  const [documents, setDocuments] = useState<ClinicalDocument[]>(mockClinicalDocuments);
+  const { activePatient, showToast, user } = useApp();
+  const uhid = activePatient?.uhid;
+  const [loaded, setLoaded] = useState<{ uhid: string; docs: ClinicalDocument[] } | null>(null);
+  const { loading } = useLoader(async () => (uhid ? { uhid, docs: await documentService.getDocuments(uhid) } : null), setLoaded, [uhid]);
+  const documents = loaded && loaded.uhid === uhid ? loaded.docs : [];
+  const setDocuments = (docs: ClinicalDocument[]) => uhid && setLoaded({ uhid, docs });
   const [selectedCategory, setSelectedCategory] = useState<string>('All Documents');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<ClinicalDocument | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadCategory, setUploadCategory] = useState<Category>('Discharge Summary');
-  const [uploadAuthor, setUploadAuthor] = useState('Dr. Shajin');
+  const [uploadAuthor, setUploadAuthor] = useState(user?.name ?? '');
   const [uploadNotes, setUploadNotes] = useState('');
 
   if (!activePatient) {
@@ -133,40 +132,51 @@ export const DocumentsScreen: React.FC = () => {
     { label: 'Total Documents', value: String(documents.length), sub: 'Files on record', tone: 'blue' },
     { label: 'Digitally Signed', value: String(signedCount), sub: 'Verified', tone: 'green' },
     { label: 'Pending Signatures', value: String(pendingDocs.length), sub: 'Awaiting sign-off', tone: 'orange' },
-    { label: 'Insurance & TPA', value: 'Approved', sub: insurance?.provider ?? 'Star Health', tone: 'purple' }
+    { label: 'Insurance & TPA', value: insurance?.claimStatus ?? 'None', sub: insurance?.provider ?? 'No insurance on record', tone: 'purple' }
   ];
 
-  const handleSign = (doc: ClinicalDocument) => {
-    setDocuments(prev => prev.map(d => (d.id === doc.id ? { ...d, status: 'Signed' } : d)));
-    showToast(`"${doc.title}" digitally signed`);
+  // Most recent signed documents, from this patient's record.
+  const keyDocuments = documents.filter(d => d.status === 'Signed').slice(0, 4);
+
+  const handleSign = async (doc: ClinicalDocument) => {
+    try {
+      const signed = await documentService.sign(doc.id);
+      setDocuments(documents.map(d => (d.id === signed.id ? signed : d)));
+      showToast(`"${doc.title}" signed by ${signed.signedBy || 'you'}`);
+    } catch (err) {
+      showToast(`Not signed: ${errorMessage(err)}`, 'error');
+    }
   };
 
-  const handleUploadSubmit = (e: React.FormEvent) => {
+  const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadTitle.trim()) {
       showToast('Please provide a document title', 'warning');
       return;
     }
 
-    const newDoc: ClinicalDocument = {
-      id: `doc-${Date.now()}`,
-      uhid: activePatient.uhid,
-      title: uploadTitle,
-      category: uploadCategory,
-      date: '26 Sep 2026',
-      author: uploadAuthor,
-      department: 'General Medicine',
-      fileType: 'pdf',
-      fileSize: '1.1 MB',
-      status: 'Signed',
-      description: uploadNotes || 'Clinician-uploaded medical document.'
-    };
-
-    setDocuments([newDoc, ...documents]);
-    setIsUploadModalOpen(false);
-    setUploadTitle('');
-    setUploadNotes('');
-    showToast(`Document "${uploadTitle}" uploaded and indexed successfully`);
+    try {
+      // Recorded as a draft; it becomes Signed only through "Sign".
+      const newDoc = await documentService.addDocument({
+        uhid: activePatient.uhid,
+        title: uploadTitle.trim(),
+        category: uploadCategory,
+        date: displayDate(),
+        author: uploadAuthor.trim(),
+        department: activePatient.department,
+        fileType: 'pdf',
+        fileSize: '',
+        status: 'Draft',
+        description: uploadNotes
+      });
+      setDocuments([newDoc, ...documents]);
+      setIsUploadModalOpen(false);
+      setUploadTitle('');
+      setUploadNotes('');
+      showToast(`"${newDoc.title}" recorded as a draft`);
+    } catch (err) {
+      showToast(`Document not saved: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const rowAction = (title: string, icon: React.ReactNode, onClick: () => void) => (
@@ -245,8 +255,8 @@ export const DocumentsScreen: React.FC = () => {
           {filteredDocuments.length === 0 ? (
             <div style={{ padding: '40px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Files size={32} color="var(--border-strong)" style={{ margin: '0 auto 10px auto' }} />
-              <h4 style={{ fontSize: 'var(--fs-h4)', fontWeight: 600, color: 'var(--text-primary)' }}>No documents found</h4>
-              <p style={{ fontSize: 'var(--fs-sm)', marginTop: '4px' }}>Try switching category or resetting your search query</p>
+              <h4 style={{ fontSize: 'var(--fs-h4)', fontWeight: 600, color: 'var(--text-primary)' }}>{loading ? 'Loading documents…' : documents.length ? 'No documents found' : 'No documents for this patient yet'}</h4>
+              <p style={{ fontSize: 'var(--fs-sm)', marginTop: '4px' }}>{documents.length ? 'Try switching category or resetting your search query' : 'Use Upload Document to record one.'}</p>
               <button
                 className="btn-secondary btn-sm"
                 style={{ marginTop: '12px' }}
@@ -341,11 +351,8 @@ export const DocumentsScreen: React.FC = () => {
             <div className="ai-header-bar">
               <div className="ai-title-row">
                 <AiSparkle size={20} />
-                <span>AI Records Summary (GPT-6 Astro)</span>
+                <span>Records Summary</span>
               </div>
-              <button className="icon-btn" style={{ width: '28px', height: '28px' }} title="Regenerate" onClick={() => showToast('AI record summary regenerated', 'info')}>
-                <RefreshCw size={14} />
-              </button>
             </div>
 
             <div className="ai-section">
@@ -382,9 +389,12 @@ export const DocumentsScreen: React.FC = () => {
                 <span>Key Documents</span>
               </div>
               <ul style={{ margin: 0, paddingLeft: '18px', fontSize: 'var(--fs-sm)', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                {KEY_DOCUMENTS.map((d) => (
-                  <li key={d}>{d}</li>
+                {keyDocuments.map((d) => (
+                  <li key={d.id}>
+                    {d.title} ({d.date})
+                  </li>
                 ))}
+                {!keyDocuments.length && <li style={{ listStyle: 'none', marginLeft: -18, color: 'var(--text-muted)' }}>{loading ? 'Loading…' : 'No signed documents yet.'}</li>}
               </ul>
             </div>
 
@@ -400,7 +410,7 @@ export const DocumentsScreen: React.FC = () => {
                   <span style={{ color: 'var(--text-muted)' }}>Validity</span>
                   <span>{insurance.validity}</span>
                   <span style={{ color: 'var(--text-muted)' }}>Pre-auth</span>
-                  <span><span className="status-pill completed">Cashless Approved</span></span>
+                  <span><span className={`status-pill ${insurance.claimStatus === 'Approved' || insurance.claimStatus === 'Settled' ? 'completed' : 'pending'}`}>{insurance.claimStatus}</span></span>
                 </div>
               </div>
             )}
@@ -601,7 +611,7 @@ export const DocumentsScreen: React.FC = () => {
                       alignItems: 'center',
                       gap: '4px'
                     }}
-                    onClick={() => showToast('File attached: clinical_scan_report.pdf (1.2 MB)')}
+                    onClick={() => showToast('File storage is not connected yet; the document is recorded without a file.', 'info')}
                   >
                     <Upload size={22} color="var(--blue-text)" />
                     <span style={{ fontSize: 'var(--fs-body)', fontWeight: 500, color: 'var(--blue-text)' }}>

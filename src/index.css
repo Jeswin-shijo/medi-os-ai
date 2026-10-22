@@ -1667,3 +1667,122 @@ textarea.input-field {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ===== Sign-in ===== */
+.session-checking,
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background-color: var(--bg-body);
+}
+
+.session-checking {
+  color: var(--text-muted);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 28px 28px 24px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.login-brand h1 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.login-brand h1 .brand-ai {
+  font-weight: 400;
+}
+
+.login-brand p {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.login-title {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+}
+
+.login-subtitle {
+  color: var(--text-muted);
+  margin: 2px 0 18px;
+}
+
+.login-input {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.login-input svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.login-input .input-field {
+  height: 40px;
+  padding-left: 34px;
+}
+
+.login-error {
+  margin: -2px 0 14px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--red-light);
+  border: 1px solid var(--red-border);
+  color: var(--red-dark);
+  font-size: var(--fs-sm);
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.login-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-demo {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--blue-text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.login-demo:hover {
+  text-decoration: underline;
+}
+
+/* ===== Empty / loading states for API-backed screens ===== */
+.data-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--fs-body);
+}

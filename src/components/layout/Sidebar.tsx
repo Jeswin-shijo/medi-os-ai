@@ -21,7 +21,7 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
-import { DOCTOR_AVATAR, DOCTOR_NAME } from '../../mock/avatars';
+import { Avatar } from '../common/Avatar';
 
 interface NavItem {
   id: ScreenId;
@@ -32,7 +32,8 @@ interface NavItem {
 }
 
 export const Sidebar: React.FC = () => {
-  const { activeScreen, setActiveScreen, unreadMessagesCount, showToast } = useApp();
+  const { activeScreen, setActiveScreen, unreadMessagesCount, user, signOut } = useApp();
+  const name = user?.name ?? '';
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
@@ -94,16 +95,16 @@ export const Sidebar: React.FC = () => {
       {/* Bottom Profile Footer */}
       <div className="sidebar-footer">
         <div className="doctor-profile-card">
-          <img src={DOCTOR_AVATAR} alt={DOCTOR_NAME} className="doctor-avatar-circle" />
+          <Avatar name={name} src={user?.avatar || undefined} size={42} style={{ border: '2px solid rgba(255, 255, 255, 0.85)' }} />
           <div className="doctor-profile-info">
-            <h4>{DOCTOR_NAME}</h4>
-            <p>General Physician</p>
+            <h4>{name}</h4>
+            <p>{user?.specialty || user?.role}</p>
           </div>
         </div>
 
         <button
           className="logout-btn"
-          onClick={() => showToast('Session locked. Doctor signed out.', 'info')}
+          onClick={signOut}
         >
           <LogOut size={20} strokeWidth={1.75} />
           <span>Logout</span>

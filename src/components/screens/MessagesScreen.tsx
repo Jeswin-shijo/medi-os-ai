@@ -3,9 +3,11 @@ import { useApp } from '../../context/appContextCore';
 import { mockMessageTemplates } from '../../mock/messagesData';
 import { MessageThread } from '../../types';
 import { messageService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
-import { DiabetesDots } from '../common/icons';
+import { ConditionBadge } from '../common/ConditionBadge';
 import {
   createLucideIcon,
   SquarePen,
@@ -158,7 +160,7 @@ const PAGE_TABS: { label: string; badge?: number }[] = [
   { label: 'Archived' },
 ];
 
-const FILTERS = ['All', 'Unread (3)', 'Important', 'Starred'];
+const FILTERS = ['All', 'Unread', 'Important', 'Starred'];
 
 // ---------------------------------------------------------------------------
 // Shared inline styles
@@ -175,18 +177,16 @@ const S = {
 const isInline = (text: string) => !text.includes('\n') && text.length <= 44;
 
 export const MessagesScreen: React.FC = () => {
-  const { setActiveScreen, showToast } = useApp();
+  const { setActiveScreen, showToast, user, patients, navigateToPatientScreen, setUnreadMessagesCount } = useApp();
   const [threads, setThreads] = useState<MessageThread[]>([]);
-  const [selectedThreadId, setSelectedThreadId] = useState('th-1');
+  const [selectedThreadId, setSelectedThreadId] = useState('');
   const [activeTab, setActiveTab] = useState('All Messages');
   const [filterPill, setFilterPill] = useState('All');
   const [inputText, setInputText] = useState('');
   const [search, setSearch] = useState('');
   const chatBodyRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    messageService.getThreads().then(setThreads);
-  }, []);
+  const { loading } = useLoader(() => messageService.getThreads(), setThreads, []);
 
   const filteredThreads = threads.filter(th => {
     const matchesSearch = th.contactName.toLowerCase().includes(search.toLowerCase()) ||
@@ -201,7 +201,7 @@ export const MessagesScreen: React.FC = () => {
     if (activeTab === 'Broadcasts' && th.category !== 'Admin') return false;
 
     // Filter by Secondary Pill
-    if (filterPill.startsWith('Unread') && th.unreadCount === 0) return false;
+    if (filterPill === 'Unread' && th.unreadCount === 0) return false;
     if (filterPill === 'Important' && !th.condition) return false;
     if (filterPill === 'Starred' && !th.online) return false;
 
@@ -217,24 +217,49 @@ export const MessagesScreen: React.FC = () => {
     if (el) el.scrollTop = el.scrollHeight;
   }, [activeThread?.id, messageCount]);
 
+  // Opening a thread marks it read, here and in the sidebar badge.
+  const openedThreadId = activeThread?.id;
+  const openedUnread = activeThread?.unreadCount ?? 0;
+  useEffect(() => {
+    if (!openedThreadId || openedUnread === 0) return;
+    messageService
+      .markAsRead(openedThreadId)
+      .then(updated => {
+        setThreads(prev => prev.map(t => (t.id === updated.id ? updated : t)));
+        return messageService.getUnreadCount();
+      })
+      .then(setUnreadMessagesCount)
+      .catch(err => showToast(errorMessage(err), 'error'));
+  }, [openedThreadId, openedUnread, setUnreadMessagesCount, showToast]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !activeThread) return;
 
-    const updated = await messageService.sendMessage(activeThread.id, inputText.trim());
-    setThreads([...updated]);
-    setInputText('');
-    showToast('Message sent');
+    try {
+      const updated = await messageService.sendMessage(activeThread.id, inputText.trim());
+      setThreads(prev => prev.map(t => (t.id === updated.id ? updated : t)));
+      setInputText('');
+      showToast('Message sent');
+    } catch (err) {
+      showToast(`Message not sent: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const handleApplyTemplate = (tpl: string) => {
-    setInputText(`Hello, this is Dr. Shajin from St. Mary's Hospital. Regarding your ${tpl.toLowerCase()}, please review and follow up.`);
+    setInputText(`Hello, this is ${user?.name ?? 'your doctor'}. Regarding your ${tpl.toLowerCase()}, please review and follow up.`);
   };
 
-  if (!activeThread) return <div className="page-scroll-body">Loading messages...</div>;
+  if (!activeThread) {
+    return <div className="page-scroll-body">{loading ? 'Loading messages...' : <p className="data-empty">No conversations yet.</p>}</div>;
+  }
 
   const isPatient = activeThread.category === 'Patient';
-  const uhid = activeThread.uhid || 'MHK202500215';
+  // Patient threads link to the patient record by UHID; show only what that record says.
+  const contactPatient = isPatient ? patients.find(p => p.uhid === activeThread.uhid) : undefined;
+  const uhid = activeThread.uhid;
+  const age = activeThread.age ?? contactPatient?.age;
+  const gender = activeThread.gender || contactPatient?.gender;
 
   return (
     <div className="page-scroll-body" style={{ height: '100%' }}>
@@ -310,7 +335,7 @@ export const MessagesScreen: React.FC = () => {
                 style={{ height: 38, padding: '0 20px', minWidth: 0, flexShrink: 1, color: filterPill === filter ? undefined : 'var(--text-primary)' }}
                 onClick={() => setFilterPill(filter)}
               >
-                {filter}
+                {filter === 'Unread' ? `Unread (${threads.filter(t => t.unreadCount > 0).length})` : filter}
               </button>
             ))}
           </div>
@@ -388,11 +413,19 @@ export const MessagesScreen: React.FC = () => {
               <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 7, lineHeight: '20px', whiteSpace: 'nowrap' }}>
                 {isPatient ? (
                   <>
-                    <span>{activeThread.age ?? 28} years</span>
-                    <span style={S.sep} />
-                    <span>{activeThread.gender ?? 'Female'}</span>
-                    <span style={S.sep} />
-                    <span>UHID: {uhid}</span>
+                    {age !== undefined && <span>{age} years</span>}
+                    {gender && (
+                      <>
+                        <span style={S.sep} />
+                        <span>{gender}</span>
+                      </>
+                    )}
+                    {uhid && (
+                      <>
+                        <span style={S.sep} />
+                        <span>UHID: {uhid}</span>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -535,7 +568,7 @@ export const MessagesScreen: React.FC = () => {
           <div className="medios-card" style={{ padding: '12px 12px 14px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={S.cardTitle}>{isPatient ? 'Patient Information' : 'Contact Information'}</span>
-              <button className="btn-outline-blue btn-sm" style={{ fontSize: 11.5, height: 28, padding: '0 9px', gap: 6 }} onClick={() => setActiveScreen('emr')}>
+              <button className="btn-outline-blue btn-sm" style={{ fontSize: 11.5, height: 28, padding: '0 9px', gap: 6 }} onClick={() => (contactPatient ? navigateToPatientScreen('emr', contactPatient) : setActiveScreen('emr'))}>
                 <ClipboardList size={14} />
                 <span>Open EMR</span>
               </button>
@@ -547,11 +580,11 @@ export const MessagesScreen: React.FC = () => {
                 <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: '22px', marginBottom: 1 }}>{activeThread.contactName}</div>
                 {isPatient ? (
                   <>
-                    <div>UHID: {uhid}</div>
+                    {uhid && <div>UHID: {uhid}</div>}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                      <span>{activeThread.age ?? 28} years</span>
-                      <span style={S.sep} />
-                      <span>{activeThread.gender ?? 'Female'}</span>
+                      {age !== undefined && <span>{age} years</span>}
+                      {age !== undefined && gender && <span style={S.sep} />}
+                      {gender && <span>{gender}</span>}
                     </div>
                   </>
                 ) : (
@@ -559,16 +592,16 @@ export const MessagesScreen: React.FC = () => {
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Phone size={13} color="var(--blue-text)" fill="var(--blue-text)" />
-                  <span>{isPatient ? '+91 98765 43210' : 'Ext. 2104'}</span>
+                  <span>{isPatient ? contactPatient?.phone ?? 'Not on record' : 'Ext. 2104'}</span>
                 </div>
               </div>
             </div>
 
-            {activeThread.condition && (
+            {!!contactPatient?.conditions.length && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <span className="badge-tag diabetes" style={{ fontSize: 11.5, gap: 5, padding: '0 8px' }}><DiabetesDots size={11} />Type 2 Diabetes</span>
-                <span className="badge-tag hypertension" style={{ fontSize: 11.5, padding: '0 9px' }}>Hypertension</span>
-                <span className="badge-tag" style={{ fontSize: 11.5, padding: '0 9px', backgroundColor: 'var(--green-light)', color: 'var(--green-dark)' }}>Follow-up</span>
+                {contactPatient.conditions.map(c => (
+                  <ConditionBadge key={c} condition={c} />
+                ))}
               </div>
             )}
           </div>

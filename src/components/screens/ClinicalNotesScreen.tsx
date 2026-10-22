@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
+import { Patient, SoapNote } from '../../types';
+import { consultationService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { usePatientChart, labHighlightsOf } from '../../hooks/usePatientChart';
+import { displayDate, displayTime } from '../../utils/clinicDate';
+import { recordSummary } from '../../utils/recordSummary';
 import { PatientBanner, type BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
+import { SampleBadge } from '../common/SampleBadge';
 import { AutoTextarea } from '../common/AutoTextarea';
 import { StudyThumb } from '../common/StudyThumb';
-import { CHEST_XRAY_THUMB, USG_ABDOMEN_THUMB } from '../../mock/imagingThumbsData';
-import { mockOlderVisits, mockVisitsTimeline } from '../../mock/consultationsData';
 import {
   Activity,
   Bold,
@@ -119,10 +124,50 @@ const SOAP_META: Record<SoapKey, { letter: string; title: string; hint: string; 
 
 const NOTE_TEMPLATES = ['General Consultation', 'Follow-up Visit', 'Hypertension Review', 'Diabetes Review'];
 
+const VISITS_SHOWN = 6;
+const CONSULT_TYPES = ['Follow-up', 'New Consultation', 'Review'];
+
+/** Timeline dot colour: open notes blue, emergencies red, then by visit type. */
+const visitColor = (v: SoapNote) =>
+  !v.isFinal
+    ? 'var(--blue-primary)'
+    : v.visitType === 'Emergency'
+      ? 'var(--red-rose)'
+      : v.visitType === 'OPD'
+        ? 'var(--orange-amber)'
+        : v.visitType === 'Follow-up'
+          ? 'var(--green-emerald)'
+          : '#9aa3b5';
+
+/** Starting text for Free Text mode when a note has none of its own. */
+const composeFreeText = (patient: Patient | null, note: SoapNote) => {
+  const header = [
+    `CLINICAL ENCOUNTER NOTE - ${note.visitDate.toUpperCase()}`,
+    patient ? `Patient: ${patient.name} (${patient.age}${patient.gender.charAt(0)}) | UHID: ${patient.uhid}` : '',
+    [note.doctor, note.department].filter(Boolean).join(' | ')
+  ].filter(Boolean);
+  const sections = (
+    [
+      ['CHIEF COMPLAINT', note.reason],
+      ['HISTORY', note.subjective],
+      ['EXAMINATION', note.objective],
+      ['IMPRESSION', note.assessment],
+      ['PLAN', note.plan]
+    ] as const
+  )
+    .filter(([, text]) => text)
+    .map(([title, text]) => `${title}:\n${text}`);
+  return [...header, '', ...sections].join('\n').trim();
+};
+
 export const ClinicalNotesScreen: React.FC = () => {
-  const { activePatient, showToast, setActiveScreen } = useApp();
+  const { activePatient, showToast, setActiveScreen, user } = useApp();
+  const uhid = activePatient?.uhid;
+  const { chart, patchChart } = usePatientChart(uhid);
   const [activeTab, setActiveTab] = useState('emr');
-  const [selectedVisitId, setSelectedVisitId] = useState('v1');
+  const [selectedVisitId, setSelectedVisitId] = useState('');
+  /** A note started with "New Note" and not yet saved. */
+  const [newNote, setNewNote] = useState<SoapNote | null>(null);
   const [visitQuery, setVisitQuery] = useState('');
   const [showOlder, setShowOlder] = useState(false);
   const [noteType, setNoteType] = useState<NoteType>('SOAP');
@@ -135,30 +180,46 @@ export const ClinicalNotesScreen: React.FC = () => {
   const [consultType, setConsultType] = useState('Follow-up');
   const [visitType, setVisitType] = useState('OPD');
 
-  // SOAP State
-  const [soap, setSoap] = useState<Record<SoapKey, string>>({
-    subjective:
-      'Patient reports fever for 3 days associated with mild cough and body ache.\nNo breathlessness. Appetite slightly reduced. No chest pain.\nKnown case of hypertension and type 2 diabetes.\nNo recent travel. No sick contacts.',
-    objective: 'General: Alert, oriented\nRS: Bilateral air entry present, no added sounds\nCVS: S1 S2 normal\nAbdomen: Soft, non-tender\nSpO₂: 98%',
-    assessment: 'Acute respiratory infection (likely viral).\nKnown HTN and Type 2 DM – fair control.\nNo evidence of lower respiratory tract involvement at present.',
-    plan: '•  Tab Paracetamol 650 mg – TID for 3 days\n•  Adequate fluids and rest\n•  Continue current medications\n•  Review if symptoms persist or worsen\n•  Follow-up after 5 days'
-  });
-  const [icdCode, setIcdCode] = useState('J06.9');
-  const [icdDesc, setIcdDesc] = useState('Acute upper respiratory infection');
-  const [structured, setStructured] = useState({
-    chiefComplaint: 'Fever for 3 days, mild dry cough, body aches',
-    examination: 'RS: Bilateral clear, CVS: S1 S2 normal, P/A: Soft, non-tender',
-    impression: 'Acute Viral Pharyngitis / Upper Respiratory Infection'
-  });
-  const [freeTextNote, setFreeTextNote] = useState(
-    'CLINICAL ENCOUNTER NOTE - 26 SEP 2026\nPatient: Arun Kumar (34M) | UHID: MHK202500321\nDr. Shajin | General Medicine\n\nCHIEF COMPLAINTS:\n- Fever and generalized body aches for 3 days.\n- Mild dry cough, throat irritation.\n\nPHYSICAL EXAMINATION:\n- General: Well oriented, alert, no signs of distress.\n- Vitals: BP 140/90 mmHg, HR 86 bpm, SpO2 98%, Temp 98.4 F.\n- Chest: Clear air entry bilaterally, no crepitations or wheezing.\n- ENT: Pharyngeal erythema present without exudates.\n\nIMPRESSION:\n- Acute Viral Pharyngitis / Upper Respiratory Tract Infection.\n- Essential Hypertension & Type 2 Diabetes Mellitus - under continued therapy.\n\nRECOMMENDATIONS:\n1. Tab Paracetamol 650mg TID after food for 3 days.\n2. Hydration therapy and salt water gargles.\n3. Continue Amlodipine 5mg OD and Metformin 500mg BD.\n4. Follow-up after 5 days if fever persists or dyspnea develops.'
-  );
+  // Editor state, loaded from the selected visit's note.
+  const [soap, setSoap] = useState<Record<SoapKey, string>>({ subjective: '', objective: '', assessment: '', plan: '' });
+  const [reason, setReason] = useState('');
+  const [icdCode, setIcdCode] = useState('');
+  const [icdDesc, setIcdDesc] = useState('');
+  const [freeTextNote, setFreeTextNote] = useState('');
 
-  const allVisits = showOlder ? [...mockVisitsTimeline, ...mockOlderVisits] : mockVisitsTimeline;
+  const unsavedNew = newNote && newNote.uhid === uhid ? newNote : null;
+  const allVisits = [...(unsavedNew ? [unsavedNew] : []), ...(chart?.visits ?? [])];
+  const visitKey = (v: SoapNote) => v.id ?? 'new';
+  const shownVisits = showOlder ? allVisits : allVisits.slice(0, VISITS_SHOWN);
   const q = visitQuery.trim().toLowerCase();
-  const visits = q ? allVisits.filter((v) => `${v.date} ${v.type} ${v.doctor} ${v.reason}`.toLowerCase().includes(q)) : allVisits;
-  const selectedVisit = allVisits.find((v) => v.id === selectedVisitId) ?? mockVisitsTimeline[0];
+  const visits = q
+    ? shownVisits.filter((v) => `${v.visitDate} ${v.visitType} ${v.doctor} ${v.reason ?? ''}`.toLowerCase().includes(q))
+    : shownVisits;
+  const selectedVisit = allVisits.find((v) => visitKey(v) === selectedVisitId) ?? allVisits[0];
+  const selectedKey = selectedVisit ? `${uhid}:${visitKey(selectedVisit)}` : '';
   const vitals = activePatient?.vitals;
+  const activeMeds = chart?.medications.filter((m) => m.status === 'Active') ?? [];
+  const recentLabs = labHighlightsOf(chart?.labs ?? [], 3);
+  const recentStudies = chart?.studies.slice(0, 2) ?? [];
+
+  // Load the editor whenever a different note is opened.
+  useEffect(() => {
+    if (!selectedVisit) return;
+    setSoap({
+      subjective: selectedVisit.subjective,
+      objective: selectedVisit.objective,
+      assessment: selectedVisit.assessment,
+      plan: selectedVisit.plan
+    });
+    setReason(selectedVisit.reason ?? '');
+    setIcdCode(selectedVisit.icd10[0]?.code ?? '');
+    setIcdDesc(selectedVisit.icd10[0]?.description ?? '');
+    setIsFinal(selectedVisit.isFinal);
+    setConsultType(selectedVisit.visitType || 'Follow-up');
+    setFreeTextNote(selectedVisit.freeText || composeFreeText(activePatient, selectedVisit));
+    // Keyed on the note's identity, not the object, so a save does not reset edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey]);
 
   const updateSoap = (key: SoapKey, value: string) => setSoap((prev) => ({ ...prev, [key]: value }));
 
@@ -168,12 +229,63 @@ export const ClinicalNotesScreen: React.FC = () => {
     if (tab && !tab.screen) showToast(`${tab.label}: showing entries from the clinical record`, 'info');
   };
 
+  const startNewNote = () => {
+    if (!activePatient) return;
+    setNewNote({
+      uhid: activePatient.uhid,
+      visitDate: displayDate(),
+      visitTime: displayTime(),
+      visitType: 'Follow-up',
+      doctor: user?.name ?? '',
+      department: activePatient.department,
+      reason: '',
+      subjective: '',
+      objective: '',
+      assessment: '',
+      plan: '',
+      icd10: [],
+      isFinal: false
+    });
+    setSelectedVisitId('new');
+    setNoteType('SOAP');
+    showToast('New clinical note started for today', 'info');
+  };
+
+  const saveNote = async (final: boolean) => {
+    if (!selectedVisit) return;
+    const existing = selectedVisit.icd10;
+    const icd10 = icdCode.trim()
+      ? [{ code: icdCode.trim(), description: icdDesc.trim(), type: existing[0]?.type ?? 'Acute' }, ...existing.slice(1)]
+      : existing.slice(1);
+    // Only keep free text the doctor actually wrote, not the generated starting text.
+    const composed = composeFreeText(activePatient, selectedVisit);
+    try {
+      const saved = await consultationService.saveSoapNote({
+        ...selectedVisit,
+        ...soap,
+        reason,
+        icd10,
+        visitType: consultType,
+        freeText: freeTextNote === composed ? selectedVisit.freeText ?? '' : freeTextNote,
+        isFinal: final
+      });
+      patchChart((c) => ({
+        ...c,
+        visits: selectedVisit.id ? c.visits.map((v) => (v.id === saved.id ? saved : v)) : [saved, ...c.visits]
+      }));
+      if (!selectedVisit.id) setNewNote(null);
+      setSelectedVisitId(saved.id ?? '');
+      setIsFinal(saved.isFinal);
+      showToast(final ? 'Final note stored in EMR' : 'Draft note saved');
+    } catch (err) {
+      showToast(`Note not saved: ${errorMessage(err)}`, 'error');
+    }
+  };
+
   const handleAsk = () => {
     if (!aiQuery.trim()) return;
-    setAiAnswer(
-      `GPT-6 Astro: ${aiQuery.trim()} — Findings correlate with Hospital SOP GM 4.2 (Acute Respiratory Infection). Continue symptomatic care, keep BP < 130/80 and review HbA1c trend (7.8%).`
-    );
-    showToast('GPT-6 Astro: Analysis correlated with Hospital SOP');
+    // No AI model is connected yet: answer from the record, and say so.
+    setAiAnswer(recordSummary(activePatient, activeMeds));
   };
 
   const listPrefix = (kind: 'bullet' | 'number' | 'check') => {
@@ -278,13 +390,14 @@ export const ClinicalNotesScreen: React.FC = () => {
     );
   };
 
+  const show = (n?: number) => (n === undefined || n === null ? '—' : n);
   const vitalCells = [
-    { label: 'BP', value: `${vitals?.bpSystolic ?? 140}/${vitals?.bpDiastolic ?? 90}`, unit: 'mmHg', alert: true },
-    { label: 'HR', value: vitals?.heartRate ?? 86, unit: 'bpm' },
-    { label: 'Temp', value: vitals?.temperature ?? 98.4, unit: '°F' },
-    { label: 'SpO₂', value: vitals?.spo2 ?? 98, unit: '%' },
-    { label: 'Weight', value: vitals?.weightKg ?? 78, unit: 'kg' },
-    { label: 'BMI', value: vitals?.bmi ?? 26.4, unit: `(${vitals?.bmiStatus ?? 'Overweight'})` }
+    { label: 'BP', value: vitals ? `${vitals.bpSystolic}/${vitals.bpDiastolic}` : '—', unit: 'mmHg', alert: !!vitals && (vitals.bpSystolic >= 140 || vitals.bpDiastolic >= 90) },
+    { label: 'HR', value: show(vitals?.heartRate), unit: 'bpm' },
+    { label: 'Temp', value: show(vitals?.temperature), unit: '°F' },
+    { label: 'SpO₂', value: show(vitals?.spo2), unit: '%' },
+    { label: 'Weight', value: show(vitals?.weightKg), unit: 'kg' },
+    { label: 'BMI', value: show(vitals?.bmi), unit: vitals?.bmiStatus ? `(${vitals.bmiStatus})` : '' }
   ];
 
   return (
@@ -304,7 +417,7 @@ export const ClinicalNotesScreen: React.FC = () => {
         extra={
           <div className="metric-column" style={{ minWidth: 100 }}>
             <span className="metric-label">Blood Group</span>
-            <span className="metric-value">{activePatient?.bloodGroup ?? '—'}</span>
+            <span className="metric-value">{activePatient?.bloodGroup || '—'}</span>
           </div>
         }
         action={
@@ -324,7 +437,7 @@ export const ClinicalNotesScreen: React.FC = () => {
         <div style={{ ...card, padding: '8px 9px 9px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
             <h4 style={{ fontSize: 14, fontWeight: 700, paddingLeft: 3 }}>Visits</h4>
-            <button className="btn-primary" style={{ height: 28, padding: '0 14px', fontSize: 11, gap: 7 }} onClick={() => showToast('New clinical encounter started')}>
+            <button className="btn-primary" style={{ height: 28, padding: '0 14px', fontSize: 11, gap: 7 }} onClick={startNewNote} disabled={!activePatient}>
               <Plus size={14} />
               <span>New Note</span>
             </button>
@@ -348,11 +461,11 @@ export const ClinicalNotesScreen: React.FC = () => {
             <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: 8, top: 14, bottom: 14, width: 1, background: 'var(--border-strong)' }} />
             {visits.map((visit, i) => {
-              const isSelected = selectedVisitId === visit.id;
+              const isSelected = selectedVisit !== undefined && visitKey(selectedVisit) === visitKey(visit);
               return (
                 <button
-                  key={visit.id}
-                  onClick={() => setSelectedVisitId(visit.id)}
+                  key={visitKey(visit)}
+                  onClick={() => setSelectedVisitId(visitKey(visit))}
                   style={{
                     position: 'relative',
                     display: 'grid',
@@ -362,7 +475,7 @@ export const ClinicalNotesScreen: React.FC = () => {
                     padding: '9px 4px 8px 0',
                     borderRadius: 6,
                     background: isSelected ? '#e8f0fd' : 'transparent',
-                    borderTop: i && !isSelected && selectedVisitId !== visits[i - 1]?.id ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                    borderTop: i && !isSelected && (!selectedVisit || visitKey(selectedVisit) !== visitKey(visits[i - 1])) ? '1px solid var(--border-subtle)' : '1px solid transparent',
                     marginLeft: 0
                   }}
                 >
@@ -371,7 +484,7 @@ export const ClinicalNotesScreen: React.FC = () => {
                       width: 9,
                       height: 9,
                       borderRadius: '50%',
-                      background: visit.color,
+                      background: visitColor(visit),
                       boxShadow: `0 0 0 2.5px ${isSelected ? '#cfe0fb' : '#eef1f6'}`,
                       marginTop: 5,
                       marginLeft: 4,
@@ -379,18 +492,22 @@ export const ClinicalNotesScreen: React.FC = () => {
                     }}
                   />
                   <span style={{ display: 'flex', flexDirection: 'column', paddingLeft: 5 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: '18px' }}>{visit.date}</span>
-                    {isSelected && <span style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: '17px' }}>{visit.time}</span>}
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: '18px' }}>{visit.visitDate}</span>
+                    {isSelected && <span style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: '17px' }}>{visit.visitTime}</span>}
                   </span>
                   <span style={{ display: 'flex', flexDirection: 'column', fontSize: 10.8, lineHeight: '17.5px', color: 'var(--text-primary)' }}>
-                    <span>{visit.type}</span>
+                    <span>{visit.id ? visit.visitType : `${visit.visitType} (unsaved)`}</span>
                     <span style={{ color: 'var(--text-secondary)' }}>{visit.doctor}</span>
                     <span style={{ color: 'var(--text-secondary)' }}>{visit.reason}</span>
                   </span>
                 </button>
               );
             })}
-            {!visits.length && <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 4px' }}>No visits match “{visitQuery}”.</div>}
+            {!visits.length && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '12px 4px' }}>
+                {q ? <>No visits match “{visitQuery}”.</> : chart ? 'No visits recorded yet. Start a new note.' : 'Loading visits…'}
+              </div>
+            )}
             </div>
             </div>
           </div>
@@ -399,11 +516,12 @@ export const ClinicalNotesScreen: React.FC = () => {
             className="btn-secondary"
             style={{ width: '100%', height: 29, fontSize: 11, color: 'var(--blue-text)', marginTop: 7, flexShrink: 0 }}
             onClick={() => {
-              if (showOlder) {
+              const older = allVisits.length - VISITS_SHOWN;
+              if (showOlder || older <= 0) {
                 showToast('All visits loaded', 'info');
               } else {
                 setShowOlder(true);
-                showToast(`${mockOlderVisits.length} older visits loaded`);
+                showToast(`${older} older visit${older === 1 ? '' : 's'} loaded`);
               }
             }}
           >
@@ -415,11 +533,19 @@ export const ClinicalNotesScreen: React.FC = () => {
         <div style={{ ...card, padding: '6px 10px 7px 11px', gap: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, height: 22 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, whiteSpace: 'nowrap' }}>
-              Clinical Note - {selectedVisit.date} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)' }}>({selectedVisit.time})</span>
+              {selectedVisit ? (
+                <>
+                  Clinical Note - {selectedVisit.visitDate} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)' }}>({selectedVisit.visitTime})</span>
+                </>
+              ) : (
+                'Clinical Note'
+              )}
             </h3>
-            <span className="status-pill blue" style={{ height: 20, fontSize: 10.5, padding: '0 8px', marginLeft: 6 }}>
-              {selectedVisit.type}
-            </span>
+            {selectedVisit && (
+              <span className="status-pill blue" style={{ height: 20, fontSize: 10.5, padding: '0 8px', marginLeft: 6 }}>
+                {selectedVisit.visitType || 'Visit'}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3, position: 'relative' }}>
@@ -480,9 +606,12 @@ export const ClinicalNotesScreen: React.FC = () => {
             )}
           </div>
 
-          {noteType === 'SOAP' && (['subjective', 'objective', 'assessment', 'plan'] as const).map(renderSoapSection)}
+          {!selectedVisit && (
+            <p className="data-empty">{chart ? 'No clinical notes for this patient yet. Use “New Note” to start one.' : 'Loading notes…'}</p>
+          )}
+          {selectedVisit && noteType === 'SOAP' && (['subjective', 'objective', 'assessment', 'plan'] as const).map(renderSoapSection)}
 
-          {noteType === 'Free Text' && (
+          {selectedVisit && noteType === 'Free Text' && (
             <div style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '6px 9px', background: '#fbfcfe' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                 <span style={{ fontSize: 11, fontWeight: 600 }}>Unstructured Clinical Free Text Note</span>
@@ -497,7 +626,7 @@ export const ClinicalNotesScreen: React.FC = () => {
             </div>
           )}
 
-          {noteType === 'Structured Form' && (
+          {selectedVisit && noteType === 'Structured Form' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {(
                 [
@@ -508,7 +637,16 @@ export const ClinicalNotesScreen: React.FC = () => {
               ).map((f) => (
                 <div key={f.key} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '6px 9px', background: '#fbfcfe' }}>
                   <label style={{ ...fieldLabel, fontWeight: 600 }}>{f.label}</label>
-                  <input className="input-field" style={fieldBox} value={structured[f.key]} onChange={(e) => setStructured({ ...structured, [f.key]: e.target.value })} />
+                  <input
+                    className="input-field"
+                    style={fieldBox}
+                    value={f.key === 'chiefComplaint' ? reason : f.key === 'examination' ? soap.objective : soap.assessment}
+                    onChange={(e) =>
+                      f.key === 'chiefComplaint'
+                        ? setReason(e.target.value)
+                        : updateSoap(f.key === 'examination' ? 'objective' : 'assessment', e.target.value)
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -531,9 +669,9 @@ export const ClinicalNotesScreen: React.FC = () => {
               <div>
                 <label style={fieldLabel}>Consultation Type</label>
                 <select className="form-select" style={fieldBox} value={consultType} onChange={(e) => setConsultType(e.target.value)}>
-                  <option>Follow-up</option>
-                  <option>New Consultation</option>
-                  <option>Review</option>
+                  {(CONSULT_TYPES.includes(consultType) ? CONSULT_TYPES : [consultType, ...CONSULT_TYPES]).map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -551,7 +689,7 @@ export const ClinicalNotesScreen: React.FC = () => {
                 <input type="checkbox" checked={isFinal} onChange={(e) => setIsFinal(e.target.checked)} style={{ width: 13, height: 13, accentColor: 'var(--blue-primary)' }} />
                 <span>Mark as Final</span>
               </label>
-              <button className="btn-outline-blue" style={{ height: 28, fontSize: 10.5 }} onClick={() => showToast('Draft note saved')}>
+              <button className="btn-outline-blue" style={{ height: 28, fontSize: 10.5 }} onClick={() => saveNote(false)} disabled={!selectedVisit}>
                 Save as Draft
               </button>
               <button className="btn-outline-blue" style={{ height: 28, fontSize: 10.5, gap: 7 }} onClick={() => showToast('Discharge summary generated as PDF')}>
@@ -561,7 +699,8 @@ export const ClinicalNotesScreen: React.FC = () => {
               <button
                 className="btn-primary"
                 style={{ height: 28, fontSize: 11 }}
-                onClick={() => showToast(isFinal ? 'Final note permanently stored in EMR' : 'Encounter and note stored in EMR')}
+                onClick={() => saveNote(isFinal)}
+                disabled={!selectedVisit}
               >
                 <Plus size={15} />
                 Save to EMR
@@ -575,7 +714,8 @@ export const ClinicalNotesScreen: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 26 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap' }}>
               <AiSparkle size={19} />
-              AI Clinical Assistant (GPT-6 Astro)
+              AI Clinical Assistant
+              <SampleBadge />
             </span>
             <button aria-label="Assistant options" onClick={() => showToast('Assistant settings', 'info')} style={{ display: 'flex', color: 'var(--text-primary)' }}>
               <EllipsisVertical size={15} />
@@ -764,7 +904,7 @@ export const ClinicalNotesScreen: React.FC = () => {
             <span style={miniTitle}>
               <Clock3 size={13} color="var(--blue-text)" strokeWidth={2.2} />
               <span style={{ fontSize: 12.5 }}>Vitals</span>
-              <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-secondary)' }}>({vitals?.recordedAt.replace(',', '') ?? '26 Sep 2026 09:15 AM'})</span>
+              <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-secondary)' }}>({vitals?.recordedAt.replace(',', '') ?? 'not recorded'})</span>
             </span>
             <button style={{ ...viewAll, display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setActiveScreen('vitals')}>
               <Plus size={12} />
@@ -792,12 +932,9 @@ export const ClinicalNotesScreen: React.FC = () => {
               View All
             </button>
           </div>
-          {[
-            ['Amlodipine 5 mg (OD)', '1-0-0'],
-            ['Metformin 500 mg (BD)', '1-0-1'],
-            ['Atorvastatin 10 mg (OD)', '0-1-0']
-          ].map(([name, dose], i) => (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 10, height: 25, padding: '0 8px 0 7px', borderTop: i ? '1px solid var(--border-subtle)' : 'none' }}>
+          {!activeMeds.length && <p style={{ fontSize: 10.8, color: 'var(--text-muted)', padding: '4px 7px' }}>{chart ? 'No active medications.' : 'Loading…'}</p>}
+          {activeMeds.slice(0, 3).map(({ id, medicine: name, frequency: dose }, i) => (
+            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10, height: 25, padding: '0 8px 0 7px', borderTop: i ? '1px solid var(--border-subtle)' : 'none' }}>
               <CircleCheck size={14} fill="var(--green-emerald)" color="#ffffff" strokeWidth={2.4} />
               <span style={{ flex: 1, fontSize: 10.8 }}>{name}</span>
               <span style={{ fontSize: 10.8, color: 'var(--text-secondary)' }}>{dose}</span>
@@ -815,16 +952,22 @@ export const ClinicalNotesScreen: React.FC = () => {
               View All
             </button>
           </div>
-          {[
-            { name: 'HbA1c', value: '7.8 %', color: 'var(--red-dark)', icon: 'var(--blue-text)' },
-            { name: 'Hemoglobin', value: '10.4 g/dL', color: 'var(--red-dark)', icon: 'var(--red-rose)' },
-            { name: 'WBC', value: '10,900 /µL', color: 'var(--orange-amber)', icon: 'var(--orange-amber)' }
-          ].map((lab, i) => (
+          {!recentLabs.length && <p style={{ fontSize: 10.8, color: 'var(--text-muted)', padding: '4px 6px' }}>{chart ? 'No lab results.' : 'Loading…'}</p>}
+          {recentLabs.map((l) => {
+            const normal = l.status === 'Normal';
+            return {
+              name: l.name,
+              value: `${l.result} ${l.unit}`,
+              date: l.date,
+              color: normal ? 'var(--text-primary)' : 'var(--red-dark)',
+              icon: normal ? 'var(--green-emerald)' : l.status === 'Abnormal' ? 'var(--orange-amber)' : 'var(--red-rose)'
+            };
+          }).map((lab, i) => (
             <div key={lab.name} style={{ display: 'grid', gridTemplateColumns: '16px 1fr auto 80px', alignItems: 'center', gap: 9, height: 25, padding: '0 4px 0 6px', borderTop: i ? '1px solid var(--border-subtle)' : 'none' }}>
               <CircleCheck size={13} color={lab.icon} strokeWidth={2.2} />
-              <span style={{ fontSize: 11 }}>{lab.name}</span>
+              <span style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lab.name}>{lab.name}</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: lab.color }}>{lab.value}</span>
-              <span style={{ fontSize: 9.8, color: 'var(--text-secondary)', textAlign: 'right' }}>12 Sep 2026</span>
+              <span style={{ fontSize: 9.8, color: 'var(--text-secondary)', textAlign: 'right' }}>{lab.date}</span>
             </div>
           ))}
         </div>
@@ -839,11 +982,16 @@ export const ClinicalNotesScreen: React.FC = () => {
               View All
             </button>
           </div>
-          {[
-            { title: 'Chest X-Ray', date: '12 Sep 2026', result: 'Normal', dot: 'var(--green-emerald)', thumb: <StudyThumb src={CHEST_XRAY_THUMB} alt="Chest X-Ray" width={46} height={42} /> },
-            { title: 'USG Abdomen', date: '21 Mar 2026', result: 'Fatty liver (mild)', dot: 'var(--orange-amber)', thumb: <StudyThumb src={USG_ABDOMEN_THUMB} alt="USG Abdomen" width={46} height={42} /> }
-          ].map((img) => (
-            <button key={img.title} onClick={() => setActiveScreen('imaging')} style={{ display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left', padding: '1px 0' }}>
+          {!recentStudies.length && <p style={{ fontSize: 10.5, color: 'var(--text-muted)', padding: '4px 0' }}>{chart ? 'No imaging studies.' : 'Loading…'}</p>}
+          {recentStudies.map((study) => ({
+            id: study.id,
+            title: study.title,
+            date: study.date,
+            result: study.impression || (study.status === 'Pending' ? 'Report pending' : study.status),
+            dot: study.status === 'Pending' ? 'var(--orange-amber)' : 'var(--blue-primary)',
+            thumb: study.thumbnailUrl ? <StudyThumb src={study.thumbnailUrl} alt={study.title} width={46} height={42} /> : null
+          })).map((img) => (
+            <button key={img.id} onClick={() => setActiveScreen('imaging')} style={{ display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left', padding: '1px 0' }}>
               {img.thumb}
               <span style={{ display: 'flex', flexDirection: 'column', lineHeight: '14px', minWidth: 0 }}>
                 <span style={{ fontSize: 10.8, fontWeight: 600 }}>{img.title}</span>
@@ -851,8 +999,8 @@ export const ClinicalNotesScreen: React.FC = () => {
                   <Clock3 size={9} />
                   {img.date}
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: img.dot }} />
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: img.dot, flexShrink: 0 }} />
                   {img.result}
                 </span>
               </span>

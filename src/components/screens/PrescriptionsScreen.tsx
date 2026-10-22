@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { PatientBanner, type BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockPrescriptionItems, mockMedicationTemplates, mockDrugAlternatives } from '../../mock/prescriptionsData';
-import type { PrescriptionItem } from '../../types';
+import { mockMedicationTemplates, mockDrugAlternatives } from '../../mock/prescriptionsData';
+import type { PrescriptionItem, PrescriptionRecord } from '../../types';
+import { prescriptionService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { usePatientChart } from '../../hooks/usePatientChart';
+import { displayDate } from '../../utils/clinicDate';
 import {
   Plus,
   Trash2,
@@ -45,41 +50,23 @@ const RX_TABS: BannerTab[] = [
   { id: 'patient-education', label: 'Patient Education', icon: HousePlus }
 ];
 
-const DIAGNOSES = [
-  { code: 'I10', name: 'Primary Hypertension', type: 'Chronic' },
-  { code: 'E11.9', name: 'Type 2 Diabetes Mellitus', type: 'Chronic' },
-  { code: 'J06.9', name: 'Acute Upper Respiratory Infection', type: 'Acute' }
-];
-
-const PREVIOUS_RX = [
-  { id: 'prx-1', date: '26 Sep 2026', type: 'Follow-up', meds: 5, color: 'var(--blue-primary)', filled: true },
-  { id: 'prx-2', date: '12 Sep 2026', type: 'Consultation', meds: 4, color: 'var(--orange-amber)', filled: false },
-  { id: 'prx-3', date: '05 Aug 2026', type: 'Follow-up', meds: 6, color: 'var(--green-emerald)', filled: true },
-  { id: 'prx-4', date: '10 Jun 2026', type: 'Consultation', meds: 4, color: 'var(--red-rose)', filled: true }
-];
-
-const AI_SUGGESTIONS = [
-  'Continue Amlodipine for BP control.',
-  'Metformin to be continued. Monitor HbA1c.',
-  'Consider Atorvastatin due to cardiovascular risk.',
-  'Add PPI (Pantoprazole) if gastric symptoms.',
-  'Paracetamol SOS for fever.'
-];
-
 const AI_TABS = ['Suggestions', 'Drug Interactions', 'Alternatives', 'Guidelines'] as const;
 type AiTab = (typeof AI_TABS)[number];
 
 const DOSE_OPTIONS = ['2.5 mg', '5 mg', '10 mg', '40 mg', '500 mg', '650 mg', '1 g', '5 ml', '10 ml'];
 const FREQ_OPTIONS: PrescriptionItem['frequency'][] = ['OD', 'BD', 'TDS', 'QID', 'HS', 'SOS'];
 const DURATION_OPTIONS = ['3 days', '5 days', '7 days', '14 days', '30 days', '60 days', '90 days', 'Continue'];
-const INSTRUCTION_OPTIONS: PrescriptionItem['instructions'][] = ['After food', 'Before food', 'At night', 'SOS (Fever)', 'With warm water'];
+const INSTRUCTION_OPTIONS: NonNullable<PrescriptionItem['instructions']>[] = ['After food', 'Before food', 'At night', 'SOS (Fever)', 'With warm water'];
 
-const VITALS = [
-  { label: 'BP', value: '140/90', unit: 'mmHg', alert: true },
-  { label: 'HR', value: '86', unit: 'bpm' },
-  { label: 'Temp', value: '98.4', unit: '°F' },
-  { label: 'SpO₂', value: '98', unit: '%' }
-];
+const DEFAULT_OPTIONS: PrescriptionRecord['options'] = {
+  printAdvice: true,
+  includeDiagnosis: true,
+  includeVitals: true,
+  includeNextVisit: true,
+  includeLabSummary: false
+};
+
+type Interactions = { key: string; warnings: string[]; checked: number };
 
 const genericName = (item: PrescriptionItem) => (item.brand ?? item.medicine).replace(/\s+\d[\d.]*\s*(mg|ml|g)\b.*$/i, '');
 
@@ -132,22 +119,134 @@ const smallCardTitle: React.CSSProperties = { fontSize: 13.5, fontWeight: 700, l
 
 export const PrescriptionsScreen: React.FC = () => {
   const { activePatient, showToast } = useApp();
-  const [items, setItems] = useState<PrescriptionItem[]>(mockPrescriptionItems);
-  const [instructions, setInstructions] = useState(
-    '•  Take medicines as advised.\n•  Maintain low salt diet.\n•  Monitor blood pressure and blood sugar regularly.\n•  Follow up after 2 weeks or earlier if symptoms persist.'
+  const uhid = activePatient?.uhid;
+  const { chart } = usePatientChart(uhid);
+  const [history, setHistory] = useState<{ uhid: string; list: PrescriptionRecord[] } | null>(null);
+  const { loading } = useLoader(
+    async () => (uhid ? { uhid, list: await prescriptionService.getPrescriptions(uhid) } : null),
+    setHistory,
+    [uhid]
   );
-  const [options, setOptions] = useState({
-    printAdvice: true,
-    includeDiagnosis: true,
-    includeVitals: true,
-    includeNextVisit: true,
-    includeLabSummary: false
-  });
+  const prescriptions = history && history.uhid === uhid ? history.list : [];
+  // Editor state: the prescription being written (`id` absent until first saved).
+  const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  const [items, setItems] = useState<PrescriptionItem[]>([]);
+  const [instructions, setInstructions] = useState('');
+  const [options, setOptions] = useState(DEFAULT_OPTIONS);
+  const [interactions, setInteractions] = useState<Interactions | null>(null);
   const [aiTab, setAiTab] = useState<AiTab>('Suggestions');
   const [showAddRow, setShowAddRow] = useState(false);
   const [newMedName, setNewMedName] = useState('');
   const [consultType, setConsultType] = useState('Follow-up');
-  const [selectedPrevRx, setSelectedPrevRx] = useState('prx-1');
+
+  /** Loads a stored prescription into the editor, or starts a blank one. */
+  const openPrescription = (rx: PrescriptionRecord | undefined) => {
+    setEditingId(rx?.id);
+    setItems(rx?.items ?? []);
+    setInstructions(rx?.additionalInstructions ?? '');
+    setOptions(rx?.options ?? DEFAULT_OPTIONS);
+    if (rx?.type) setConsultType(rx.type);
+  };
+
+  // Open the latest prescription whenever the patient (or their list) loads.
+  const latestKey = history ? `${history.uhid}:${history.list[0]?.id ?? 'none'}` : '';
+  useEffect(() => {
+    if (history && history.uhid === uhid) openPrescription(history.list[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestKey]);
+
+  // Re-check interactions whenever the medicine list changes.
+  const medicineNames = items.map(i => i.medicine).filter(Boolean);
+  const interactionKey = medicineNames.join('|');
+  useEffect(() => {
+    if (medicineNames.length < 2) return;
+    let current = true;
+    prescriptionService
+      .checkInteractions(medicineNames)
+      .then(r => current && setInteractions({ key: interactionKey, warnings: r.warnings, checked: r.checkedMedicinesCount }))
+      .catch(() => current && setInteractions(null));
+    return () => {
+      current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interactionKey]);
+  const interactionResult: Interactions | null =
+    medicineNames.length < 2
+      ? { key: interactionKey, warnings: [], checked: medicineNames.length }
+      : interactions?.key === interactionKey
+        ? interactions
+        : null;
+
+  const diagnoses = chart?.visits[0]?.icd10 ?? [];
+  const activeMeds = chart?.medications.filter(m => m.status === 'Active') ?? [];
+  const v = activePatient?.vitals;
+  const vitalTiles = [
+    { label: 'BP', value: v ? `${v.bpSystolic}/${v.bpDiastolic}` : '—', unit: 'mmHg', alert: !!v && (v.bpSystolic >= 140 || v.bpDiastolic >= 90) },
+    { label: 'HR', value: v?.heartRate !== undefined ? String(v.heartRate) : '—', unit: 'bpm', alert: false },
+    { label: 'Temp', value: v?.temperature !== undefined ? String(v.temperature) : '—', unit: '°F', alert: false },
+    { label: 'SpO₂', value: v?.spo2 !== undefined ? String(v.spo2) : '—', unit: '%', alert: false }
+  ];
+
+  const savePrescription = async () => {
+    if (!activePatient) return;
+    const incomplete = items.filter(i => !i.dose || !i.duration);
+    if (incomplete.length) {
+      showToast(`Set dose and duration for ${incomplete.map(i => i.medicine).join(', ')}`, 'warning');
+      return;
+    }
+    const current = prescriptions.find(p => p.id === editingId);
+    try {
+      const saved = await prescriptionService.savePrescription({
+        id: editingId,
+        uhid: activePatient.uhid,
+        date: current?.date ?? displayDate(),
+        doctor: current?.doctor ?? '',
+        type: consultType,
+        // Item ids are local; the server assigns its own.
+        items: items.map(({ id: _id, ...rest }) => rest) as PrescriptionItem[],
+        additionalInstructions: instructions,
+        options
+      });
+      setHistory(prev =>
+        prev && prev.uhid === saved.uhid
+          ? { ...prev, list: editingId ? prev.list.map(p => (p.id === saved.id ? saved : p)) : [saved, ...prev.list] }
+          : prev
+      );
+      setEditingId(saved.id);
+      setItems(saved.items);
+      showToast('Prescription saved to the patient record');
+    } catch (err) {
+      showToast(`Prescription not saved: ${errorMessage(err)}`, 'error');
+    }
+  };
+
+  /** Copies the patient's active medications into this prescription (skipping ones already listed). */
+  const applyCurrentMedications = () => {
+    const present = new Set(items.map(i => i.medicine.toLowerCase()));
+    const toAdd = activeMeds.filter(m => !present.has(m.medicine.toLowerCase()));
+    if (!toAdd.length) {
+      showToast('All current medications are already on this prescription', 'info');
+      return;
+    }
+    setItems(prev => [
+      ...prev,
+      ...toAdd.map(
+        (m): PrescriptionItem => ({
+          id: `new-${m.id}`,
+          medicine: m.medicine,
+          brand: m.brand,
+          dose: m.dose,
+          frequency: m.frequency,
+          duration: m.duration,
+          route: m.route,
+          instructions: INSTRUCTION_OPTIONS.find(o => o === m.instructions),
+          indication: m.indication,
+          status: 'Active'
+        })
+      )
+    ]);
+    showToast(`Added ${toAdd.length} current medication${toAdd.length === 1 ? '' : 's'}`);
+  };
 
   const handleDeleteItem = (id: string) => {
     setItems(items.filter(i => i.id !== id));
@@ -160,14 +259,14 @@ export const PrescriptionsScreen: React.FC = () => {
 
   const handleAddItem = () => {
     if (!newMedName) return;
+    // Dose and duration stay blank until the prescriber picks them.
     const newItem: PrescriptionItem = {
-      id: `rx-${Date.now()}`,
+      id: `new-${Date.now()}`,
       medicine: newMedName,
-      dose: '500 mg',
-      frequency: 'BD',
-      duration: '14 days',
+      dose: '',
+      frequency: 'OD',
+      duration: '',
       route: 'Oral',
-      instructions: 'After food',
       status: 'Active'
     };
     setItems([...items, newItem]);
@@ -177,7 +276,7 @@ export const PrescriptionsScreen: React.FC = () => {
   };
 
   const handleSendWhatsApp = () => {
-    showToast(`Digital Prescription sent via WhatsApp to ${activePatient?.name || 'patient'} (${activePatient?.phone ?? '+91 98765 43210'})!`, 'success');
+    showToast('WhatsApp delivery is not connected yet; print or share the PDF instead.', 'info');
   };
 
   const optionLabels: { key: keyof typeof options; label: string }[] = [
@@ -198,9 +297,9 @@ export const PrescriptionsScreen: React.FC = () => {
 
       <PatientBanner
         metrics={[
-          { label: 'Last Visit', value: activePatient?.lastVisit ?? '12 Sep 2026' },
-          { label: "Today's Visit", value: '26 Sep 2026', sub: '09:15 AM' },
-          { label: 'Department', value: activePatient?.department ?? 'General Medicine' }
+          { label: 'Last Visit', value: activePatient?.lastVisit || '—' },
+          { label: "Today's Visit", value: displayDate() },
+          { label: 'Department', value: activePatient?.department || '—' }
         ]}
         action={null}
         extra={
@@ -241,7 +340,8 @@ export const PrescriptionsScreen: React.FC = () => {
               </button>
             </div>
             <div style={{ marginTop: 6 }}>
-              {DIAGNOSES.map((d, i) => (
+              {!diagnoses.length && <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)', padding: '6px 4px 10px' }}>{chart ? 'No diagnoses recorded in the latest note.' : 'Loading…'}</p>}
+              {diagnoses.map((d, i) => (
                 <div
                   key={d.code}
                   style={{
@@ -251,12 +351,12 @@ export const PrescriptionsScreen: React.FC = () => {
                     height: 42,
                     padding: '0 4px',
                     borderTop: '1px solid var(--border-subtle)',
-                    borderBottom: i === DIAGNOSES.length - 1 ? 'none' : undefined,
+                    borderBottom: i === diagnoses.length - 1 ? 'none' : undefined,
                     fontSize: 11.5
                   }}
                 >
                   <span style={{ fontWeight: 700, minWidth: 30 }}>{d.code}</span>
-                  <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                  <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.description}</span>
                   <span className={`status-pill ${d.type === 'Chronic' ? 'red' : 'green'}`} style={{ height: 21, fontSize: 'var(--fs-xs)' }}>{d.type}</span>
                 </div>
               ))}
@@ -267,20 +367,21 @@ export const PrescriptionsScreen: React.FC = () => {
           <div className="medios-card" style={{ padding: '10px 10px 6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={smallCardTitle}>Previous Prescriptions</span>
-              <button className="text-link" style={{ fontSize: 'var(--fs-sm)', fontWeight: 400 }} onClick={() => showToast('Opening prescription history', 'info')}>
-                View All
+              <button className="text-link" style={{ fontSize: 'var(--fs-sm)', fontWeight: 400 }} onClick={() => openPrescription(undefined)}>
+                New Prescription
               </button>
             </div>
             <div style={{ marginTop: 8 }}>
-              {PREVIOUS_RX.map(rx => {
-                const selected = selectedPrevRx === rx.id;
+              {!prescriptions.length && (
+                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)', padding: '4px 4px 8px' }}>{loading ? 'Loading…' : 'No prescriptions yet. The one you write here will be the first.'}</p>
+              )}
+              {prescriptions.map((rx, i) => {
+                const selected = editingId === rx.id;
+                const color = i === 0 ? 'var(--blue-primary)' : 'var(--green-emerald)';
                 return (
                   <div
                     key={rx.id}
-                    onClick={() => {
-                      setSelectedPrevRx(rx.id);
-                      showToast(`${rx.type} prescription of ${rx.date} (${rx.meds} medications)`, 'info');
-                    }}
+                    onClick={() => openPrescription(rx)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -294,17 +395,17 @@ export const PrescriptionsScreen: React.FC = () => {
                       borderBottom: selected ? '1px solid transparent' : '1px solid var(--border-subtle)'
                     }}
                   >
-                    {rx.filled ? (
-                      <CircleCheck size={14} fill={rx.color} color="#ffffff" strokeWidth={2.4} style={{ flexShrink: 0 }} />
+                    {selected ? (
+                      <CircleCheck size={14} fill={color} color="#ffffff" strokeWidth={2.4} style={{ flexShrink: 0 }} />
                     ) : (
-                      <Circle size={12} color={rx.color} strokeWidth={3.4} style={{ flexShrink: 0, margin: 1 }} />
+                      <Circle size={12} color={color} strokeWidth={3.4} style={{ flexShrink: 0, margin: 1 }} />
                     )}
                     <div style={{ lineHeight: 1.4, fontSize: 'var(--fs-sm)' }}>
                       <div style={{ display: 'flex', gap: 14 }}>
                         <span style={{ fontWeight: 600, minWidth: 74 }}>{rx.date}</span>
-                        <span>{rx.type}</span>
+                        <span>{rx.type || 'Prescription'}</span>
                       </div>
-                      <div style={{ color: 'var(--text-secondary)' }}>{rx.meds} medications</div>
+                      <div style={{ color: 'var(--text-secondary)' }}>{rx.items.length} medication{rx.items.length === 1 ? '' : 's'}</div>
                     </div>
                   </div>
                 );
@@ -410,7 +511,7 @@ export const PrescriptionsScreen: React.FC = () => {
                     <CellSelect label="Duration" value={item.duration} options={DURATION_OPTIONS} onChange={v => updateItem(item.id, { duration: v })} />
                   </td>
                   <td style={td}>
-                    <CellSelect label="Instructions" value={item.instructions} options={INSTRUCTION_OPTIONS} onChange={v => updateItem(item.id, { instructions: v as PrescriptionItem['instructions'] })} />
+                    <CellSelect label="Instructions" value={item.instructions ?? ''} options={INSTRUCTION_OPTIONS} onChange={v => updateItem(item.id, { instructions: (v || undefined) as PrescriptionItem['instructions'] })} />
                   </td>
                   <td style={{ ...td, textAlign: 'right', paddingRight: 10 }}>
                     <button aria-label={`Remove ${item.medicine}`} onClick={() => handleDeleteItem(item.id)} style={{ color: 'var(--red-rose)', display: 'inline-flex' }}>
@@ -470,7 +571,16 @@ export const PrescriptionsScreen: React.FC = () => {
             <button
               className="btn-secondary"
               style={{ flex: '1 1 auto', gap: 6, padding: '0 10px', fontSize: 11.5, color: 'var(--orange-dark)', background: 'var(--orange-light)', borderColor: 'transparent' }}
-              onClick={() => showToast('Checked: No dangerous drug interactions found')}
+              onClick={() =>
+                showToast(
+                  !interactionResult
+                    ? 'Interaction check unavailable'
+                    : interactionResult.warnings.length
+                      ? `${interactionResult.warnings.length} possible interaction(s) — see the assistant panel`
+                      : 'No interactions found in the built-in list',
+                  interactionResult?.warnings.length ? 'warning' : 'info'
+                )
+              }
             >
               <Zap size={15} color="var(--orange-amber)" />
               <span>Check Interactions</span>
@@ -516,7 +626,7 @@ export const PrescriptionsScreen: React.FC = () => {
               <Eye size={15} />
               <span>Preview</span>
             </button>
-            <button className="btn-outline-blue" style={barBtn} onClick={() => showToast('Sent to pharmacy queue')}>
+            <button className="btn-outline-blue" style={barBtn} onClick={() => showToast('Pharmacy integration is not connected yet', 'info')}>
               <Send size={15} />
               <span>Send to Pharmacy</span>
             </button>
@@ -524,7 +634,7 @@ export const PrescriptionsScreen: React.FC = () => {
               <WhatsAppMark size={16} />
               <span>Send to Patient (WhatsApp)</span>
             </button>
-            <button className="btn-primary" style={{ ...barBtn, marginLeft: 'auto' }} onClick={() => showToast('Prescription saved into patient records!')}>
+            <button className="btn-primary" style={{ ...barBtn, marginLeft: 'auto' }} onClick={savePrescription} disabled={!activePatient}>
               <Save size={15} />
               <span>Save Prescription</span>
             </button>
@@ -560,20 +670,23 @@ export const PrescriptionsScreen: React.FC = () => {
             {aiTab === 'Suggestions' && (
               <div className="ai-section" style={{ padding: '8px 10px 10px' }}>
                 <div className="ai-section-title" style={{ fontSize: 11.5, marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700 }}>AI</span>
-                  <span>Suggestions for this Patient</span>
+                  <span>Current medications to review</span>
                 </div>
                 <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 5, fontSize: 'var(--fs-sm)' }}>
-                  {AI_SUGGESTIONS.map((s, i) => (
-                    <li key={s} style={{ display: 'flex', gap: 10 }}>
+                  {!activeMeds.length && <li style={{ color: 'var(--text-muted)' }}>{chart ? 'No active medications on record.' : 'Loading…'}</li>}
+                  {activeMeds.map((m, i) => (
+                    <li key={m.id} style={{ display: 'flex', gap: 10 }}>
                       <span style={{ fontWeight: 600, minWidth: 12 }}>{i + 1}.</span>
-                      <span>{s}</span>
+                      <span>
+                        {m.medicine} {m.dose} {m.frequency}
+                        {m.indication ? ` — ${m.indication}` : ''}
+                      </span>
                     </li>
                   ))}
                 </ol>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
-                  <button className="btn-primary" style={{ height: 32, fontSize: 'var(--fs-sm)', padding: '0 24px' }} onClick={() => showToast('AI Suggestions applied to prescription items')}>
-                    Apply to Prescription
+                  <button className="btn-primary" style={{ height: 32, fontSize: 'var(--fs-sm)', padding: '0 24px' }} onClick={applyCurrentMedications} disabled={!activeMeds.length}>
+                    Add to Prescription
                   </button>
                 </div>
               </div>
@@ -582,17 +695,25 @@ export const PrescriptionsScreen: React.FC = () => {
             {aiTab === 'Drug Interactions' && (
               <div className="ai-section" style={{ padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--fs-sm)' }}>
                 <div className="ai-section-title" style={{ fontSize: 11.5, marginBottom: 0 }}>Interaction Review ({items.length} medicines)</div>
-                <p>Amlodipine + Metformin combination is well-tolerated. No cytochrome P450 contraindications.</p>
-                <div style={{ background: 'var(--orange-light)', border: '1px solid var(--orange-border)', padding: '7px 10px', borderRadius: 6, color: 'var(--orange-dark)' }}>
-                  <strong>Food Instruction:</strong> Metformin should be taken with or immediately after meals to reduce gastrointestinal upset.
-                </div>
+{!interactionResult ? (
+                  <span style={{ color: 'var(--text-muted)' }}>Checking…</span>
+                ) : interactionResult.warnings.length ? (
+                  interactionResult.warnings.map(w => (
+                    <div key={w} style={{ background: 'var(--orange-light)', border: '1px solid var(--orange-border)', padding: '7px 10px', borderRadius: 6, color: 'var(--orange-dark)' }}>
+                      {w}
+                    </div>
+                  ))
+                ) : (
+                  <p>No interactions found among {interactionResult.checked} medicine{interactionResult.checked === 1 ? '' : 's'} in the built-in interaction list.</p>
+                )}
+                <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>The built-in list covers a few common drugs only; confirm with a full drug reference.</p>
               </div>
             )}
 
             {aiTab === 'Alternatives' && (
               <div className="ai-section" style={{ padding: '8px 10px 10px', fontSize: 'var(--fs-sm)' }}>
                 <div className="ai-section-title" style={{ fontSize: 11.5 }}>Cost-Effective Generic Options</div>
-                <p>Generic equivalents are available for all {items.length} prescribed medicines. Switching can reduce monthly cost by ~38%.</p>
+                <p>Common generic and brand equivalents are listed under Suggested Alternatives below.</p>
               </div>
             )}
 
@@ -603,7 +724,7 @@ export const PrescriptionsScreen: React.FC = () => {
                   <strong>Amlodipine:</strong> Initial 5 mg daily. Max 10 mg. No dose adjustment in renal impairment.
                 </div>
                 <div>
-                  <strong>Metformin:</strong> Safe when eGFR &gt; 45 mL/min (Patient eGFR: 88 mL/min).
+                  <strong>Metformin:</strong> Use when eGFR &gt; 45 mL/min; check the latest renal function first.
                 </div>
               </div>
             )}
@@ -614,10 +735,17 @@ export const PrescriptionsScreen: React.FC = () => {
                 <AiSparkle size={13} />
                 <span>Drug Interaction Check</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36, padding: '0 10px', borderRadius: 6, background: 'var(--green-light)', border: '1px solid var(--green-border)', fontSize: 'var(--fs-sm)' }}>
-                <CircleCheck size={16} fill="var(--green-emerald)" color="#ffffff" strokeWidth={2.4} />
-                <span>No major drug interactions found.</span>
-              </div>
+              {interactionResult?.warnings.length ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 36, padding: '6px 10px', borderRadius: 6, background: 'var(--orange-light)', border: '1px solid var(--orange-border)', fontSize: 'var(--fs-sm)', color: 'var(--orange-dark)' }}>
+                  <Zap size={16} color="var(--orange-amber)" />
+                  <span>{interactionResult.warnings.length} possible interaction{interactionResult.warnings.length === 1 ? '' : 's'} — see Drug Interactions.</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36, padding: '0 10px', borderRadius: 6, background: 'var(--green-light)', border: '1px solid var(--green-border)', fontSize: 'var(--fs-sm)' }}>
+                  <CircleCheck size={16} fill="var(--green-emerald)" color="#ffffff" strokeWidth={2.4} />
+                  <span>{interactionResult ? 'No interactions in the built-in list.' : 'Checking…'}</span>
+                </div>
+              )}
             </div>
 
             {/* Suggested Alternatives */}
@@ -661,7 +789,7 @@ export const PrescriptionsScreen: React.FC = () => {
               </button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
-              {VITALS.map(v => (
+              {vitalTiles.map(v => (
                 <div
                   key={v.label}
                   style={{

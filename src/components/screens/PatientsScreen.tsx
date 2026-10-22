@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { Patient } from '../../types';
 import { patientService } from '../../services';
-import { mockImagingStudies } from '../../mock/imagingData';
-import { CHEST_XRAY_THUMB, USG_ABDOMEN_THUMB } from '../../mock/imagingThumbsData';
+import { errorMessage } from '../../services/api';
+import { usePatientChart, labHighlightsOf } from '../../hooks/usePatientChart';
+import { displayDate } from '../../utils/clinicDate';
 import { StudyThumb } from '../common/StudyThumb';
 import { ConditionBadge } from '../common/ConditionBadge';
 import { CONDITION_TONES, conditionStyle } from '../common/conditionStyles';
@@ -56,14 +57,11 @@ type PageTab = (typeof PAGE_TABS)[number];
 const DRAWER_TABS = ['Overview', 'Timeline', 'Consultations', 'Lab Reports', 'Imaging'] as const;
 type DrawerTab = (typeof DRAWER_TABS)[number];
 
-const MY_DOCTOR = 'Dr. Shajin';
-/** Registered patients in the hospital registry beyond the locally cached demo records. */
-const REGISTRY_EXTRA = 330;
-
-// Demo-only display details that the shared patient records don't carry.
-const IP_NUMBERS: Record<string, string> = { 'p-1': 'IP-1256', 'p-2': 'IP-1257', 'p-3': 'IP-1258', 'p-5': 'IP-1259', 'p-7': 'IP-1260' };
-const VISIT_OVERRIDE: Record<string, string> = { 'p-1': '26 Sep 2026 09:15 AM' };
-const ABHA_LINKED = new Set(['p-1', 'p-2', 'p-7']);
+// Demo-only display details for the seeded patients (by UHID) that the patient
+// records don't carry yet; other patients show none of them.
+const IP_NUMBERS: Record<string, string> = { MHK202500321: 'IP-1256', MHK202500322: 'IP-1257', MHK202500323: 'IP-1258', MHK202500325: 'IP-1259', MHK202500327: 'IP-1260' };
+const VISIT_OVERRIDE: Record<string, string> = { MHK202500321: '26 Sep 2026 09:15 AM' };
+const ABHA_LINKED = new Set(['MHK202500321', 'MHK202500322', 'MHK202500327']);
 
 const riskOf = (p: Patient): 'High' | 'Medium' | 'Low' => {
   if (p.status === 'Admitted' || p.visitType === 'IPD') return 'High';
@@ -166,24 +164,6 @@ const thStyle: React.CSSProperties = { padding: '13px 8px' };
 const tdStyle: React.CSSProperties = { padding: '5px 8px' };
 const cellLine: React.CSSProperties = { fontSize: 12.5, lineHeight: '19px', color: 'var(--text-primary)', whiteSpace: 'nowrap' };
 
-const LAB_SUMMARY = [
-  { name: 'HbA1c', value: '7.8 %', color: 'var(--red-dark)', icon: 'var(--blue-text)', done: false },
-  { name: 'Hemoglobin', value: '10.4 g/dL ↓', color: 'var(--red-dark)', icon: 'var(--orange-amber)', done: false },
-  { name: 'Creatinine', value: '1.0 mg/dL', color: 'var(--text-primary)', icon: 'var(--green-emerald)', done: true },
-  { name: 'WBC', value: '10,900 /µL', color: 'var(--orange-dark)', icon: 'var(--orange-amber)', done: false }
-];
-
-const MEDICATIONS = [
-  { name: 'Amlodipine 5 mg (OD)', dose: '1-0-0' },
-  { name: 'Metformin 500 mg (BD)', dose: '1-0-1' },
-  { name: 'Atorvastatin 10 mg (OD)', dose: '0-1-0' }
-];
-
-const IMAGING = [
-  { id: mockImagingStudies[0]?.id, title: 'Chest X-Ray', date: '12 Sep 2026', result: 'Normal', color: 'var(--green-emerald)', thumb: CHEST_XRAY_THUMB },
-  { id: mockImagingStudies[1]?.id, title: 'USG Abdomen', date: '21 Mar 2026', result: 'Fatty liver (mild)', color: 'var(--orange-amber)', thumb: USG_ABDOMEN_THUMB }
-];
-
 const miniCard: React.CSSProperties = {
   border: '1px solid var(--border-color)',
   borderRadius: 'var(--radius-md)',
@@ -193,12 +173,12 @@ const miniCard: React.CSSProperties = {
 const sectionTitle: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 };
 
 export const PatientsScreen: React.FC = () => {
-  const { activePatient, setActivePatient, setActiveScreen, showToast } = useApp();
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const { activePatient, setActivePatient, setActiveScreen, showToast, user, patients, refreshPatients } = useApp();
+  const myName = user?.name ?? '';
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<PageTab>('All Patients');
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('p-1');
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set(['p-1']));
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(activePatient?.id ?? '');
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [drawerSubtab, setDrawerSubtab] = useState<DrawerTab>('Overview');
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -218,25 +198,9 @@ export const PatientsScreen: React.FC = () => {
   const [newAge, setNewAge] = useState('');
   const [newGender, setNewGender] = useState<'Male' | 'Female' | 'Other'>('Male');
   const [newPhone, setNewPhone] = useState('');
-  const [newBloodGroup, setNewBloodGroup] = useState('B+');
+  const [newBloodGroup, setNewBloodGroup] = useState('');
   const [newDepartment, setNewDepartment] = useState('General Medicine');
   const [newConditions, setNewConditions] = useState('');
-
-  useEffect(() => {
-    patientService.getPatients().then((list) => {
-      setPatients(list);
-      if (list.length === 0) return;
-      const current = activePatient && list.find((p) => p.id === activePatient.id);
-      if (current) {
-        setSelectedPatientId(current.id);
-      } else {
-        setActivePatient(list[0]);
-        setSelectedPatientId(list[0].id);
-      }
-    });
-    // Load once on mount; later selections are driven by handleSelectPatient.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Close any open popover menu on outside click.
   useEffect(() => {
@@ -251,7 +215,14 @@ export const PatientsScreen: React.FC = () => {
     setOpenMenu((cur) => (cur === id ? null : id));
   };
 
-  const selectedPatient = patients.find((p) => p.id === selectedPatientId) || patients[0];
+  const selectedPatient =
+    patients.find((p) => p.id === selectedPatientId) || patients.find((p) => p.uhid === activePatient?.uhid) || patients[0];
+
+  // Records for the profile panel; null while the selected patient's chart loads.
+  const { chart: chartView } = usePatientChart(selectedPatient?.uhid);
+  const activeMeds = chartView?.medications.filter((m) => m.status === 'Active') ?? [];
+  const labHighlights = labHighlightsOf(chartView?.labs ?? []);
+  const studies = chartView?.studies ?? [];
 
   const handleSelectPatient = (p: Patient) => {
     setSelectedPatientId(p.id);
@@ -265,30 +236,36 @@ export const PatientsScreen: React.FC = () => {
 
   const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newPhone) return;
+    const age = Number.parseInt(newAge, 10);
+    if (!newName.trim() || !newPhone.trim()) return;
+    if (!Number.isFinite(age) || age < 0 || age > 130) {
+      showToast('Enter the patient\'s age in years.', 'warning');
+      return;
+    }
 
-    const conditionArr = newConditions ? newConditions.split(',').map((c) => c.trim()) : ['Hypertension'];
-    const added = await patientService.addPatient({
-      uhid: `MHK202500${Math.floor(100 + Math.random() * 900)}`,
-      name: newName,
-      age: parseInt(newAge) || 30,
-      gender: newGender,
-      phone: newPhone,
-      bloodGroup: newBloodGroup,
-      visitType: 'OPD',
-      status: 'Today',
-      department: newDepartment,
-      lastVisit: 'Today',
-      doctor: MY_DOCTOR,
-      conditions: conditionArr,
-      allergies: []
-    });
-
-    const refreshed = await patientService.getPatients();
-    setPatients(refreshed);
-    handleSelectPatient(added);
-    setIsAddPatientOpen(false);
-    showToast(`Patient ${added.name} successfully registered!`);
+    try {
+      // The server assigns the UHID.
+      const added = await patientService.addPatient({
+        name: newName.trim(),
+        age,
+        gender: newGender,
+        phone: newPhone.trim(),
+        bloodGroup: newBloodGroup,
+        visitType: 'OPD',
+        status: 'Today',
+        department: newDepartment,
+        lastVisit: displayDate(),
+        doctor: myName,
+        conditions: newConditions.split(',').map((c) => c.trim()).filter(Boolean),
+        allergies: []
+      });
+      await refreshPatients();
+      handleSelectPatient(added);
+      setIsAddPatientOpen(false);
+      showToast(`Patient ${added.name} registered (UHID ${added.uhid})`);
+    } catch (err) {
+      showToast(`Could not register patient: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const resetFilters = () => {
@@ -306,13 +283,13 @@ export const PatientsScreen: React.FC = () => {
   const q = searchQuery.trim().toLowerCase();
   const filteredPatients = patients
     .filter((p) => {
-      if (q && !(p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q) || p.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')) || (IP_NUMBERS[p.id] || '').toLowerCase().includes(q))) return false;
+      if (q && !(p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q) || p.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')) || (IP_NUMBERS[p.uhid] || '').toLowerCase().includes(q))) return false;
       if (activeTab === "Today's Patients" && p.status !== 'Today') return false;
       if (activeTab === 'Inpatients' && p.visitType !== 'IPD') return false;
       if (activeTab === 'Outpatients' && p.visitType !== 'OPD') return false;
       if (activeTab === 'Follow-ups' && p.status !== 'Follow-up') return false;
       if (activeTab === 'Recently Discharged' && p.status !== 'Discharged') return false;
-      if (activeTab === 'My Patients' && p.doctor !== MY_DOCTOR) return false;
+      if (activeTab === 'My Patients' && p.doctor !== myName) return false;
       if (department !== 'All' && p.department !== department) return false;
       if (statusFilter !== 'All' && p.status !== statusFilter) return false;
       if (doctorFilter.startsWith('Dr.') && p.doctor !== doctorFilter) return false;
@@ -321,22 +298,15 @@ export const PatientsScreen: React.FC = () => {
     })
     .sort((a, b) => (sortByStatus ? a.status.localeCompare(b.status) : 0));
 
-  const isUnfiltered =
-    !q && activeTab === 'All Patients' && department === 'All' && statusFilter === 'All' && !doctorFilter.startsWith('Dr.') && riskFilter === 'All';
-  const totalCount = isUnfiltered ? REGISTRY_EXTRA + patients.length : filteredPatients.length;
+  const totalCount = filteredPatients.length;
   const pageCount = Math.max(1, Math.ceil(totalCount / rowsPerPage));
-  const localPages = Math.max(1, Math.ceil(filteredPatients.length / rowsPerPage));
-  const currentPage = Math.min(page, localPages);
+  const currentPage = Math.min(page, pageCount);
   const pageRows = filteredPatients.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
   const firstRow = pageRows.length ? (currentPage - 1) * rowsPerPage + 1 : 0;
   const lastRow = (currentPage - 1) * rowsPerPage + pageRows.length;
 
   const goToPage = (n: number) => {
     if (n < 1 || n > pageCount) return;
-    if (n > localPages) {
-      showToast(`Loading page ${n} of ${pageCount} from the hospital registry…`, 'info');
-      return;
-    }
     setPage(n);
   };
 
@@ -374,19 +344,21 @@ export const PatientsScreen: React.FC = () => {
   const summaryText =
     selectedPatient?.aiSummary?.summary ||
     `${selectedPatient?.age}-year-old ${selectedPatient?.gender.toLowerCase()} under ${selectedPatient?.department}. Last visit ${selectedPatient?.lastVisit}. No recent hospital admissions.`;
-  const keyPoints = selectedPatient?.aiSummary?.keyPoints || [
-    `Known: ${selectedPatient?.conditions.join(', ') || 'no chronic conditions'}`,
-    'Vitals stable at last visit',
-    'No pending investigations'
-  ];
+  const keyPoints = selectedPatient?.aiSummary?.keyPoints?.length
+    ? selectedPatient.aiSummary.keyPoints
+    : [`Known: ${selectedPatient?.conditions.join(', ') || 'no chronic conditions recorded'}`];
+  // Vitals from the patient record; a missing value shows as "—", never a typical reading.
   const v = selectedPatient?.vitals;
+  const show = (n?: number) => (n === undefined || n === null ? '—' : String(n));
   const vitals = [
-    { label: 'BP', value: v ? `${v.bpSystolic}/${v.bpDiastolic}` : '140/90', unit: 'mmHg', alert: v ? v.bpSystolic >= 140 : true },
-    { label: 'HR', value: String(v?.heartRate ?? 86), unit: 'bpm', alert: false },
-    { label: 'Temp', value: String(v?.temperature ?? 98.4), unit: '°F', alert: false },
-    { label: 'SpO₂', value: String(v?.spo2 ?? 98), unit: '%', alert: false }
+    { label: 'BP', value: v?.bpSystolic ? `${v.bpSystolic}/${v.bpDiastolic}` : '—', unit: 'mmHg', alert: (v?.bpSystolic ?? 0) >= 140 || (v?.bpDiastolic ?? 0) >= 90 },
+    { label: 'HR', value: show(v?.heartRate), unit: 'bpm', alert: (v?.heartRate ?? 0) > 100 },
+    { label: 'Temp', value: show(v?.temperature), unit: '°F', alert: (v?.temperature ?? 0) > 100 },
+    { label: 'SpO₂', value: show(v?.spo2), unit: '%', alert: v?.spo2 !== undefined && v.spo2 < 94 }
   ];
+  const vitalsDate = v?.recordedAt?.split(',')[0] ?? 'Not recorded';
 
+  const emptyLine: React.CSSProperties = { fontSize: 'var(--fs-sm)', color: 'var(--text-muted)', padding: '4px 2px' };
   const recordCard: React.CSSProperties = { background: 'var(--bg-subtle)', padding: '9px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', fontSize: 'var(--fs-sm)' };
 
   return (
@@ -531,7 +503,7 @@ export const PatientsScreen: React.FC = () => {
               )}
               {pageRows.map((pat, index) => {
                 const isSelected = selectedPatient?.id === pat.id;
-                const visit = splitVisit(VISIT_OVERRIDE[pat.id] || pat.lastVisit);
+                const visit = splitVisit(VISIT_OVERRIDE[pat.uhid] || pat.lastVisit);
                 return (
                   <tr key={pat.id} className={isSelected ? 'selected' : ''} onClick={() => handleSelectPatient(pat)} style={{ cursor: 'pointer', height: 59 }}>
                     <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
@@ -544,7 +516,7 @@ export const PatientsScreen: React.FC = () => {
                         <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, lineHeight: '16px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pat.name}</span>
-                            {ABHA_LINKED.has(pat.id) && (
+                            {ABHA_LINKED.has(pat.uhid) && (
                               <span title="ABHA ID linked" style={{ display: 'inline-flex' }}>
                                 <BadgeCheck size={11} color="var(--blue-text)" />
                               </span>
@@ -575,7 +547,7 @@ export const PatientsScreen: React.FC = () => {
                     </td>
                     <td style={tdStyle}>
                       <div style={{ ...cellLine, fontSize: 'var(--fs-sm)' }}>{pat.uhid}</div>
-                      {IP_NUMBERS[pat.id] && <div style={{ ...cellLine, fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{IP_NUMBERS[pat.id]}</div>}
+                      {IP_NUMBERS[pat.uhid] && <div style={{ ...cellLine, fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{IP_NUMBERS[pat.uhid]}</div>}
                     </td>
                     <td style={tdStyle}>
                       <span className={`status-pill ${pat.visitType === 'OPD' ? 'green' : 'red'}`} style={{ minWidth: 50, height: 26, fontSize: 'var(--fs-sm)', fontWeight: 500 }}>
@@ -777,7 +749,7 @@ export const PatientsScreen: React.FC = () => {
                       <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>
                         Vitals <span style={{ fontSize: 'var(--fs-2xs)', fontWeight: 400 }}>(Last Visit)</span>
                       </span>
-                      <span style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)' }}>12 Sep 2026</span>
+                      <span style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)' }}>{vitalsDate}</span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                       {vitals.map((vt) => (
@@ -803,13 +775,14 @@ export const PatientsScreen: React.FC = () => {
                     </button>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {MEDICATIONS.map((m) => (
-                      <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: 12, height: 26, padding: '0 12px 0 8px', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                    {activeMeds.slice(0, 3).map((m) => (
+                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, height: 26, padding: '0 12px 0 8px', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
                         <CircleCheck size={15} color="#ffffff" fill="var(--green-emerald)" strokeWidth={2.4} />
-                        <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-primary)' }}>{m.name}</span>
-                        <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{m.dose}</span>
+                        <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-primary)' }}>{m.medicine}</span>
+                        <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{m.frequency}</span>
                       </div>
                     ))}
+                    {!activeMeds.length && <div style={emptyLine}>{chartView ? 'No active medications on record.' : 'Loading…'}</div>}
                   </div>
                 </div>
 
@@ -825,18 +798,26 @@ export const PatientsScreen: React.FC = () => {
                         View All
                       </button>
                     </div>
-                    {LAB_SUMMARY.map((l, i) => (
-                      <div key={l.name} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 38, borderBottom: i < LAB_SUMMARY.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                        {l.done ? (
-                          <CircleCheck size={15} color="#ffffff" fill={l.icon} strokeWidth={2.4} style={{ flexShrink: 0 }} />
-                        ) : (
-                          <CircleCheck size={15} color={l.icon} strokeWidth={2} style={{ flexShrink: 0 }} />
-                        )}
-                        <span style={{ width: 74, marginLeft: 2, fontSize: 12.5, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{l.name}</span>
-                        <span style={{ flex: 1, fontSize: 12.5, fontWeight: 500, color: l.color, whiteSpace: 'nowrap' }}>{l.value}</span>
-                        <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>12 Sep 2026</span>
-                      </div>
-                    ))}
+                    {labHighlights.map((l, i) => {
+                      const normal = l.status === 'Normal';
+                      const tone = normal ? 'var(--green-emerald)' : l.status === 'Abnormal' ? 'var(--orange-amber)' : 'var(--red-dark)';
+                      return (
+                        <div key={l.name} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 38, borderBottom: i < labHighlights.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                          {normal ? (
+                            <CircleCheck size={15} color="#ffffff" fill={tone} strokeWidth={2.4} style={{ flexShrink: 0 }} />
+                          ) : (
+                            <CircleCheck size={15} color={tone} strokeWidth={2} style={{ flexShrink: 0 }} />
+                          )}
+                          <span style={{ width: 74, marginLeft: 2, fontSize: 12.5, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={l.name}>{l.name}</span>
+                          <span style={{ flex: 1, fontSize: 12.5, fontWeight: 500, color: normal ? 'var(--text-primary)' : tone, whiteSpace: 'nowrap' }}>
+                            {l.result} {l.unit}
+                            {l.status === 'High' ? ' ↑' : l.status === 'Low' ? ' ↓' : ''}
+                          </span>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>{l.date}</span>
+                        </div>
+                      );
+                    })}
+                    {!labHighlights.length && <div style={{ ...emptyLine, padding: '8px 0 10px' }}>{chartView ? 'No lab results on record.' : 'Loading…'}</div>}
                   </div>
 
                   <div style={{ ...miniCard, padding: '8px 10px' }}>
@@ -850,22 +831,23 @@ export const PatientsScreen: React.FC = () => {
                       </button>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {IMAGING.map((im) => (
-                        <button key={im.id ?? im.title} onClick={() => openFor(selectedPatient, 'imaging')} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
-                          <StudyThumb src={im.thumb} alt={im.title} width={56} height={56} />
+                      {studies.slice(0, 2).map((im) => (
+                        <button key={im.id} onClick={() => openFor(selectedPatient, 'imaging')} style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+                          {im.thumbnailUrl && <StudyThumb src={im.thumbnailUrl} alt={im.title} width={56} height={56} />}
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                             <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)' }}>{im.title}</span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 'var(--fs-2xs)', color: 'var(--text-secondary)' }}>
                               <History size={11} />
                               {im.date}
                             </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--fs-2xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: im.color, flexShrink: 0 }} />
-                              {im.result}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--fs-2xs)', color: 'var(--text-secondary)', minWidth: 0 }}>
+                              <span style={{ width: 8, height: 8, borderRadius: '50%', background: im.status === 'Pending' ? 'var(--orange-amber)' : 'var(--blue-primary)', flexShrink: 0 }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{im.impression || (im.status === 'Pending' ? 'Report pending' : im.status)}</span>
                             </span>
                           </span>
                         </button>
                       ))}
+                      {!studies.length && <div style={emptyLine}>{chartView ? 'No imaging studies on record.' : 'Loading…'}</div>}
                     </div>
                   </div>
                 </div>
@@ -877,21 +859,17 @@ export const PatientsScreen: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={sectionTitle}>Recent Patient Encounters</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[
-                    { date: '26 Sep 2026', title: 'Follow-up Consultation', doctor: 'Dr. Shajin', type: 'Consultation' },
-                    { date: '26 Sep 2026', title: 'Triage Vitals Check-in', doctor: 'Nurse Anjali', type: 'Vitals' },
-                    { date: '12 Sep 2026', title: 'Chest X-Ray (PA View)', doctor: 'Dr. Ravi', type: 'Imaging' },
-                    { date: '12 Sep 2026', title: 'HbA1c & Fasting Glucose', doctor: 'Central Lab', type: 'Lab' }
-                  ].map((evt, i) => (
-                    <div key={i} style={recordCard}>
+                  {(chartView?.events ?? []).slice(0, 4).map((evt) => (
+                    <div key={evt.id} style={recordCard}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>
                         <span>{evt.date}</span>
-                        <span style={{ color: 'var(--blue-text)', fontWeight: 500 }}>{evt.type}</span>
+                        <span style={{ color: 'var(--blue-text)', fontWeight: 500 }}>{evt.category}</span>
                       </div>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: 2, fontSize: 12.5 }}>{evt.title}</div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-xs)' }}>{evt.doctor}</div>
                     </div>
                   ))}
+                  {!chartView?.events.length && <div style={emptyLine}>{chartView ? 'No encounters recorded yet.' : 'Loading…'}</div>}
                 </div>
                 <button className="btn-outline-blue" style={{ width: '100%' }} onClick={() => openFor(selectedPatient, 'timeline')}>
                   Open Full Longitudinal Timeline →
@@ -904,22 +882,22 @@ export const PatientsScreen: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={sectionTitle}>Consultation Records</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ ...recordCard, background: 'var(--blue-light)', borderColor: 'var(--blue-border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600, color: 'var(--blue-text)' }}>
-                      <span>26 Sep 2026 • 09:15 AM</span>
-                      <span className="status-pill waiting">In Progress</span>
+                  {(chartView?.visits ?? []).slice(0, 3).map((visit) => (
+                    <div
+                      key={visit.id}
+                      style={visit.isFinal ? recordCard : { ...recordCard, background: 'var(--blue-light)', borderColor: 'var(--blue-border)' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600, color: visit.isFinal ? 'var(--text-primary)' : 'var(--blue-text)' }}>
+                        <span>
+                          {visit.visitDate} • {visit.visitTime}
+                        </span>
+                        <span className={`status-pill ${visit.isFinal ? 'completed' : 'waiting'}`}>{visit.isFinal ? 'Completed' : 'In Progress'}</span>
+                      </div>
+                      {visit.reason && <div style={{ color: 'var(--text-primary)', marginTop: 3 }}>Reason: {visit.reason}</div>}
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-xs)' }}>{[visit.doctor, visit.department].filter(Boolean).join(' • ')}</div>
                     </div>
-                    <div style={{ color: 'var(--text-primary)', marginTop: 3 }}>Reason: Fever, mild cough for 3 days</div>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-xs)' }}>Dr. Shajin • General Medicine</div>
-                  </div>
-                  <div style={recordCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      <span>12 Sep 2026 • 10:00 AM</span>
-                      <span className="status-pill completed">Completed</span>
-                    </div>
-                    <div style={{ color: 'var(--text-primary)', marginTop: 3 }}>BP & Diabetes 3-month review</div>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-xs)' }}>Dr. Shajin • General Medicine</div>
-                  </div>
+                  ))}
+                  {!chartView?.visits.length && <div style={emptyLine}>{chartView ? 'No consultations recorded yet.' : 'Loading…'}</div>}
                 </div>
                 <button className="btn-primary" style={{ width: '100%' }} onClick={() => openFor(selectedPatient, 'consultation')}>
                   Open Consultation Workspace
@@ -932,20 +910,20 @@ export const PatientsScreen: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={sectionTitle}>Recent Lab Tests</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={recordCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-                      <span>HbA1c (Glycated Hb)</span>
-                      <span style={{ color: 'var(--red-dark)', fontWeight: 700 }}>7.8% (High)</span>
+                  {labHighlights.slice(0, 3).map((l) => (
+                    <div key={l.name} style={recordCard}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                        <span>{l.name}</span>
+                        <span style={{ color: l.status === 'Normal' ? 'var(--green-dark)' : 'var(--red-dark)', fontWeight: 700 }}>
+                          {l.result} {l.unit} ({l.status})
+                        </span>
+                      </div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>
+                        Ref: {l.referenceRange} • {l.date}
+                      </div>
                     </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>Ref: &lt; 5.7% • 12 Sep 2026</div>
-                  </div>
-                  <div style={recordCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-                      <span>Fasting Blood Glucose</span>
-                      <span style={{ color: 'var(--red-dark)', fontWeight: 700 }}>134 mg/dL (High)</span>
-                    </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>Ref: 70–100 mg/dL • 12 Sep 2026</div>
-                  </div>
+                  ))}
+                  {!labHighlights.length && <div style={emptyLine}>{chartView ? 'No lab results on record.' : 'Loading…'}</div>}
                 </div>
                 <button className="btn-outline-blue" style={{ width: '100%' }} onClick={() => openFor(selectedPatient, 'lab-reports')}>
                   View Full Lab Diagnostic Workspace →
@@ -958,20 +936,18 @@ export const PatientsScreen: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={sectionTitle}>Imaging & Radiology Studies</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={recordCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-                      <span>Chest X-Ray (PA View)</span>
-                      <span style={{ color: 'var(--green-dark)', fontWeight: 600 }}>Clear</span>
+                  {studies.slice(0, 3).map((im) => (
+                    <div key={im.id} style={recordCard}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontWeight: 600 }}>
+                        <span>{im.title}</span>
+                        <span style={{ color: im.status === 'Pending' ? 'var(--orange-dark)' : 'var(--text-secondary)', fontWeight: 600, textAlign: 'right' }}>
+                          {im.impression || (im.status === 'Pending' ? 'Report pending' : im.status)}
+                        </span>
+                      </div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>{[im.date, im.radiologist].filter(Boolean).join(' • ')}</div>
                     </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>12 Sep 2026 • Dr. Ravi (Radiology)</div>
-                  </div>
-                  <div style={recordCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
-                      <span>USG Whole Abdomen</span>
-                      <span style={{ color: 'var(--orange-dark)', fontWeight: 600 }}>Grade 1 Fatty Liver</span>
-                    </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-xs)' }}>21 Mar 2026 • Dr. Ravi (Radiology)</div>
-                  </div>
+                  ))}
+                  {!studies.length && <div style={emptyLine}>{chartView ? 'No imaging studies on record.' : 'Loading…'}</div>}
                 </div>
                 <button className="btn-outline-blue" style={{ width: '100%' }} onClick={() => openFor(selectedPatient, 'imaging')}>
                   Open DICOM Imaging Workspace →
@@ -1056,11 +1032,10 @@ export const PatientsScreen: React.FC = () => {
                   <div>
                     <label className="form-label">Blood Group</label>
                     <select className="form-select" value={newBloodGroup} onChange={(e) => setNewBloodGroup(e.target.value)}>
-                      <option>A+</option>
-                      <option>B+</option>
-                      <option>O+</option>
-                      <option>AB+</option>
-                      <option>O-</option>
+                      <option value="">Not known</option>
+                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((g) => (
+                        <option key={g}>{g}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

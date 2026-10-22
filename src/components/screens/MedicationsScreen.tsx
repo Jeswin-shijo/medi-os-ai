@@ -1,10 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { PatientBanner, BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockPrescriptionItems, mockAdherenceData } from '../../mock/prescriptionsData';
-import { PrescriptionItem } from '../../types';
+import { Medication } from '../../types';
+import { medicationService, prescriptionService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
 import {
   createLucideIcon,
   Plus,
@@ -43,7 +45,7 @@ const CapsuleCross = createLucideIcon('capsule-cross', [
   ['rect', { x: '2.5', y: '9', width: '19', height: '6', rx: '3', key: 'h' }]
 ]);
 
-type MedStatus = PrescriptionItem['status'];
+type MedStatus = Medication['status'];
 type MedTab = 'Active' | 'Paused' | 'Stopped' | 'Completed';
 type AiTab = 'Suggestions' | 'Interactions' | 'Dose Adjustments' | 'Guidelines';
 
@@ -60,19 +62,17 @@ const MED_TABS: BannerTab[] = [
   { id: 'history', label: 'History', icon: Clock, screen: 'timeline' }
 ];
 
-/** Display names as shown in the design (the shared prescription mock carries "Tab …" prefixes). */
-const toDisplay = (m: PrescriptionItem): PrescriptionItem => {
-  const name = m.medicine.replace(/^(Tab|Syp|Cap|Inj)\s+/, '');
-  if (/levocetirizine/i.test(name)) return { ...m, medicine: 'Levocetirizine 5 mg', brand: 'Levocetirizine', dose: '5 mg' };
-  if (/paracetamol/i.test(name)) return { ...m, medicine: name, frequency: 'SOS' };
-  return { ...m, medicine: name };
-};
+/** Display names without the dosage-form prefix ("Tab Amlodipine 5 mg" → "Amlodipine 5 mg"). */
+const toDisplay = (m: Medication): Medication => ({ ...m, medicine: m.medicine.replace(/^(Tab|Syp|Cap|Inj)\s+/, '') });
 
-const INDICATIONS: { label: string; filter: string; count: number; icon: LucideIcon }[] = [
-  { label: 'Hypertension', filter: 'Hypertension', count: 2, icon: SquareActivity },
-  { label: 'Type 2 Diabetes', filter: 'Type 2 Diabetes', count: 2, icon: ShieldCheck },
-  { label: 'Hyperlipidemia', filter: 'Hyperlipidemia', count: 1, icon: FileText },
-  { label: 'Gastric Protection', filter: 'Gastric Protection', count: 1, icon: CircleDot }
+const INDICATION_ICONS: LucideIcon[] = [SquareActivity, ShieldCheck, FileText, CircleDot];
+
+/** Monitoring reminders that apply to the medicines and indications on this list. */
+const MONITORING_RULES: { applies: (m: Medication) => boolean; text: string }[] = [
+  { applies: (m) => /hypertension/i.test(m.indication ?? ''), text: 'Monitor BP weekly' },
+  { applies: (m) => /diabet/i.test(m.indication ?? ''), text: 'Check HbA1c after 3 months' },
+  { applies: (m) => /atorvastatin|rosuvastatin|simvastatin/i.test(m.medicine), text: 'LFT after 6 months (statin)' },
+  { applies: (m) => /pantoprazole|omeprazole|rabeprazole|esomeprazole/i.test(m.medicine), text: 'Review need for PPI after 4 weeks' }
 ];
 
 const SUMMARY_TILES: { key: MedTab; label: string; bg: string; fg: string }[] = [
@@ -82,41 +82,15 @@ const SUMMARY_TILES: { key: MedTab; label: string; bg: string; fg: string }[] = 
   { key: 'Completed', label: 'Completed', bg: '#eff4fd', fg: 'var(--blue-text)' }
 ];
 
-const RECENT_CHANGES: { date: string; med: string; note: string; tone: 'green' | 'orange' }[] = [
-  { date: '12 Sep 2026', med: 'Levocetirizine 5 mg', note: 'Paused (symptoms improved)', tone: 'orange' },
-  { date: '12 Sep 2026', med: 'Amlodipine 5 mg', note: 'Started', tone: 'green' },
-  { date: '12 Sep 2026', med: 'Metformin 500 mg', note: 'Started', tone: 'green' },
-  { date: '12 Sep 2026', med: 'Atorvastatin 10 mg', note: 'Started', tone: 'green' }
-];
-
-const AI_CONTENT: Record<AiTab, { title: string; items: string[] }> = {
-  Suggestions: {
-    title: 'AI Suggestions for this Patient',
-    items: [
-      'Continue Amlodipine 5 mg for BP control.',
-      'Metformin dose is appropriate based on HbA1c.',
-      'Consider adding ACE inhibitor if albuminuria present.',
-      'Monitor LFT for Atorvastatin.',
-      'Add PPI only if gastric symptoms persist.',
-      'Ensure patient adherence and lifestyle modification.'
-    ]
-  },
-  Interactions: {
-    title: 'Interaction Review',
-    items: [
-      'Amlodipine + Atorvastatin: minor, monitor for myalgia.',
-      'Metformin + Pantoprazole: no clinically relevant interaction.',
-      'Levocetirizine: avoid with alcohol or sedatives.',
-      'No contraindication with Penicillin allergy.'
-    ]
-  },
+// General reference notes; patient-specific tabs (Suggestions, Interactions) are built from the record.
+const AI_CONTENT: Record<'Dose Adjustments' | 'Guidelines', { title: string; items: string[] }> = {
   'Dose Adjustments': {
     title: 'Dose Adjustment Notes',
     items: [
-      'Metformin: no renal adjustment needed (eGFR > 60).',
+      'Metformin: check eGFR first; reduce below 45 and stop below 30 mL/min.',
       'Amlodipine: consider 10 mg if BP stays above 140/90.',
       'Atorvastatin: titrate to 20 mg if LDL not at target.',
-      'Paracetamol: max 3 g/day given liver monitoring.'
+      'Paracetamol: max 3 g/day where liver function is a concern.'
     ]
   },
   Guidelines: {
@@ -129,13 +103,6 @@ const AI_CONTENT: Record<AiTab, { title: string; items: string[] }> = {
     ]
   }
 };
-
-const MONITORING = [
-  'Monitor BP weekly',
-  'Check HbA1c after 3 months',
-  'LFT after 6 months (Atorvastatin)',
-  'Review need for PPI after 4 weeks'
-];
 
 const statusPill = (s: MedStatus) =>
   s === 'Active' ? 'active' : s === 'Paused' ? 'paused' : s === 'Stopped' ? 'red' : 'gray';
@@ -177,8 +144,17 @@ const AdherenceRing: React.FC<{ rate: number; name: string }> = ({ rate, name })
 };
 
 export const MedicationsScreen: React.FC = () => {
-  const { showToast } = useApp();
-  const [meds, setMeds] = useState<PrescriptionItem[]>(() => mockPrescriptionItems.map(toDisplay));
+  const { showToast, activePatient } = useApp();
+  const uhid = activePatient?.uhid;
+  const [loaded, setLoaded] = useState<{ uhid: string; meds: Medication[] } | null>(null);
+  const { loading } = useLoader(
+    async () => (uhid ? { uhid, meds: (await medicationService.getMedications(uhid)).map(toDisplay) } : null),
+    setLoaded,
+    [uhid]
+  );
+  const meds = loaded && loaded.uhid === uhid ? loaded.meds : [];
+  const setMeds = (update: (prev: Medication[]) => Medication[]) =>
+    setLoaded((prev) => (prev && prev.uhid === uhid ? { ...prev, meds: update(prev.meds) } : prev));
   const [medTab, setMedTab] = useState<MedTab>('Active');
   const [bannerTab, setBannerTab] = useState('medications');
   const [aiTab, setAiTab] = useState<AiTab>('Suggestions');
@@ -189,11 +165,40 @@ export const MedicationsScreen: React.FC = () => {
   const [dateRange, setDateRange] = useState('');
   const [adherencePeriod, setAdherencePeriod] = useState('Last 30 Days');
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [changes, setChanges] = useState(RECENT_CHANGES);
   const adherenceRef = useRef<HTMLDivElement>(null);
+  const [interactions, setInteractions] = useState<{ key: string; warnings: string[] } | null>(null);
+
+  const activeMeds = meds.filter((m) => m.status === 'Active');
+  // Rule-based interaction check over the active list (backend's built-in table).
+  const interactionKey = activeMeds.map((m) => m.medicine).join('|');
+  const checkInteractions = () => {
+    if (activeMeds.length < 2) return;
+    prescriptionService
+      .checkInteractions(activeMeds.map((m) => m.medicine))
+      .then((r) => setInteractions({ key: interactionKey, warnings: r.warnings }))
+      .catch((err) => showToast(`Interaction check failed: ${errorMessage(err)}`, 'error'));
+  };
+  useEffect(checkInteractions, [interactionKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const interactionResult =
+    activeMeds.length < 2 ? { key: interactionKey, warnings: [] as string[] } : interactions?.key === interactionKey ? interactions : null;
+
+  const indications = [...meds.reduce((acc, m) => (m.indication ? acc.set(m.indication, (acc.get(m.indication) ?? 0) + 1) : acc), new Map<string, number>())].map(
+    ([label, count], i) => ({ label, filter: label, count, icon: INDICATION_ICONS[i % INDICATION_ICONS.length] })
+  );
+  const monitoring = MONITORING_RULES.filter((r) => activeMeds.some(r.applies)).map((r) => r.text);
+  const adherence = meds.filter((m) => typeof m.adherenceScore === 'number');
+  // Most recent starts first; status changes made here are added on top.
+  const [localChanges, setLocalChanges] = useState<{ date: string; med: string; note: string; tone: 'green' | 'orange' }[]>([]);
+  const changes = [
+    ...localChanges,
+    ...[...meds]
+      .filter((m) => m.startDate)
+      .sort((a, b) => Date.parse(b.startDate ?? '') - Date.parse(a.startDate ?? ''))
+      .map((m) => ({ date: m.startDate ?? '', med: m.medicine, note: m.status === 'Active' ? 'Started' : m.status, tone: m.status === 'Active' ? ('green' as const) : ('orange' as const) }))
+  ].slice(0, 4);
 
   // "Active" lists every current medication (active + paused), as in the design.
-  const inTab = (m: PrescriptionItem, tab: MedTab) =>
+  const inTab = (m: Medication, tab: MedTab) =>
     tab === 'Active' ? m.status === 'Active' || m.status === 'Paused' : m.status === tab;
   const countFor = (tab: MedTab) => meds.filter((m) => inTab(m, tab)).length;
 
@@ -213,14 +218,19 @@ export const MedicationsScreen: React.FC = () => {
     setDateRange('');
   };
 
-  const updateStatus = (id: string, status: MedStatus) => {
+  const updateStatus = async (id: string, status: MedStatus) => {
     const med = meds.find((m) => m.id === id);
-    setMeds((prev) => prev.map((m) => (m.id === id ? { ...m, status } : m)));
     setMenuFor(null);
     if (!med) return;
-    const note = status === 'Active' ? 'Resumed' : status === 'Paused' ? 'Paused' : status;
-    setChanges((prev) => [{ date: 'Today', med: med.medicine, note, tone: status === 'Active' || status === 'Completed' ? ('green' as const) : ('orange' as const) }, ...prev].slice(0, 4));
-    showToast(`${med.medicine} marked ${status.toLowerCase()}`);
+    try {
+      const saved = toDisplay(await medicationService.updateStatus(id, status));
+      setMeds((prev) => prev.map((m) => (m.id === id ? saved : m)));
+      const note = status === 'Active' ? 'Resumed' : status === 'Paused' ? 'Paused' : status;
+      setLocalChanges((prev) => [{ date: 'Today', med: med.medicine, note, tone: status === 'Active' || status === 'Completed' ? ('green' as const) : ('orange' as const) }, ...prev]);
+      showToast(`${med.medicine} marked ${status.toLowerCase()}`);
+    } catch (err) {
+      showToast(`Status not updated: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const handleBannerTab = (id: string) => {
@@ -234,7 +244,20 @@ export const MedicationsScreen: React.FC = () => {
     }
   };
 
-  const ai = AI_CONTENT[aiTab];
+  const ai =
+    aiTab === 'Suggestions'
+      ? {
+          title: 'Current medications to review',
+          items: activeMeds.length
+            ? activeMeds.map((m) => `${m.medicine} ${m.frequency}${m.indication ? ` — ${m.indication}` : ''}`)
+            : [loading ? 'Loading…' : 'No active medications on record.']
+        }
+      : aiTab === 'Interactions'
+        ? {
+            title: 'Interaction Review (built-in list)',
+            items: !interactionResult ? ['Checking…'] : interactionResult.warnings.length ? interactionResult.warnings : ['No interactions found in the built-in interaction list.']
+          }
+        : AI_CONTENT[aiTab];
 
   return (
     <div className="page-scroll-body">
@@ -288,7 +311,8 @@ export const MedicationsScreen: React.FC = () => {
 
           <div className="medios-card" style={{ padding: '12px 12px 6px' }}>
             <div style={{ ...cardTitle, fontSize: 13.5, marginBottom: 6 }}>Indications</div>
-            {INDICATIONS.map((ind, i) => {
+            {!indications.length && <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '4px 10px 8px' }}>No indications recorded.</p>}
+            {indications.map((ind, i) => {
               const Icon = ind.icon;
               const active = indicationFilter === ind.filter;
               return (
@@ -334,7 +358,7 @@ export const MedicationsScreen: React.FC = () => {
             </div>
             {[
               { value: statusFilter, set: setStatusFilter, options: ['All Status', 'Active', 'Paused', 'Stopped', 'Completed'] },
-              { value: indicationFilter, set: setIndicationFilter, options: ['All Indications', ...INDICATIONS.map((i) => i.filter), 'Allergic Rhinitis', 'Fever / Pain'] },
+              { value: indicationFilter, set: setIndicationFilter, options: ['All Indications', ...indications.map((i) => i.filter)] },
               { value: prescriberFilter, set: setPrescriberFilter, options: ['All Prescribers', 'Dr. Shajin', 'Dr. Priya', 'Dr. Ravi'] }
             ].map((f) => (
               <div key={f.options[0]} style={{ position: 'relative' }}>
@@ -422,7 +446,7 @@ export const MedicationsScreen: React.FC = () => {
                       <td style={td}>{m.frequency}</td>
                       <td style={td}>{m.route}</td>
                       <td style={{ ...td, whiteSpace: 'nowrap' }}>{m.indication}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{m.startDate || '12 Sep 2026'}</td>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{m.startDate || '—'}</td>
                       <td style={td}>
                         <span className={`status-pill ${statusPill(m.status)}`}>{m.status}</span>
                       </td>
@@ -512,9 +536,10 @@ export const MedicationsScreen: React.FC = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 0' }}>
-                {mockAdherenceData.map((adh) => (
-                  <AdherenceRing key={adh.name} rate={adh.rate} name={adh.name} />
+                {adherence.map((m) => (
+                  <AdherenceRing key={m.id} rate={m.adherenceScore ?? 0} name={m.brand || m.medicine.replace(/\s+\d.*$/, '')} />
                 ))}
+                {!adherence.length && <p style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{loading ? 'Loading…' : 'Adherence has not been measured for these medications.'}</p>}
               </div>
             </div>
 
@@ -579,7 +604,7 @@ export const MedicationsScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: 5 }}>
-            {(Object.keys(AI_CONTENT) as AiTab[]).map((t) => (
+            {(['Suggestions', 'Interactions', 'Dose Adjustments', 'Guidelines'] as AiTab[]).map((t) => (
               <button
                 key={t}
                 className={`page-tab-btn ${aiTab === t ? 'active' : ''}`}
@@ -606,9 +631,7 @@ export const MedicationsScreen: React.FC = () => {
                 ))}
               </ol>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                <button className="btn-primary" style={{ width: 190, height: 35, fontSize: 11.5 }} onClick={() => showToast('AI recommendations saved')}>
-                  Apply Suggestions
-                </button>
+                <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>AI recommendations will appear here once an AI model is connected.</span>
               </div>
             </div>
           </div>
@@ -618,10 +641,16 @@ export const MedicationsScreen: React.FC = () => {
               <AiSparkle size={13} />
               <span>Drug Interaction Check</span>
             </div>
-            <div style={{ background: '#e9f8f1', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CircleCheck size={20} color="#ffffff" fill="var(--green-emerald)" strokeWidth={2.2} />
-              <span style={{ flex: 1, fontSize: 11.5, color: 'var(--green-dark)' }}>No major drug interactions found.</span>
-              <button className="btn-outline-blue" style={{ height: 31, fontSize: 11.5, padding: '0 12px' }} onClick={() => showToast('Full interaction database rechecked: Clear')}>
+            <div style={{ background: interactionResult?.warnings.length ? 'var(--orange-light)' : '#e9f8f1', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CircleCheck size={20} color="#ffffff" fill={interactionResult?.warnings.length ? 'var(--orange-amber)' : 'var(--green-emerald)'} strokeWidth={2.2} />
+              <span style={{ flex: 1, fontSize: 11.5, color: interactionResult?.warnings.length ? 'var(--orange-dark)' : 'var(--green-dark)' }}>
+                {!interactionResult
+                  ? 'Checking…'
+                  : interactionResult.warnings.length
+                    ? `${interactionResult.warnings.length} possible interaction(s) — see the Interactions tab.`
+                    : 'No interactions in the built-in list (covers a few common drugs only).'}
+              </span>
+              <button className="btn-outline-blue" style={{ height: 31, fontSize: 11.5, padding: '0 12px' }} onClick={checkInteractions}>
                 Recheck
               </button>
             </div>
@@ -633,7 +662,8 @@ export const MedicationsScreen: React.FC = () => {
               <span>Monitoring &amp; Follow-up</span>
             </div>
             <div style={{ padding: '2px 12px 10px' }}>
-              {MONITORING.map((item, i) => (
+              {!monitoring.length && <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '8px 0' }}>No monitoring reminders for the current list.</p>}
+              {monitoring.map((item, i) => (
                 <div
                   key={item}
                   style={{

@@ -4,8 +4,12 @@ import { PatientBanner, BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { AiSparkle } from '../common/icons';
-import { mockFollowUps, mockAIFollowUpRecommendations } from '../../mock/followUpsData';
-import { FollowUpItem } from '../../types';
+import { FollowUpItem, Medication, Patient } from '../../types';
+import { followUpService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { usePatientChart } from '../../hooks/usePatientChart';
+import { clinicNow } from '../../utils/clinicDate';
 import {
   CalendarDays,
   CalendarCheck,
@@ -28,7 +32,6 @@ import {
   CircleCheck,
   Check,
   Clock,
-  RefreshCw,
   Send,
   CircleX
 } from 'lucide-react';
@@ -62,38 +65,23 @@ const TONES = {
   green: { bg: '#def5ea', border: '#b5e6cf', fg: 'var(--green-dark)' }
 } as const;
 
-const WEEK: { day: string; event?: { time: string; name: string; type: string; tone: keyof typeof TONES } }[] = [
-  { day: 'Sun 20', event: { time: '09:00 AM', name: 'Selvi P', type: 'Chronic Care', tone: 'red' } },
-  { day: 'Mon 21' },
-  { day: 'Tue 22', event: { time: '11:30 AM', name: 'Rajesh Kumar', type: 'Medication Review', tone: 'orange' } },
-  { day: 'Wed 23', event: { time: '10:00 AM', name: 'Mary Jeni', type: 'Lab Review', tone: 'blue' } },
-  { day: 'Thu 24' },
-  { day: 'Fri 25' },
-  { day: 'Sat 26', event: { time: '10:30 AM', name: 'Arun Kumar', type: 'Review', tone: 'green' } }
-];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const statusTone = (s: FollowUpItem['status']): keyof typeof TONES =>
+  s === 'Missed' || s === 'Overdue' ? 'red' : s === 'Pending' ? 'orange' : s === 'Completed' ? 'green' : 'blue';
 
-const DETAIL_ROWS: Record<DetailTab, { date: string; title: string; sub: string; done: boolean }[]> = {
-  'Previous Visits': [
-    { date: '12 Sep 2026', title: 'OPD Consultation', sub: 'BP review, medication adjusted', done: true },
-    { date: '18 Aug 2026', title: 'Follow-up', sub: 'Lab review, stable', done: true },
-    { date: '10 Jul 2026', title: 'Initial Consultation', sub: 'Hypertension, Type 2 Diabetes', done: false }
-  ],
-  Diagnosis: [
-    { date: '10 Jul 2026', title: 'Essential Hypertension', sub: 'ICD-10 I10 · On Amlodipine', done: true },
-    { date: '10 Jul 2026', title: 'Type 2 Diabetes Mellitus', sub: 'ICD-10 E11.9 · On Metformin', done: true },
-    { date: '12 Sep 2026', title: 'Dyslipidemia', sub: 'ICD-10 E78.5 · On Atorvastatin', done: false }
-  ],
-  Medications: [
-    { date: '12 Sep 2026', title: 'Amlodipine 5 mg', sub: 'OD · Hypertension', done: true },
-    { date: '12 Sep 2026', title: 'Metformin 500 mg', sub: 'BD · Type 2 Diabetes', done: true },
-    { date: '12 Sep 2026', title: 'Levocetirizine 5 mg', sub: 'HS · Paused', done: false }
-  ],
-  'Lab Reports': [
-    { date: '12 Sep 2026', title: 'HbA1c', sub: '7.2 % · Slightly high', done: false },
-    { date: '12 Sep 2026', title: 'Lipid Profile', sub: 'LDL 118 mg/dL', done: true },
-    { date: '18 Aug 2026', title: 'Kidney Function Test', sub: 'Within normal limits', done: true }
-  ]
-};
+type DetailRow = { key: string; date: string; title: string; sub: string; done: boolean };
+
+/** Follow-up checklist items that apply to this patient's conditions and medicines. */
+const CHECKLIST_RULES: { applies: (p: Patient | undefined, meds: Medication[]) => boolean; text: string }[] = [
+  { applies: (p) => !!p?.conditions.some((c) => /hypertension/i.test(c)), text: 'Review BP readings at the follow-up.' },
+  { applies: (p) => !!p?.conditions.some((c) => /diabet/i.test(c)), text: 'Review HbA1c and fasting glucose.' },
+  { applies: (_p, m) => m.some((x) => /statin/i.test(x.medicine)), text: 'Repeat lipid profile after 3 months.' },
+  { applies: (_p, m) => m.some((x) => /metformin/i.test(x.medicine)), text: 'Monitor renal function on long-term Metformin.' },
+  { applies: (p) => !!p?.conditions.some((c) => /diabet/i.test(c)), text: 'Annual eye examination for diabetic retinopathy.' },
+  { applies: () => true, text: 'Confirm medication adherence and lifestyle advice.' }
+];
 
 const REC_COLORS = ['var(--blue-primary)', 'var(--blue-primary)', 'var(--green-emerald)', 'var(--orange-amber)', '#f08c1a', 'var(--red-rose)'];
 
@@ -114,9 +102,11 @@ const FilterSelect: React.FC<{ value: string; onChange: (v: string) => void; opt
 );
 
 export const FollowUpsScreen: React.FC = () => {
-  const { showToast, activePatient } = useApp();
-  const [followUps, setFollowUps] = useState<FollowUpItem[]>(mockFollowUps);
-  const [selectedId, setSelectedId] = useState('fu-1');
+  const { showToast, activePatient, patients } = useApp();
+  const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
+  const { loading } = useLoader(() => followUpService.getFollowUps(), setFollowUps, []);
+  const [selectedId, setSelectedId] = useState('');
+  const [weekOffset, setWeekOffset] = useState(0);
   const [subTab, setSubTab] = useState('follow-up-list');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All Types');
@@ -129,7 +119,62 @@ export const FollowUpsScreen: React.FC = () => {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  const selectedItem = followUps.find((f) => f.id === selectedId) || followUps[0];
+  const selectedItem: FollowUpItem | undefined =
+    followUps.find((f) => f.id === selectedId) || followUps.find((f) => f.uhid === activePatient?.uhid) || followUps[0];
+  const { chart } = usePatientChart(selectedItem?.uhid);
+  const selectedPatient = patients.find((p) => p.uhid === selectedItem?.uhid);
+
+  // The calendar week (Sun–Sat) around the clinic's today, shifted by the arrows.
+  const weekStart = clinicNow();
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + weekOffset * 7);
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const day = new Date(weekStart);
+    day.setDate(weekStart.getDate() + i);
+    const item = followUps.find((f) => sameDay(new Date(f.followUpDate), day));
+    return {
+      day: `${WEEKDAYS[day.getDay()]} ${day.getDate()}`,
+      event: item && { id: item.id, time: item.followUpTime, name: item.patientName, type: item.followUpType, tone: statusTone(item.status) }
+    };
+  });
+  const weekLabel = `${MONTHS[weekStart.getMonth()]} ${weekStart.getFullYear()}`;
+
+  // Detail tabs from the selected patient's own record.
+  const detailRows: Record<DetailTab, DetailRow[]> = {
+    'Previous Visits': (chart?.visits ?? []).slice(0, 4).map((v) => ({
+      key: v.id ?? v.visitDate,
+      date: v.visitDate,
+      title: v.visitType || 'Visit',
+      sub: v.reason || [v.doctor, v.department].filter(Boolean).join(' · '),
+      done: v.isFinal
+    })),
+    Diagnosis: (chart?.visits[0]?.icd10 ?? []).map((d) => ({
+      key: d.code,
+      date: chart?.visits[0]?.visitDate ?? '',
+      title: d.description,
+      sub: `ICD-10 ${d.code} · ${d.type}`,
+      done: true
+    })),
+    Medications: (chart?.medications ?? []).slice(0, 4).map((m) => ({
+      key: m.id,
+      date: m.startDate ?? '',
+      title: `${m.medicine}`,
+      sub: [m.frequency, m.indication || m.status].filter(Boolean).join(' · '),
+      done: m.status === 'Active'
+    })),
+    'Lab Reports': (chart?.labs ?? []).slice(0, 4).map((r) => ({
+      key: r.id,
+      date: r.date,
+      title: r.testName,
+      sub: r.status,
+      done: r.status === 'Completed'
+    }))
+  };
+  const checklist = CHECKLIST_RULES.filter((r) => r.applies(selectedPatient, chart?.medications.filter((m) => m.status === 'Active') ?? [])).map(
+    (r) => r.text
+  );
+  const patientFollowUps = followUps.filter((f) => f.uhid === activePatient?.uhid);
+  const nextFollowUp = patientFollowUps.find((f) => f.status === 'Scheduled' || f.status === 'Pending');
 
   const filtered = followUps.filter((f) => {
     const q = search.toLowerCase();
@@ -150,12 +195,37 @@ export const FollowUpsScreen: React.FC = () => {
     else if (id === 'reminders' || id === 'templates' || id === 'analytics') showToast(`${tab?.label} opened`, 'info');
   };
 
-  const updateStatus = (id: string, status: FuStatus) => {
-    const item = followUps.find((f) => f.id === id);
-    setFollowUps((prev) => prev.map((f) => (f.id === id ? { ...f, status } : f)));
+  const updateStatus = async (id: string, status: FuStatus) => {
     setMenuFor(null);
-    if (item) showToast(`${item.patientName}'s follow-up marked ${status.toLowerCase()}`);
+    try {
+      const updated = await followUpService.updateStatus(id, status);
+      setFollowUps((prev) => prev.map((f) => (f.id === id ? updated : f)));
+      showToast(`${updated.patientName}'s follow-up marked ${status.toLowerCase()}`);
+    } catch (err) {
+      showToast(`Status not updated: ${errorMessage(err)}`, 'error');
+    }
   };
+
+  const sendReminder = async (item: FollowUpItem) => {
+    setMenuFor(null);
+    try {
+      const result = await followUpService.sendReminder(item.id);
+      showToast(result.message, result.sent ? 'success' : 'warning');
+    } catch (err) {
+      showToast(`Reminder failed: ${errorMessage(err)}`, 'error');
+    }
+  };
+
+  if (!selectedItem) {
+    return (
+      <div className="page-scroll-body">
+        <ScreenHeader title="Follow-ups" subtitle="Track and manage patient follow-ups and recalls" />
+        <div className="medios-card">
+          <p className="data-empty">{loading ? 'Loading follow-ups…' : 'No follow-ups scheduled.'}</p>
+        </div>
+      </div>
+    );
+  }
 
   const typeLabel = selectedItem.followUpType === 'Review' ? 'Review Consultation' : selectedItem.followUpType;
 
@@ -170,7 +240,7 @@ export const FollowUpsScreen: React.FC = () => {
               <CalendarDays size={17} />
               <span>Schedule Follow-up</span>
             </button>
-            <button className="btn-primary" onClick={() => showToast('New follow-up created')}>
+            <button className="btn-primary" onClick={() => showToast('Follow-up scheduling form is not built yet', 'info')}>
               <Plus size={18} />
               <span>New Follow-up</span>
             </button>
@@ -180,9 +250,9 @@ export const FollowUpsScreen: React.FC = () => {
 
       <PatientBanner
         metrics={[
-          { label: 'Last Visit', value: activePatient?.lastVisit ?? '12 Sep 2026' },
-          { label: 'Next Follow-up', value: '26 Sep 2026', sub: '10:30 AM' },
-          { label: 'Total Follow-ups', value: '4' }
+          { label: 'Last Visit', value: activePatient?.lastVisit || '—' },
+          { label: 'Next Follow-up', value: nextFollowUp?.followUpDate ?? '—', sub: nextFollowUp?.followUpTime || undefined },
+          { label: 'Total Follow-ups', value: String(patientFollowUps.length) }
         ]}
         tabs={FU_TABS}
         activeTab={subTab}
@@ -201,7 +271,7 @@ export const FollowUpsScreen: React.FC = () => {
             <CalendarDays size={15} color="var(--text-secondary)" />
           </button>
           <div style={{ width: 9 }} />
-          <FilterSelect value={typeFilter} onChange={setTypeFilter} width={120} options={['All Types', ...Array.from(new Set(mockFollowUps.map((f) => f.followUpType)))]} />
+          <FilterSelect value={typeFilter} onChange={setTypeFilter} width={120} options={['All Types', ...Array.from(new Set(followUps.map((f) => f.followUpType)))]} />
           <FilterSelect value={statusFilter} onChange={setStatusFilter} width={126} options={['All Status', 'Scheduled', 'Completed', 'Pending', 'Missed', 'Overdue']} />
           <FilterSelect value={deptFilter} onChange={setDeptFilter} width={131} options={['All Departments', 'General Medicine', 'Cardiology', 'Endocrinology']} />
           <FilterSelect value={doctorFilter} onChange={setDoctorFilter} width={131} options={['All Doctors', 'Dr. Shajin', 'Dr. Priya', 'Dr. Ravi']} />
@@ -313,10 +383,7 @@ export const FollowUpsScreen: React.FC = () => {
                                   </button>
                                 ))}
                               <button
-                                onClick={() => {
-                                  setMenuFor(null);
-                                  showToast(`Reminder sent to ${item.patientName} (SMS + WhatsApp)`);
-                                }}
+                                onClick={() => sendReminder(item)}
                                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
                                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
                                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -390,18 +457,18 @@ export const FollowUpsScreen: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontSize: 13.5, fontWeight: 700 }}>Follow-up Calendar (This Month)</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <button className="icon-btn" style={{ width: 26, height: 24, background: 'var(--bg-tab)', border: 'none', color: 'var(--blue-text)' }} aria-label="Previous week" onClick={() => showToast('Previous week', 'info')}>
+                <button className="icon-btn" style={{ width: 26, height: 24, background: 'var(--bg-tab)', border: 'none', color: 'var(--blue-text)' }} aria-label="Previous week" onClick={() => setWeekOffset((w) => w - 1)}>
                   <ChevronLeft size={14} />
                 </button>
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>Sep 2026</span>
-                <button className="icon-btn" style={{ width: 26, height: 24, background: 'var(--bg-tab)', border: 'none', color: 'var(--blue-text)' }} aria-label="Next week" onClick={() => showToast('Next week', 'info')}>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{weekLabel}</span>
+                <button className="icon-btn" style={{ width: 26, height: 24, background: 'var(--bg-tab)', border: 'none', color: 'var(--blue-text)' }} aria-label="Next week" onClick={() => setWeekOffset((w) => w + 1)}>
                   <ChevronRight size={14} />
                 </button>
               </div>
               <span />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>
-              {WEEK.map((d, i) => {
+              {week.map((d, i) => {
                 const tone = d.event ? TONES[d.event.tone] : null;
                 return (
                   <div key={d.day} style={{ borderLeft: i === 0 ? 'none' : '1px solid var(--border-subtle)', minWidth: 0 }}>
@@ -409,10 +476,7 @@ export const FollowUpsScreen: React.FC = () => {
                     <div style={{ padding: '5px 7px', height: 61 }}>
                       {d.event && tone && (
                         <button
-                          onClick={() => {
-                            const match = followUps.find((f) => f.patientName === d.event?.name);
-                            if (match) setSelectedId(match.id);
-                          }}
+                          onClick={() => d.event && setSelectedId(d.event.id)}
                           style={{
                             width: '100%',
                             height: '100%',
@@ -501,14 +565,14 @@ export const FollowUpsScreen: React.FC = () => {
               <span style={{ gridColumn: 'span 2' }}>{selectedItem.assignedTo}</span>
               <span>Reminder</span>
               <Bell size={14} />
-              <span>{selectedItem.id === 'fu-1' ? selectedItem.reminders : '1 day before (SMS + WhatsApp)'}</span>
+              <span>{selectedItem.reminders || 'None set'}</span>
               <button className="text-link" style={{ fontSize: 11.5, fontWeight: 400, paddingRight: 6 }} onClick={() => showToast('Reminder settings opened', 'info')}>
                 Edit
               </button>
             </div>
 
             <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-              {(Object.keys(DETAIL_ROWS) as DetailTab[]).map((t) => (
+              {(Object.keys(detailRows) as DetailTab[]).map((t) => (
                 <button
                   key={t}
                   className={`page-tab-btn ${detailTab === t ? 'active' : ''}`}
@@ -521,9 +585,12 @@ export const FollowUpsScreen: React.FC = () => {
             </div>
 
             <div style={{ marginTop: 6 }}>
-              {DETAIL_ROWS[detailTab].map((v, i, arr) => (
+              {!detailRows[detailTab].length && (
+                <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '8px 4px' }}>{chart ? `No ${detailTab.toLowerCase()} on record.` : 'Loading…'}</p>
+              )}
+              {detailRows[detailTab].map((v, i, arr) => (
                 <div
-                  key={v.title}
+                  key={v.key}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '14px 84px 1fr auto',
@@ -555,18 +622,14 @@ export const FollowUpsScreen: React.FC = () => {
             <div className="ai-header-bar">
               <div className="ai-title-row" style={{ fontSize: 12.2, gap: 9, whiteSpace: 'nowrap' }}>
                 <AiSparkle size={20} />
-                <span>AI Follow-up Recommendations (GPT-6 Astro)</span>
+                <span>Follow-up Checklist</span>
               </div>
-              <button className="btn-outline-blue" style={{ height: 24, fontSize: 11, padding: '0 7px', gap: 5 }} onClick={() => showToast('Recommendations regenerated with latest labs')}>
-                <RefreshCw size={11} />
-                <span>Regenerate</span>
-              </button>
             </div>
             <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {mockAIFollowUpRecommendations.map((rec, i) => (
+              {checklist.map((rec, i) => (
                 <li key={rec}>
                   <button
-                    onClick={() => showToast(`Added: ${rec}`)}
+                    type="button"
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, height: 21, fontSize: 11.5, textAlign: 'left', color: 'var(--text-primary)' }}
                   >
                     <span

@@ -1,10 +1,12 @@
 import React from 'react';
 import { useApp } from '../../context/appContextCore';
 import { Search, Bell, CircleHelp, ChevronDown } from 'lucide-react';
-import { DOCTOR_AVATAR, DOCTOR_NAME } from '../../mock/avatars';
+import { Avatar } from '../common/Avatar';
 
 export const Header: React.FC = () => {
-  const { setIsCommandPaletteOpen, setActiveScreen } = useApp();
+  const { setIsCommandPaletteOpen, setActiveScreen, user, openAlertCount } = useApp();
+  const name = user?.name ?? '';
+  const role = user?.specialty || user?.role || '';
 
   return (
     <header className="app-header">
@@ -32,7 +34,7 @@ export const Header: React.FC = () => {
           onClick={() => setActiveScreen('tasks-alerts')}
         >
           <Bell size={22} strokeWidth={1.75} />
-          <span className="header-bell-badge">3</span>
+          {openAlertCount > 0 && <span className="header-bell-badge">{openAlertCount}</span>}
         </button>
 
         <span className="header-divider" />
@@ -51,10 +53,10 @@ export const Header: React.FC = () => {
           className="header-doctor-pill"
           onClick={() => setActiveScreen('settings')}
         >
-          <img src={DOCTOR_AVATAR} alt={DOCTOR_NAME} />
+          <Avatar name={name} src={user?.avatar || undefined} size={38} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="header-doctor-name">{DOCTOR_NAME}</span>
-            <span className="header-doctor-role">General Physician</span>
+            <span className="header-doctor-name">{name}</span>
+            <span className="header-doctor-role">{role}</span>
           </div>
           <ChevronDown size={18} className="header-doctor-chevron" />
         </div>

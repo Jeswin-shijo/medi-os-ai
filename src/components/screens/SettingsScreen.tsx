@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { settingsService } from '../../services';
-import { SettingsState, initialSettings } from '../../mock/settingsData';
-import { DOCTOR_AVATAR } from '../../mock/avatars';
+import { SettingsState } from '../../types';
+import { errorMessage } from '../../services/api';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import {
@@ -163,13 +163,14 @@ const BOX: React.CSSProperties = { padding: 16, border: '1px solid var(--border-
 const BOX_TITLE: React.CSSProperties = { fontSize: 'var(--fs-h4)', fontWeight: 700, color: 'var(--text-primary)' };
 
 export const SettingsScreen: React.FC = () => {
-  const { showToast } = useApp();
+  const { showToast, user } = useApp();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [settings, setSettings] = useState<SettingsState>(initialSettings);
+  // Null until loaded: never render (or save) placeholder values over the stored settings.
+  const [settings, setSettings] = useState<SettingsState | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
-  const [photoUrl, setPhotoUrl] = useState<string>(DOCTOR_AVATAR);
+  const [photoUrl, setPhotoUrl] = useState<string | undefined>(user?.avatar || undefined);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [rxDuration, setRxDuration] = useState('5 days');
@@ -182,50 +183,51 @@ export const SettingsScreen: React.FC = () => {
         const data = await settingsService.getSettings();
         setSettings(data);
       } catch (err) {
-        console.error(err);
+        showToast(errorMessage(err), 'error');
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, []);
+  }, [showToast]);
 
   const handleSave = async () => {
+    if (!settings) return;
     setSaving(true);
     try {
-      await settingsService.saveSettings(settings);
+      setSettings(await settingsService.saveSettings(settings));
       setSavedSuccess(true);
       showToast('Settings saved successfully', 'success');
       setTimeout(() => setSavedSuccess(false), 3000);
-    } catch {
-      showToast('Failed to save settings', 'error');
+    } catch (err) {
+      showToast(`Failed to save settings: ${errorMessage(err)}`, 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const updateProfile = (field: keyof SettingsState['profile'], value: string) => {
-    setSettings(prev => ({ ...prev, profile: { ...prev.profile, [field]: value } }));
+    setSettings(prev => prev && ({ ...prev, profile: { ...prev.profile, [field]: value } }));
   };
 
   const updateHospital = (field: keyof SettingsState['hospital'], value: string) => {
-    setSettings(prev => ({ ...prev, hospital: { ...prev.hospital, [field]: value } }));
+    setSettings(prev => prev && ({ ...prev, hospital: { ...prev.hospital, [field]: value } }));
   };
 
   const updateAi = <F extends keyof SettingsState['ai']>(field: F, value: SettingsState['ai'][F]) => {
-    setSettings(prev => ({ ...prev, ai: { ...prev.ai, [field]: value } }));
+    setSettings(prev => prev && ({ ...prev, ai: { ...prev.ai, [field]: value } }));
   };
 
   const updateNotifications = (field: keyof SettingsState['notifications'], value: boolean) => {
-    setSettings(prev => ({ ...prev, notifications: { ...prev.notifications, [field]: value } }));
+    setSettings(prev => prev && ({ ...prev, notifications: { ...prev.notifications, [field]: value } }));
   };
 
   const updateSecurity = <F extends keyof SettingsState['security']>(field: F, value: SettingsState['security'][F]) => {
-    setSettings(prev => ({ ...prev, security: { ...prev.security, [field]: value } }));
+    setSettings(prev => prev && ({ ...prev, security: { ...prev.security, [field]: value } }));
   };
 
   const updatePreferences = <F extends keyof SettingsState['preferences']>(field: F, value: SettingsState['preferences'][F]) => {
-    setSettings(prev => ({ ...prev, preferences: { ...prev.preferences, [field]: value } }));
+    setSettings(prev => prev && ({ ...prev, preferences: { ...prev.preferences, [field]: value } }));
   };
 
   const pickImage = (e: React.ChangeEvent<HTMLInputElement>, apply: (url: string) => void, message: string) => {
@@ -243,6 +245,10 @@ export const SettingsScreen: React.FC = () => {
         <RefreshCw className="animate-spin text-blue-500" size={32} />
       </div>
     );
+  }
+
+  if (!settings) {
+    return <p className="data-empty">Settings could not be loaded. Check that the MediOS API is running, then reopen this screen.</p>;
   }
 
   const saveButton = (
@@ -342,7 +348,7 @@ export const SettingsScreen: React.FC = () => {
               <SectionTitle icon={UserRound} color="var(--blue-text)" fill title="Profile Settings" />
 
               <div style={{ display: 'flex', gap: 4, marginTop: 17, marginBottom: 11 }}>
-                <Avatar name="Dr. Shajin" src={photoUrl} size={88} />
+                <Avatar name={settings.profile.name || user?.name || ''} src={photoUrl} size={88} />
                 <div style={{ flex: 1, minWidth: 0, paddingTop: 1, marginLeft: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   <div style={{ fontSize: 19.5, fontWeight: 700, color: 'var(--text-primary)', lineHeight: '26px' }}>{settings.profile.name}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: '18px', marginTop: 1 }}>{settings.profile.designation}</div>

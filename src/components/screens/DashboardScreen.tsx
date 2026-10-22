@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/appContextCore';
-import { ScreenId } from '../../types';
+import { Appointment, DashboardStats, ScreenId, TaskAlertItem } from '../../types';
+import { dashboardService, taskService } from '../../services';
+import { useLoader } from '../../hooks/useLoader';
+import { clinicNow, displayDate, displayTime, isoDay } from '../../utils/clinicDate';
+import { recordSummary } from '../../utils/recordSummary';
 import { Avatar } from '../common/Avatar';
 import { AiSparkle } from '../common/icons';
 import {
@@ -50,61 +54,75 @@ const TINTS = {
 
 type Tint = keyof typeof TINTS;
 
-const KPIS: { tint: Tint; icon: LucideIcon; label: string; value: string; sub: React.ReactNode }[] = [
-  { tint: 'blue', icon: Users, label: "Today's Appointments", value: '18', sub: '12 Completed  •  6 Pending' },
+type Kpi = { tint: Tint; icon: LucideIcon; label: string; value: string; sub: React.ReactNode };
+
+const inr = (n: number) => n.toLocaleString('en-IN');
+
+/** KPI tiles for the day, computed by GET /dashboard/stats. */
+const buildKpis = (s: DashboardStats | null): Kpi[] => [
+  {
+    tint: 'blue',
+    icon: Users,
+    label: "Today's Appointments",
+    value: s ? String(s.appointments.total) : '–',
+    sub: s ? `${s.appointments.completed} Completed  •  ${s.appointments.pending} Pending` : ''
+  },
   {
     tint: 'green',
     icon: UsersRound,
     label: 'Total Patients',
-    value: '124',
-    sub: (
+    value: s ? String(s.patients.total) : '–',
+    sub: s ? (
       <span style={{ color: 'var(--green-dark)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        +12 new today <ArrowUpRight size={13} />
+        +{s.patients.newToday} new today <ArrowUpRight size={13} />
       </span>
-    )
+    ) : ''
   },
-  { tint: 'red', icon: FileText, label: 'Consultations', value: '16', sub: '4 AI Notes Generated' },
-  { tint: 'sky', icon: FlaskConical, label: 'Lab Reports', value: '28', sub: '5 Pending' },
-  { tint: 'orange', icon: ImageIcon, label: 'Imaging Reports', value: '12', sub: '3 Pending' },
-  { tint: 'purple', icon: ReceiptIndianRupee, label: 'Billing (Today)', value: '₹ 24,850', sub: '21 Invoices' }
+  { tint: 'red', icon: FileText, label: 'Consultations', value: s ? String(s.consultations.total) : '–', sub: s ? `${s.consultations.finalised} finalised` : '' },
+  { tint: 'sky', icon: FlaskConical, label: 'Lab Reports', value: s ? String(s.labReports.total) : '–', sub: s ? `${s.labReports.pending} Pending` : '' },
+  { tint: 'orange', icon: ImageIcon, label: 'Imaging Reports', value: s ? String(s.imaging.total) : '–', sub: s ? `${s.imaging.pending} Pending` : '' },
+  {
+    tint: 'purple',
+    icon: ReceiptIndianRupee,
+    label: 'Billing (Today)',
+    value: s ? `₹ ${inr(s.billing.revenue)}` : '–',
+    sub: s ? `${s.billing.invoices} Invoice${s.billing.invoices === 1 ? '' : 's'}` : ''
+  }
 ];
 
-const SCHEDULE = [
-  { time: '09:00 AM', name: 'Mary Jeni', reason: 'Follow-up • Hypertension', status: 'Consulting', pill: 'consulting', photo: true },
-  { time: '09:30 AM', name: 'Antony Raj', reason: 'New Patient • Diabetes', status: 'Completed', pill: 'completed', photo: true },
-  { time: '10:00 AM', name: 'Selvi P', reason: 'Follow-up • Thyroid', status: 'Consulting', pill: 'consulting', photo: true },
-  { time: '10:30 AM', name: 'Ramesh Kumar', reason: 'New Patient • Chest Pain', status: 'Waiting', pill: 'waiting', photo: false },
-  { time: '11:00 AM', name: 'Latha S', reason: 'Follow-up • Diabetes', status: 'Scheduled', pill: 'scheduled', photo: false },
-  { time: '11:30 AM', name: 'Daniel', reason: 'New Patient • Fever', status: 'Scheduled', pill: 'scheduled', photo: false }
-];
-
-const RECENT_PATIENTS = [
-  { name: 'Mary Jeni', age: 28, gender: 'Female', reason: 'Hypertension follow-up', time: '10:12 AM', photo: true },
-  { name: 'Antony Raj', age: 45, gender: 'Male', reason: 'Diabetes management', time: '09:32 AM', photo: true },
-  { name: 'Selvi P', age: 32, gender: 'Female', reason: 'Thyroid review', time: '09:10 AM', photo: true },
-  { name: 'Rajesh Kumar', age: 52, gender: 'Male', reason: 'Chest pain evaluation', time: '08:45 AM', photo: false },
-  { name: 'Latha S', age: 41, gender: 'Female', reason: 'Lab result review', time: '08:20 AM', photo: false },
-  { name: 'Daniel', age: 36, gender: 'Male', reason: 'Fever and cold', time: '08:05 AM', photo: false, color: '#9b3fe0' }
-];
+/** Schedule status pill: the design shows "Consulting" for patients in consultation. */
+const SCHEDULE_PILL: Record<Appointment['status'], { label: string; pill: string }> = {
+  'In Consultation': { label: 'Consulting', pill: 'consulting' },
+  Completed: { label: 'Completed', pill: 'completed' },
+  'Checked In': { label: 'Checked In', pill: 'waiting' },
+  Waiting: { label: 'Waiting', pill: 'waiting' },
+  Scheduled: { label: 'Scheduled', pill: 'scheduled' },
+  Canceled: { label: 'Canceled', pill: 'red' }
+};
 
 type AlertFilter = 'all' | 'critical' | 'followups' | 'lab' | 'system';
 
-const ALERTS: { id: string; title: string; sub: string; time: string; type: Exclude<AlertFilter, 'all'>; icon: LucideIcon; tint: Tint; timeColor?: string }[] = [
-  { id: 'a1', title: 'High WBC count: 14,500', sub: 'Mary Jeni | CBC', time: '09:30 AM', type: 'critical', icon: TriangleAlert, tint: 'red' },
-  { id: 'a2', title: 'Drug interaction alert', sub: 'Amlodipine + Ibuprofen | Antony Raj', time: '09:15 AM', type: 'critical', icon: Pill, tint: 'orange' },
-  { id: 'a3', title: 'Follow-up due', sub: 'Diabetes review | Selvi P', time: 'Today', type: 'followups', icon: Clock, tint: 'orange', timeColor: 'var(--red-rose)' },
-  { id: 'a4', title: 'Lab report pending', sub: 'CBC, LFT | 4 patients', time: 'Today', type: 'lab', icon: FlaskConical, tint: 'sky', timeColor: 'var(--red-rose)' },
-  { id: 'a5', title: 'Imaging report pending', sub: 'Chest X-Ray | 2 patients', time: 'Today', type: 'lab', icon: FileText, tint: 'purple' },
-  { id: 'a6', title: 'System auto-backup complete', sub: 'Cloud PACS Storage', time: '04:00 AM', type: 'system', icon: DatabaseBackup, tint: 'blue' }
-];
+/** Dashboard alert group and icon for an open task. */
+const alertKind = (t: TaskAlertItem): { type: Exclude<AlertFilter, 'all'>; icon: LucideIcon; tint: Tint } => {
+  if (t.category === 'Follow-up') return { type: 'followups', icon: Clock, tint: 'orange' };
+  if (t.category === 'Lab') return { type: 'lab', icon: FlaskConical, tint: 'sky' };
+  if (t.category === 'Imaging') return { type: 'lab', icon: FileText, tint: 'purple' };
+  if (t.category === 'System') return { type: 'system', icon: DatabaseBackup, tint: 'blue' };
+  if (t.category === 'Medication') return { type: 'critical', icon: Pill, tint: 'orange' };
+  return { type: 'critical', icon: TriangleAlert, tint: 'red' };
+};
 
-const ALERT_CHIPS: { id: AlertFilter; label: string }[] = [
-  { id: 'all', label: 'All (12)' },
-  { id: 'critical', label: 'Critical (4)' },
-  { id: 'followups', label: 'Follow-ups (5)' },
-  { id: 'lab', label: 'Lab (2)' },
-  { id: 'system', label: 'System (1)' }
-];
+const PRIORITY_ORDER: Record<TaskAlertItem['priority'], number> = { High: 0, Medium: 1, Low: 2 };
+
+const FLOW_COLORS: Record<string, string> = {
+  Completed: 'var(--chart-green)',
+  'In Consultation': 'var(--chart-blue)',
+  Waiting: 'var(--chart-orange)',
+  'Checked In': 'var(--chart-sky)',
+  Scheduled: 'var(--chart-gray)',
+  Canceled: 'var(--red-rose)'
+};
+const BAR_COLORS = ['var(--chart-blue)', 'var(--chart-sky)', 'var(--chart-green)', 'var(--chart-orange)', 'var(--chart-purple)'];
 
 const PROMPT_ROWS: { label: string; icon: LucideIcon; prompt: string }[][] = [
   [
@@ -117,21 +135,6 @@ const PROMPT_ROWS: { label: string; icon: LucideIcon; prompt: string }[][] = [
     { label: 'Interpret lab report', icon: UserRoundSearch, prompt: 'Interpret lab report' },
     { label: 'Follow-up plan', icon: CalendarClock, prompt: 'Follow-up plan' }
   ]
-];
-
-const FLOW = [
-  { label: 'Completed', value: 82, pct: 66, color: 'var(--chart-green)' },
-  { label: 'In Consultation', value: 16, pct: 13, color: 'var(--chart-blue)' },
-  { label: 'Waiting', value: 12, pct: 10, color: 'var(--chart-orange)' },
-  { label: 'Scheduled', value: 14, pct: 11, color: 'var(--chart-gray)' }
-];
-
-const CONSULT_TYPES = [
-  { label: 'General', count: 8, color: 'var(--chart-blue)' },
-  { label: 'Follow-up', count: 5, color: 'var(--chart-sky)' },
-  { label: 'Diabetes', count: 4, color: 'var(--chart-green)' },
-  { label: 'Hypertension', count: 3, color: 'var(--chart-orange)', valueColor: 'var(--orange-dark)' },
-  { label: 'Others', count: 2, color: 'var(--chart-purple)' }
 ];
 
 const QUICK_ACTIONS: { label: string; icon: LucideIcon; screen: ScreenId }[] = [
@@ -189,59 +192,107 @@ const PeriodSelect: React.FC = () => (
 // Donut geometry: each segment's dash length and its start offset along the ring.
 const DONUT_R = 67;
 const DONUT_C = 2 * Math.PI * DONUT_R;
-const DONUT_SEGMENTS = FLOW.map((seg, i) => ({
-  ...seg,
-  len: (seg.pct / 100) * DONUT_C,
-  start: (FLOW.slice(0, i).reduce((sum, s) => sum + s.pct, 0) / 100) * DONUT_C
-}));
 
-const Donut: React.FC = () => (
-  <div style={{ position: 'relative', width: 156, height: 156, flexShrink: 0 }}>
-    <svg width="156" height="156" viewBox="0 0 156 156" style={{ transform: 'rotate(-90deg)' }}>
-      {DONUT_SEGMENTS.map((seg) => (
-        <circle
-          key={seg.label}
-          cx="78"
-          cy="78"
-          r={DONUT_R}
-          fill="none"
-          stroke={seg.color}
-          strokeWidth="22"
-          strokeDasharray={`${seg.len} ${DONUT_C - seg.len}`}
-          strokeDashoffset={-seg.start}
-        />
-      ))}
-    </svg>
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontSize: 23, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>124</span>
-      <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>Total Patients</span>
+const Donut: React.FC<{ segments: { label: string; pct: number; color: string }[]; total: number; caption: string }> = ({ segments, total, caption }) => {
+  const arcs = segments.map((seg, i) => ({
+    ...seg,
+    len: (seg.pct / 100) * DONUT_C,
+    start: (segments.slice(0, i).reduce((sum, s) => sum + s.pct, 0) / 100) * DONUT_C
+  }));
+  return (
+    <div style={{ position: 'relative', width: 156, height: 156, flexShrink: 0 }}>
+      <svg width="156" height="156" viewBox="0 0 156 156" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="78" cy="78" r={DONUT_R} fill="none" stroke="var(--border-subtle)" strokeWidth="22" />
+        {arcs.map((seg) => (
+          <circle
+            key={seg.label}
+            cx="78"
+            cy="78"
+            r={DONUT_R}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth="22"
+            strokeDasharray={`${seg.len} ${DONUT_C - seg.len}`}
+            strokeDashoffset={-seg.start}
+          />
+        ))}
+      </svg>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontSize: 23, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>{total}</span>
+        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>{caption}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const DashboardScreen: React.FC = () => {
-  const { setActiveScreen, showToast } = useApp();
+  const { setActiveScreen, showToast, user, activePatient, patients, navigateToPatientScreen } = useApp();
   const [scheduleFilter, setScheduleFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [alertsFilter, setAlertsFilter] = useState<AlertFilter>('all');
   const [aiQuestion, setAiQuestion] = useState('');
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
+  const [data, setData] = useState<{ stats: DashboardStats; tasks: TaskAlertItem[] } | null>(null);
+  useLoader(async () => {
+    const [stats, tasks] = await Promise.all([dashboardService.getStats(isoDay()), taskService.getTasks()]);
+    return { stats, tasks };
+  }, setData, []);
+  const stats = data?.stats ?? null;
+  const now = clinicNow();
 
-  const filteredSchedule = SCHEDULE.filter((item) => {
-    if (scheduleFilter === 'upcoming') return item.status !== 'Completed';
+  const kpis = buildKpis(stats);
+  const schedule = (stats?.schedule ?? []).map((a) => ({ ...a, ...SCHEDULE_PILL[a.status] }));
+  const completedCount = schedule.filter((a) => a.status === 'Completed').length;
+  const filteredSchedule = schedule.filter((item) => {
+    if (scheduleFilter === 'upcoming') return item.status !== 'Completed' && item.status !== 'Canceled';
     if (scheduleFilter === 'completed') return item.status === 'Completed';
     return true;
   });
 
-  const filteredAlerts = alertsFilter === 'all' ? ALERTS.slice(0, 5) : ALERTS.filter((a) => a.type === alertsFilter);
+  const alerts = (data?.tasks ?? [])
+    .filter((t) => t.status !== 'Completed')
+    .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+    .map((t) => ({ id: t.id, title: t.title, sub: [t.patientName, t.subtitle].filter(Boolean).join(' | '), time: t.dueDateTime, timeColor: t.priority === 'High' ? 'var(--red-rose)' : undefined, ...alertKind(t) }));
+  const alertCount = (id: AlertFilter) => (id === 'all' ? alerts.length : alerts.filter((a) => a.type === id).length);
+  const alertChips: { id: AlertFilter; label: string }[] = (
+    [
+      ['all', 'All'],
+      ['critical', 'Critical'],
+      ['followups', 'Follow-ups'],
+      ['lab', 'Lab'],
+      ['system', 'System']
+    ] as const
+  ).map(([id, label]) => ({ id, label: `${label} (${alertCount(id)})` }));
+  const filteredAlerts = alertsFilter === 'all' ? alerts.slice(0, 5) : alerts.filter((a) => a.type === alertsFilter);
 
+  const flowTotal = (stats?.patientFlow ?? []).reduce((acc, f) => acc + f.count, 0);
+  const flow = (stats?.patientFlow ?? []).map((f) => ({
+    label: f.label,
+    value: f.count,
+    pct: flowTotal ? Math.round((f.count / flowTotal) * 100) : 0,
+    color: FLOW_COLORS[f.label] ?? 'var(--chart-purple)'
+  }));
+  const byCount = [...(stats?.consultationTypes ?? [])].sort((a, b) => b.count - a.count);
+  const others = byCount.slice(4).reduce((acc, c) => acc + c.count, 0);
+  const consultTypes = [...byCount.slice(0, 4), ...(others ? [{ label: 'Others', count: others }] : [])].map((c, i) => ({
+    label: c.label,
+    count: c.count,
+    color: BAR_COLORS[i % BAR_COLORS.length]
+  }));
+  const maxBar = Math.max(1, ...consultTypes.map((b) => b.count));
+
+  // No AI model is connected yet: patient questions get a summary of the record.
   const handleAskAI = (promptText?: string) => {
     const q = promptText || aiQuestion;
     if (!q) return;
     setAiQuestion(q);
-    setAiAnswer(`GPT-6 Astro: Analysis complete for "${q}". Clinical findings cross-referenced with ESC & ADA guidelines. No acute contraindications found.`);
+    setAiAnswer(/patient/i.test(q) ? recordSummary(activePatient) : 'AI answers are not connected yet. Open a patient to see their record summary.');
   };
 
-  const maxBar = Math.max(...CONSULT_TYPES.map((b) => b.count));
+  const openPatient = (uhid: string) => {
+    const patient = patients.find((p) => p.uhid === uhid);
+    if (patient) navigateToPatientScreen('consultation', patient);
+    else setActiveScreen('patients');
+  };
 
   return (
     <div className="page-scroll-body dash-page">
@@ -251,19 +302,21 @@ export const DashboardScreen: React.FC = () => {
         <div className="screen-title-area">
           <h1>Dashboard</h1>
           <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)', marginTop: 3, lineHeight: 1.3 }}>
-            Welcome back, Dr. Shajin 👋
+            Welcome back, {user?.name ?? 'Doctor'} 👋
           </div>
           <p style={{ marginTop: 0 }}>Here's your hospital overview for today.</p>
         </div>
         <div style={{ textAlign: 'right', paddingTop: 6, fontSize: 14, lineHeight: 1.45 }}>
-          <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Tue, 24 Sep 2026</div>
-          <div style={{ color: 'var(--text-secondary)' }}>10:24 AM</div>
+          <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
+            {now.toLocaleDateString('en-US', { weekday: 'short' })}, {displayDate(now)}
+          </div>
+          <div style={{ color: 'var(--text-secondary)' }}>{displayTime(now)}</div>
         </div>
       </div>
 
       {/* KPI cards */}
       <div className="stat-cards-grid dash-kpis">
-        {KPIS.map((kpi) => {
+        {kpis.map((kpi) => {
           const Icon = kpi.icon;
           const tint = TINTS[kpi.tint];
           return (
@@ -295,9 +348,9 @@ export const DashboardScreen: React.FC = () => {
           <div className="card-tabs" style={{ margin: '0 -18px 4px -14px', gap: 0 }}>
             {(
               [
-                { id: 'all', label: 'All (18)' },
-                { id: 'upcoming', label: 'Upcoming (6)' },
-                { id: 'completed', label: 'Completed (12)' }
+                { id: 'all', label: `All (${schedule.length})` },
+                { id: 'upcoming', label: `Upcoming (${schedule.filter((a) => a.status !== 'Completed' && a.status !== 'Canceled').length})` },
+                { id: 'completed', label: `Completed (${completedCount})` }
               ] as const
             ).map((tab) => (
               <button
@@ -313,7 +366,7 @@ export const DashboardScreen: React.FC = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {filteredSchedule.map((item) => (
-              <div key={item.time} style={{ display: 'flex', alignItems: 'center', height: 56 }}>
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', height: 56, cursor: 'pointer' }} onClick={() => openPatient(item.uhid)}>
                 <span style={{ width: 70, flexShrink: 0, paddingLeft: 4, fontSize: 'var(--fs-sm)', color: 'var(--text-primary)' }}>
                   {item.time}
                 </span>
@@ -330,17 +383,19 @@ export const DashboardScreen: React.FC = () => {
                     margin: '4px 0'
                   }}
                 >
-                  <Avatar name={item.name} size={40} initialsOnly={!item.photo} color={item.photo ? undefined : 'var(--chart-blue)'} />
+                  <Avatar name={item.patientName} size={40} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>{item.name}</div>
-                    <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.35, whiteSpace: 'nowrap' }}>{item.reason}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.3 }}>{item.patientName}</div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {[item.type, item.condition].filter(Boolean).join(' • ')}
+                    </div>
                   </div>
-                  <span className={`status-pill ${item.pill}`}>{item.status}</span>
+                  <span className={`status-pill ${item.pill}`}>{item.label}</span>
                 </div>
               </div>
             ))}
             {filteredSchedule.length === 0 && (
-              <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>No appointments</div>
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>{data ? 'No appointments' : 'Loading…'}</div>
             )}
           </div>
         </div>
@@ -355,9 +410,10 @@ export const DashboardScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {RECENT_PATIENTS.map((pat) => (
-              <div key={pat.name} style={{ display: 'flex', alignItems: 'center', gap: 13, height: 66 }}>
-                <Avatar name={pat.name} size={42} initialsOnly={!pat.photo} color={pat.photo ? undefined : pat.color ?? 'var(--chart-blue)'} />
+            {!stats && <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>Loading…</div>}
+            {(stats?.recentPatients ?? []).map((pat) => (
+              <div key={pat.id} style={{ display: 'flex', alignItems: 'center', gap: 13, height: 66 }}>
+                <Avatar name={pat.name} size={42} src={pat.avatar || undefined} />
                 <div style={{ flex: 1, minWidth: 0, lineHeight: 1.36 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{pat.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
@@ -365,11 +421,11 @@ export const DashboardScreen: React.FC = () => {
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{pat.reason}</div>
                 </div>
-                <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginRight: 6 }}>{pat.time}</span>
+                <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginRight: 6 }}>{pat.lastVisit}</span>
                 <button
                   className="btn-outline-blue btn-sm"
                   style={{ height: 26, padding: '0 12px', backgroundColor: 'var(--blue-light)', fontWeight: 400 }}
-                  onClick={() => setActiveScreen('consultation')}
+                  onClick={() => openPatient(pat.uhid)}
                 >
                   View
                 </button>
@@ -385,7 +441,7 @@ export const DashboardScreen: React.FC = () => {
             <div className="ai-header-bar">
               <div className="ai-title-row" style={{ fontSize: 14.5 }}>
                 <AiSparkle size={22} />
-                <span>AI Clinical Assistant (GPT-6 Astro)</span>
+                <span>AI Clinical Assistant</span>
               </div>
               <button className="icon-btn" style={{ border: 'none', width: 24, height: 24, color: 'var(--blue-text)' }} aria-label="More options" onClick={() => showToast('AI assistant options')}>
                 <EllipsisVertical size={16} />
@@ -449,7 +505,7 @@ export const DashboardScreen: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
-              {ALERT_CHIPS.map((chip) => {
+              {alertChips.map((chip) => {
                 const active = alertsFilter === chip.id;
                 const critical = chip.id === 'critical' && !active;
                 return (
@@ -472,7 +528,7 @@ export const DashboardScreen: React.FC = () => {
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               {filteredAlerts.length === 0 ? (
-                <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>No alerts for {alertsFilter}</div>
+                <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--fs-sm)' }}>{data ? `No open ${alertsFilter === 'all' ? '' : `${alertsFilter} `}alerts` : 'Loading…'}</div>
               ) : (
                 filteredAlerts.map((a, i) => {
                   const Icon = a.icon;
@@ -553,9 +609,10 @@ export const DashboardScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 24, paddingLeft: 4 }}>
-            <Donut />
+            <Donut segments={flow} total={flowTotal} caption="Appointments" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13, flex: 1 }}>
-              {FLOW.map((seg) => (
+              {!flow.length && <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{data ? 'No appointments today.' : 'Loading…'}</span>}
+              {flow.map((seg) => (
                 <div key={seg.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, lineHeight: 1.5 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <span style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: seg.color }} />
@@ -578,16 +635,16 @@ export const DashboardScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, height: 141, padding: '0 10px 0 8px', borderBottom: '1px solid var(--border-color)' }}>
-            {CONSULT_TYPES.map((bar) => (
+            {consultTypes.map((bar) => (
               <div key={bar.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: bar.valueColor ?? 'var(--text-primary)', lineHeight: 1.2 }}>{bar.count}</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{bar.count}</span>
                 <div style={{ width: '100%', height: (bar.count / maxBar) * 120, backgroundColor: bar.color, borderRadius: '3px 3px 0 0' }} />
               </div>
             ))}
           </div>
           <div style={{ display: 'flex', gap: 20, padding: '6px 10px 0 8px' }}>
-            {CONSULT_TYPES.map((bar) => (
-              <span key={bar.label} style={{ flex: 1, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+            {consultTypes.map((bar) => (
+              <span key={bar.label} title={bar.label} style={{ flex: 1, minWidth: 0, textAlign: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {bar.label}
               </span>
             ))}

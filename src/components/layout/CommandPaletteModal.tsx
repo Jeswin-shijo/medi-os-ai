@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { ScreenId, Patient } from '../../types';
-import { mockPatients } from '../../mock/patientsData';
 import {
   Search,
   LayoutGrid,
@@ -88,14 +87,14 @@ const sectionLabel: React.CSSProperties = {
 };
 
 export const CommandPaletteModal: React.FC = () => {
-  const { isCommandPaletteOpen, setIsCommandPaletteOpen, setActiveScreen, setActivePatient, showToast } = useApp();
+  const { isCommandPaletteOpen, setIsCommandPaletteOpen, setActiveScreen, setActivePatient, showToast, patients: allPatients } = useApp();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (!isCommandPaletteOpen) return null;
 
   const q = query.trim().toLowerCase();
-  const patients = mockPatients
+  const patients = allPatients
     .filter(p => p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q) || p.phone.includes(q))
     .slice(0, 5);
   const modules = MODULES.filter(m => m.label.toLowerCase().includes(q) || m.hint.toLowerCase().includes(q));

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/appContextCore';
-import { mockTasksAlerts, mockCriticalAlerts, mockAITaskSuggestions, mockTodayReminders } from '../../mock/tasksAlertsData';
 import { TaskAlertItem } from '../../types';
+import { taskService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
 import {
@@ -87,23 +89,18 @@ const TYPE_PILL: Record<TaskType, string> = {
 const PRIORITY_PILL = { High: 'high', Medium: 'medium', Low: 'green' } as const;
 const STATUS_PILL = { Pending: 'pending', Scheduled: 'green', 'In Progress': 'in-progress', Completed: 'completed' } as const;
 
-/** Primary row action shown before the ⋮ menu (design: eye / calendar / phone). */
-const ROW_ACTION: Record<string, 'schedule' | 'call'> = {
-  'ta-2': 'schedule',
-  'ta-6': 'schedule',
-  'ta-7': 'call',
-  'ta-10': 'call',
-  'ta-14': 'schedule',
-  'ta-17': 'call',
-  'ta-27': 'call'
-};
+/** Primary row action shown before the ⋮ menu (eye / calendar / phone), by task type. */
+const rowActionKind = (t: TaskAlertItem): 'schedule' | 'call' | undefined =>
+  t.type === 'Patient Communication' ? 'call' : t.type === 'Follow-up' || t.type === 'Preventive Care' ? 'schedule' : undefined;
+
+const isOpen = (t: TaskAlertItem) => t.status !== 'Completed';
 
 const KPIS = [
-  { tab: 'My Tasks', tint: 'sky', tile: '#d4e6fe', icon: ClipboardList, iconColor: 'var(--blue-text)', value: '12', label: 'Pending Tasks', sub: '6 high priority', subColor: 'var(--text-secondary)' },
-  { tab: 'Critical', tint: 'red', tile: '#fedde6', icon: TriangleAlert, iconColor: 'var(--red-rose)', value: '4', valueColor: 'var(--red-dark)', label: 'Critical Alerts', labelWeight: 600, sub: 'Requires attention', subColor: 'var(--red-dark)' },
-  { tab: 'Follow-ups', tint: 'orange', tile: '#fdeadb', icon: Clock, iconColor: '#e8680d', value: '8', label: 'Follow-ups Due', sub: 'Today', subColor: 'var(--orange-dark)' },
-  { tab: 'Lab Alerts', tint: 'green', tile: '#d6f3e9', icon: FlaskConical, iconColor: 'var(--green-emerald)', value: '6', label: 'Lab Results Pending', sub: 'Review reports', subColor: 'var(--green-dark)' },
-  { tab: 'Imaging Alerts', tint: 'purple', tile: '#e9dcfe', icon: ImageIcon, iconColor: '#7c2fe0', value: '2', label: 'Imaging Results', sub: 'Unread reports', subColor: 'var(--purple-dark)' }
+  { tab: 'My Tasks', tint: 'sky', tile: '#d4e6fe', icon: ClipboardList, iconColor: 'var(--blue-text)', label: 'Pending Tasks', subColor: 'var(--text-secondary)' },
+  { tab: 'Critical', tint: 'red', tile: '#fedde6', icon: TriangleAlert, iconColor: 'var(--red-rose)', valueColor: 'var(--red-dark)', label: 'Critical Alerts', labelWeight: 600, subColor: 'var(--red-dark)' },
+  { tab: 'Follow-ups', tint: 'orange', tile: '#fdeadb', icon: Clock, iconColor: '#e8680d', label: 'Follow-ups Due', subColor: 'var(--orange-dark)' },
+  { tab: 'Lab Alerts', tint: 'green', tile: '#d6f3e9', icon: FlaskConical, iconColor: 'var(--green-emerald)', label: 'Lab Results Pending', subColor: 'var(--green-dark)' },
+  { tab: 'Imaging Alerts', tint: 'purple', tile: '#e9dcfe', icon: ImageIcon, iconColor: '#7c2fe0', label: 'Imaging Results', subColor: 'var(--purple-dark)' }
 ] as const;
 
 const CRITICAL_META: Record<string, { icon: LucideIcon | React.FC<{ size?: number }>; fill?: boolean; badgeBg: string; badgeColor: string }> = {
@@ -113,7 +110,14 @@ const CRITICAL_META: Record<string, { icon: LucideIcon | React.FC<{ size?: numbe
   Vitals: { icon: Heart, fill: true, badgeBg: 'var(--blue-light)', badgeColor: 'var(--blue-text)' }
 };
 
-const REMINDER_ICON: Record<(typeof mockTodayReminders)[number]['kind'], { icon: LucideIcon; color: string }> = {
+type ReminderKind = 'lab' | 'follow-up' | 'imaging' | 'diabetes' | 'call';
+const reminderKind = (t: TaskAlertItem): ReminderKind =>
+  t.type === 'Lab Alert' ? 'lab' : t.type === 'Follow-up' ? 'follow-up' : t.type === 'Imaging Alert' ? 'imaging' : t.type === 'Patient Communication' ? 'call' : 'diabetes';
+/** Badge used for a critical alert in the side panel. */
+const criticalBadge = (t: TaskAlertItem) =>
+  t.type === 'Imaging Alert' ? 'Imaging' : t.type === 'Medication' || t.type === 'Medication Alert' ? 'Medication' : t.type === 'Lab Alert' ? 'Lab' : 'Vitals';
+
+const REMINDER_ICON: Record<ReminderKind, { icon: LucideIcon; color: string }> = {
   lab: { icon: CalendarCheck, color: 'var(--blue-text)' },
   'follow-up': { icon: Phone, color: 'var(--blue-text)' },
   imaging: { icon: ImageIcon, color: 'var(--blue-text)' },
@@ -143,11 +147,21 @@ const checkbox: React.CSSProperties = { width: 15, height: 15, accentColor: 'var
 const ctrlBtn: React.CSSProperties = { height: 33, padding: '0 16px', fontWeight: 400 };
 
 export const TasksAlertsScreen: React.FC = () => {
-  const { showToast } = useApp();
-  const [tasks, setTasks] = useState<TaskAlertItem[]>(mockTasksAlerts);
+  const { showToast, setOpenAlertCount } = useApp();
+  const [tasks, setTasksState] = useState<TaskAlertItem[]>([]);
+  const criticalOpen = (list: TaskAlertItem[]) => list.filter((t) => t.category === 'Critical' && t.status !== 'Completed').length;
+  const setTasks = (list: TaskAlertItem[]) => {
+    setTasksState(list);
+    setOpenAlertCount(criticalOpen(list));
+  };
+  const { loading } = useLoader(() => taskService.getTasks(), setTasks, []);
+  const replaceTasks = (updated: TaskAlertItem[]) => {
+    const byId = new Map(updated.map((t) => [t.id, t]));
+    setTasks(tasks.map((t) => byId.get(t.id) ?? t));
+  };
   const [activeTab, setActiveTab] = useState<string>('All');
   const [search, setSearch] = useState('');
-  const [suggestions, setSuggestions] = useState(mockAITaskSuggestions);
+  const [doneSuggestions, setDoneSuggestions] = useState<Set<string>>(() => new Set());
   const [view, setView] = useState<'list' | 'board'>('list');
   const [todayOnly, setTodayOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -156,14 +170,42 @@ export const TasksAlertsScreen: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const toggleTask = (id: string) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: t.status === 'Completed' ? 'Pending' : 'Completed' } : t)));
-    showToast('Task status updated');
+  const toggleTask = async (id: string) => {
+    try {
+      replaceTasks([await taskService.toggleTaskStatus(id)]);
+      showToast('Task status updated');
+    } catch (err) {
+      showToast(`Task not updated: ${errorMessage(err)}`, 'error');
+    }
   };
 
-  const toggleSuggestion = (id: string) => {
-    setSuggestions((prev) => prev.map((s) => (s.id === id ? { ...s, checked: !s.checked } : s)));
+  const toggleSuggestion = (text: string) =>
+    setDoneSuggestions((prev) => {
+      const next = new Set(prev);
+      if (next.has(text)) next.delete(text);
+      else next.add(text);
+      return next;
+    });
+
+  // Panels and KPI tiles computed from the task list.
+  const open = tasks.filter(isOpen);
+  const criticalAlerts = open.filter((t) => t.category === 'Critical');
+  const dueToday = open.filter((t) => t.dueDateTime.startsWith('Today'));
+  const countOpen = (type: TaskAlertItem['type']) => open.filter((t) => t.type === type).length;
+  const kpiValues: Record<string, { value: number; sub: string }> = {
+    'My Tasks': { value: open.length, sub: `${open.filter((t) => t.priority === 'High').length} high priority` },
+    Critical: { value: criticalAlerts.length, sub: criticalAlerts.length ? 'Requires attention' : 'None open' },
+    'Follow-ups': { value: countOpen('Follow-up'), sub: `${dueToday.filter((t) => t.type === 'Follow-up').length} due today` },
+    'Lab Alerts': { value: countOpen('Lab Alert'), sub: 'Review reports' },
+    'Imaging Alerts': { value: countOpen('Imaging Alert'), sub: 'Unread reports' }
   };
+  const suggestions = [
+    criticalAlerts.length && `Review ${criticalAlerts.length} open critical alert${criticalAlerts.length === 1 ? '' : 's'}`,
+    countOpen('Lab Alert') && `Follow up on ${countOpen('Lab Alert')} pending lab alert${countOpen('Lab Alert') === 1 ? '' : 's'}`,
+    countOpen('Imaging Alert') && `Review ${countOpen('Imaging Alert')} imaging report${countOpen('Imaging Alert') === 1 ? '' : 's'}`,
+    countOpen('Follow-up') && `Schedule ${countOpen('Follow-up')} follow-up${countOpen('Follow-up') === 1 ? '' : 's'}`,
+    (countOpen('Medication') + countOpen('Medication Alert')) && 'Resolve open medication alerts'
+  ].filter((x): x is string => typeof x === 'string');
 
   const selectTab = (tab: string) => {
     setActiveTab(tab);
@@ -201,10 +243,15 @@ export const TasksAlertsScreen: React.FC = () => {
   const pageTasks = filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const allPageDone = pageTasks.length > 0 && pageTasks.every((t) => t.status === 'Completed');
 
-  const toggleAllOnPage = () => {
-    const ids = new Set(pageTasks.map((t) => t.id));
-    setTasks((prev) => prev.map((t) => (ids.has(t.id) ? { ...t, status: allPageDone ? 'Pending' : 'Completed' } : t)));
-    showToast(allPageDone ? 'Tasks marked as pending' : `${ids.size} tasks marked complete`);
+  const toggleAllOnPage = async () => {
+    const status: TaskAlertItem['status'] = allPageDone ? 'Pending' : 'Completed';
+    const targets = pageTasks.filter((t) => t.status !== status);
+    try {
+      replaceTasks(await Promise.all(targets.map((t) => taskService.updateStatus(t.id, status))));
+      showToast(allPageDone ? 'Tasks marked as pending' : `${targets.length} tasks marked complete`);
+    } catch (err) {
+      showToast(`Tasks not updated: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const renderDue = (due: string) => {
@@ -220,7 +267,7 @@ export const TasksAlertsScreen: React.FC = () => {
   };
 
   const rowAction = (task: TaskAlertItem) => {
-    const kind = ROW_ACTION[task.id];
+    const kind = rowActionKind(task);
     const Icon = kind === 'schedule' ? CalendarDays : kind === 'call' ? Phone : Eye;
     const msg = kind === 'schedule' ? `Reschedule: ${task.title}` : kind === 'call' ? `Calling ${task.patientName}...` : `Viewing task: ${task.title}`;
     return (
@@ -250,7 +297,7 @@ export const TasksAlertsScreen: React.FC = () => {
         title="Tasks & Alerts"
         subtitle="Stay on top of your clinical tasks, patient follow-ups and important alerts"
         actions={
-          <button className="btn-primary" style={{ height: 38, padding: '0 22px 0 20px', gap: 10 }} onClick={() => showToast('Create new task form opened')}>
+          <button className="btn-primary" style={{ height: 38, padding: '0 22px 0 20px', gap: 10 }} onClick={() => showToast('Task creation form is not built yet', 'info')}>
             <Plus size={19} />
             <span>New Task</span>
           </button>
@@ -354,10 +401,10 @@ export const TasksAlertsScreen: React.FC = () => {
               </div>
               <div className="stat-data-box" style={{ whiteSpace: 'nowrap' }}>
                 <span className="stat-number" style={{ fontSize: 25, lineHeight: 1.2, marginTop: 0, color: 'valueColor' in k ? k.valueColor : undefined }}>
-                  {k.value}
+                  {loading ? '–' : kpiValues[k.tab].value}
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 'labelWeight' in k ? k.labelWeight : 500, color: 'var(--text-primary)', marginTop: 2 }}>{k.label}</span>
-                <span style={{ fontSize: 12, color: k.subColor, marginTop: 2 }}>{k.sub}</span>
+                <span style={{ fontSize: 12, color: k.subColor, marginTop: 2 }}>{kpiValues[k.tab].sub}</span>
               </div>
             </button>
           );
@@ -580,19 +627,23 @@ export const TasksAlertsScreen: React.FC = () => {
             <div className="ai-header-bar" style={{ marginBottom: 8 }}>
               <div className="ai-title-row" style={{ fontSize: 14.5, gap: 9 }}>
                 <AiSparkle size={20} />
-                <span>AI Task Suggestions (GPT-6 Astro)</span>
+                <span>Suggested Next Steps</span>
               </div>
               <button style={{ color: 'var(--blue-text)', display: 'inline-flex' }} aria-label="AI suggestion options" onClick={() => showToast('AI suggestion settings', 'info')}>
                 <EllipsisVertical size={16} />
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {suggestions.map((s) => (
-                <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12.5, color: s.checked ? 'var(--text-muted)' : 'var(--text-primary)', cursor: 'pointer', lineHeight: 1.45, paddingLeft: 3 }}>
-                  <input type="checkbox" style={checkbox} checked={s.checked} onChange={() => toggleSuggestion(s.id)} />
-                  <span style={{ textDecoration: s.checked ? 'line-through' : 'none' }}>{s.text}</span>
-                </label>
-              ))}
+              {!suggestions.length && <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{loading ? 'Loading…' : 'Nothing outstanding.'}</span>}
+              {suggestions.map((text) => {
+                const checked = doneSuggestions.has(text);
+                return (
+                  <label key={text} style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12.5, color: checked ? 'var(--text-muted)' : 'var(--text-primary)', cursor: 'pointer', lineHeight: 1.45, paddingLeft: 3 }}>
+                    <input type="checkbox" style={checkbox} checked={checked} onChange={() => toggleSuggestion(text)} />
+                    <span style={{ textDecoration: checked ? 'line-through' : 'none' }}>{text}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -601,14 +652,15 @@ export const TasksAlertsScreen: React.FC = () => {
             <div className="card-header-row" style={{ marginBottom: 6 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, color: 'var(--red-dark)', fontWeight: 700, fontSize: 15.5 }}>
                 <TriangleAlert size={22} fill="var(--red-rose)" color="#ffffff" strokeWidth={2.2} />
-                <span>Critical Alerts ({mockCriticalAlerts.length})</span>
+                <span>Critical Alerts ({criticalAlerts.length})</span>
               </div>
               <button className="text-link" style={{ fontSize: 13 }} onClick={() => selectTab('Critical')}>
                 View All
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {mockCriticalAlerts.map((ca) => {
+              {!criticalAlerts.length && <span style={{ fontSize: 12, color: 'var(--text-secondary)', paddingLeft: 6 }}>{loading ? 'Loading…' : 'No open critical alerts.'}</span>}
+              {criticalAlerts.slice(0, 4).map((t) => ({ id: t.id, title: t.title, patient: t.patientName || t.subtitle, time: t.dueDateTime, badge: criticalBadge(t) })).map((ca) => {
                 const meta = CRITICAL_META[ca.badge] ?? CRITICAL_META.Lab;
                 const Icon = meta.icon;
                 return (
@@ -642,7 +694,8 @@ export const TasksAlertsScreen: React.FC = () => {
               </button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {mockTodayReminders.map((r) => {
+              {!dueToday.length && <span style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '4px 3px' }}>{loading ? 'Loading…' : 'Nothing due today.'}</span>}
+              {dueToday.slice(0, 5).map((t) => ({ id: t.id, time: t.dueDateTime.replace(/^Today\s*/, '') || 'Today', task: t.title, patient: t.patientName, kind: reminderKind(t) })).map((r) => {
                 const meta = REMINDER_ICON[r.kind];
                 const Icon = meta.icon;
                 return (
@@ -665,15 +718,15 @@ export const TasksAlertsScreen: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
               {(
                 [
-                  { label: 'Create Task', icon: CirclePlus, msg: 'Create Task' },
-                  { label: 'Set Reminder', icon: Bell, msg: 'Set Reminder' },
-                  { label: 'Assign Task', icon: UsersRound, msg: 'Assign Task' },
-                  { label: 'Mark Complete', icon: CircleCheck, msg: 'Marked all completed' }
+                  { label: 'Create Task', icon: CirclePlus, msg: 'Task creation form is not built yet' },
+                  { label: 'Set Reminder', icon: Bell, msg: 'Reminders are not built yet' },
+                  { label: 'Assign Task', icon: UsersRound, msg: 'Task assignment is not built yet' },
+                  { label: 'Mark Complete', icon: CircleCheck, msg: '' }
                 ] as const
               ).map((a) => {
                 const Icon = a.icon;
                 return (
-                  <button key={a.label} className="btn-outline-blue" style={{ height: 35, fontSize: 13, borderColor: 'var(--blue-border)' }} onClick={() => showToast(a.msg)}>
+                  <button key={a.label} className="btn-outline-blue" style={{ height: 35, fontSize: 13, borderColor: 'var(--blue-border)' }} onClick={() => (a.label === 'Mark Complete' ? toggleAllOnPage() : showToast(a.msg, 'info'))}>
                     <Icon size={15} />
                     <span>{a.label}</span>
                   </button>

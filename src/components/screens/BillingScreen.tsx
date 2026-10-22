@@ -3,8 +3,12 @@ import { useApp } from '../../context/appContextCore';
 import { PatientBanner, BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockBillInvoices, mockAIBillingSuggestions } from '../../mock/billingData';
+import { mockAIBillingSuggestions } from '../../mock/billingData';
 import { BillInvoice, BillItem } from '../../types';
+import { billingService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { usePatientChart } from '../../hooks/usePatientChart';
 import {
   Plus,
   Search,
@@ -52,16 +56,11 @@ const BILLING_TABS: BannerTab[] = [
   { id: 'reports', label: 'Reports', icon: FlaskConical }
 ];
 
-/** List captions / status markers per bill, as shown in the design's bill list. */
-const BILL_META: Record<string, { label: string; dot: Dot; paidOn?: string }> = {
-  'b-1': { label: 'OPD Consultation', dot: 'check-green', paidOn: '23 Sep 2026 09:20 AM' },
-  'b-2': { label: 'Lab Tests', dot: 'ring-gray' },
-  'b-3': { label: 'Radiology (X-Ray)', dot: 'ring-gray' },
-  'b-4': { label: 'Follow-up Consultation', dot: 'check-red' },
-  'b-5': { label: 'OPD Consultation', dot: 'ring-orange' },
-  'b-6': { label: 'Emergency', dot: 'check-green' },
-  'b-7': { label: 'Consultation + Lab', dot: 'ring-red' }
-};
+/** List caption and status marker for a bill. */
+const billMeta = (b: BillInvoice): { label: string; dot: Dot } => ({
+  label: b.visitType || b.items[0]?.service || 'Invoice',
+  dot: b.status === 'Paid' ? 'check-green' : b.status === 'Partially Paid' ? 'ring-orange' : 'ring-red'
+});
 
 const CATEGORY_CHIP: Record<BillItem['category'], { bg: string; fg: string }> = {
   Consultation: { bg: '#e3effd', fg: 'var(--blue-text)' },
@@ -69,37 +68,6 @@ const CATEGORY_CHIP: Record<BillItem['category'], { bg: string; fg: string }> = 
   Radiology: { bg: '#efe6fe', fg: 'var(--purple-dark)' },
   Others: { bg: '#fdece2', fg: '#c2410c' },
   Administrative: { bg: 'var(--gray-pill-bg)', fg: 'var(--text-primary)' }
-};
-
-const AI_CONTENT: Record<AiTab, { title: string; items: string[] }> = {
-  Suggestions: { title: 'AI Suggestions for this Bill', items: mockAIBillingSuggestions },
-  Coding: {
-    title: 'Suggested Billing Codes',
-    items: [
-      'I10 – Essential (primary) hypertension.',
-      'E11.9 – Type 2 diabetes mellitus without complications.',
-      'CPT 85025 – Complete blood count (CBC).',
-      'CPT 71046 – Chest X-ray, 2 views.'
-    ]
-  },
-  Insurance: {
-    title: 'Insurance Insights',
-    items: [
-      'Star Health policy active till 31 Dec 2026.',
-      'Lab and radiology items are claimable (₹1,250).',
-      'Consultation fee covered under OPD rider.',
-      'Attach prescription and reports for faster approval.'
-    ]
-  },
-  'Patient Insights': {
-    title: 'Patient Billing Insights',
-    items: [
-      '7 bills in the last 12 months, total ₹13,650.',
-      'Prefers online card and UPI payments.',
-      'One partially paid bill with ₹450 balance.',
-      'Eligible for chronic care package discount.'
-    ]
-  }
 };
 
 const inr = (n: number) => n.toLocaleString('en-IN');
@@ -155,26 +123,22 @@ const right: React.CSSProperties = { textAlign: 'right' };
 
 export const BillingScreen: React.FC = () => {
   const { showToast, activePatient, setActiveScreen } = useApp();
-  const [bills, setBills] = useState<BillInvoice[]>(mockBillInvoices);
-  const [selectedBillId, setSelectedBillId] = useState('b-1');
+  const uhid = activePatient?.uhid;
+  const [loaded, setLoaded] = useState<{ uhid: string; bills: BillInvoice[] } | null>(null);
+  const { loading } = useLoader(async () => (uhid ? { uhid, bills: await billingService.getInvoices(uhid) } : null), setLoaded, [uhid]);
+  const bills = loaded && loaded.uhid === uhid ? loaded.bills : [];
+  const { chart } = usePatientChart(uhid);
+  const [selectedBillId, setSelectedBillId] = useState('');
   const [billFilter, setBillFilter] = useState<BillFilter>('All Bills');
   const [searchBill, setSearchBill] = useState('');
   const [bannerTab, setBannerTab] = useState('billing');
   const [aiTab, setAiTab] = useState<AiTab>('Suggestions');
   const [openMenu, setOpenMenu] = useState<'send' | 'more' | null>(null);
-  const [claimStatus, setClaimStatus] = useState<string>(activePatient?.insurance?.claimStatus ?? 'Not Claimed');
 
-  const insurance = activePatient?.insurance ?? {
-    provider: 'Star Health',
-    policyNumber: 'SH123456',
-    validity: '01 Jan 2026 – 31 Dec 2026',
-    coverageType: 'Cashless / Reimbursement',
-    claimStatus: 'Not Claimed'
-  };
+  const insurance = activePatient?.insurance;
+  const [nextDate, ...nextTime] = (activePatient?.nextAppointment ?? '').split(/\s(?=\d{1,2}:\d{2})/);
 
-  const currentBill = bills.find((b) => b.id === selectedBillId) || bills[0];
-  const billDate = splitDate(currentBill.billDate);
-  const meta = BILL_META[currentBill.id];
+  const currentBill: BillInvoice | undefined = bills.find((b) => b.id === selectedBillId) || bills[0];
 
   const filteredBills = bills.filter((b) => {
     const q = searchBill.toLowerCase();
@@ -182,21 +146,29 @@ export const BillingScreen: React.FC = () => {
       !q ||
       b.billNumber.toLowerCase().includes(q) ||
       b.billDate.toLowerCase().includes(q) ||
-      (BILL_META[b.id]?.label ?? '').toLowerCase().includes(q) ||
+      billMeta(b).label.toLowerCase().includes(q) ||
       b.items.some((i) => i.service.toLowerCase().includes(q));
     return matchesSearch && (billFilter === 'All Bills' || b.status === billFilter);
   });
 
+  /** Local edit (e.g. notes while typing); saved separately. */
   const updateBill = (id: string, patch: Partial<BillInvoice>) =>
-    setBills((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    setLoaded((prev) => (prev ? { ...prev, bills: prev.bills.map((b) => (b.id === id ? { ...b, ...patch } : b)) } : prev));
 
-  const markPaid = () => {
-    updateBill(currentBill.id, { status: 'Paid', paidAmount: currentBill.totalAmount, balanceDue: 0 });
+  const markPaid = async () => {
+    if (!currentBill) return;
     setOpenMenu(null);
-    showToast(`${currentBill.billNumber} settled in full`);
+    try {
+      // Records a payment of the outstanding balance; the server derives the status.
+      const updated = await billingService.recordPayment(currentBill.id, currentBill.balanceDue);
+      setLoaded((prev) => (prev ? { ...prev, bills: prev.bills.map((b) => (b.id === updated.id ? updated : b)) } : prev));
+      showToast(`${updated.billNumber} settled in full`);
+    } catch (err) {
+      showToast(`Payment not recorded: ${errorMessage(err)}`, 'error');
+    }
   };
 
-  const newBill = () => showToast('New invoice modal opened');
+  const newBill = () => showToast('Invoice creation is not built yet', 'info');
 
   const handleBannerTab = (id: string) => {
     setBannerTab(id);
@@ -205,10 +177,59 @@ export const BillingScreen: React.FC = () => {
     else if (tab && id !== 'billing') showToast(`${tab.label} view opened`, 'info');
   };
 
+  // Assistant tabs, built from this patient's records (no AI model is connected yet).
+  const latestDiagnoses = chart?.visits[0]?.icd10 ?? [];
+  const totalBilled = bills.reduce((acc, b) => acc + b.totalAmount, 0);
+  const outstanding = bills.filter((b) => b.balanceDue > 0);
+  const paymentModes = [...new Set(bills.map((b) => b.paymentMode).filter(Boolean))];
+  const AI_CONTENT: Record<AiTab, { title: string; items: string[] }> = {
+    Suggestions: { title: 'Billing Checklist', items: mockAIBillingSuggestions },
+    Coding: {
+      title: 'Diagnosis Codes (latest note)',
+      items: latestDiagnoses.length
+        ? latestDiagnoses.map((d) => `${d.code} – ${d.description}`)
+        : ['No diagnosis codes in the latest consultation note.']
+    },
+    Insurance: {
+      title: 'Insurance',
+      items: insurance
+        ? [
+            `${insurance.provider} · policy ${insurance.policyNumber}`,
+            `Valid ${insurance.validity}`,
+            `Coverage: ${insurance.coverageType}`,
+            `Claim status: ${insurance.claimStatus}`
+          ]
+        : ['No insurance on record; bills are self-pay.']
+    },
+    'Patient Insights': {
+      title: 'Patient Billing Summary',
+      items: [
+        `${bills.length} bill${bills.length === 1 ? '' : 's'} on record, total ₹${inr(totalBilled)}.`,
+        outstanding.length
+          ? `${outstanding.length} with a balance due: ₹${inr(outstanding.reduce((acc, b) => acc + b.balanceDue, 0))}.`
+          : 'No outstanding balance.',
+        paymentModes.length ? `Payment modes used: ${paymentModes.join(', ')}.` : 'No payments recorded yet.'
+      ]
+    }
+  };
+  const ai = AI_CONTENT[aiTab];
+
+  if (!currentBill) {
+    return (
+      <div className="page-scroll-body">
+        <ScreenHeader title="Billing" subtitle="Create, manage and track patient billing, payments and invoices" />
+        <PatientBanner tabs={BILLING_TABS} activeTab={bannerTab} onTabChange={handleBannerTab} />
+        <div className="medios-card">
+          <p className="data-empty">{loading ? 'Loading bills…' : 'No bills for this patient yet.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const billDate = splitDate(currentBill.billDate);
   const paid = currentBill.status === 'Paid';
   const partial = currentBill.status === 'Partially Paid';
   const statusTone = paid ? 'var(--green-dark)' : partial ? 'var(--orange-dark)' : 'var(--red-dark)';
-  const ai = AI_CONTENT[aiTab];
 
   return (
     <div className="page-scroll-body">
@@ -216,10 +237,10 @@ export const BillingScreen: React.FC = () => {
 
       <PatientBanner
         metrics={[
-          { label: 'Last Visit', value: activePatient?.lastVisit ?? '12 Sep 2026' },
-          { label: 'Next Appointment', value: '26 Sep 2026', sub: '10:30 AM' },
-          { label: 'Department', value: activePatient?.department ?? 'General Medicine' },
-          { label: 'Insurance', value: insurance.provider, sub: `Policy: ${insurance.policyNumber}` }
+          { label: 'Last Visit', value: activePatient?.lastVisit || '—' },
+          { label: 'Next Appointment', value: nextDate || '—', sub: nextTime.join(' ') || undefined },
+          { label: 'Department', value: activePatient?.department || '—' },
+          { label: 'Insurance', value: insurance?.provider ?? 'Self-pay', sub: insurance ? `Policy: ${insurance.policyNumber}` : undefined }
         ]}
         action={
           <button className="btn-outline-blue patient-banner-action" style={{ minWidth: 154, marginLeft: 6 }} onClick={() => setActiveScreen('patients')}>
@@ -278,7 +299,7 @@ export const BillingScreen: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', marginTop: 10, flex: '1 1 auto', overflowY: 'auto', minHeight: 0 }}>
             {filteredBills.map((b, i) => {
               const isSelected = selectedBillId === b.id;
-              const m = BILL_META[b.id];
+              const m = billMeta(b);
               const d = splitDate(b.billDate);
               return (
                 <button
@@ -299,13 +320,13 @@ export const BillingScreen: React.FC = () => {
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <StatusDot dot={isSelected ? 'selected' : m?.dot ?? 'ring-gray'} />
+                  <StatusDot dot={isSelected ? 'selected' : m.dot} />
                   <div style={{ minWidth: 0, gridRow: 'span 2' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{b.billNumber}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2, whiteSpace: 'pre' }}>
                       {d.time ? `${d.date}  ${d.time}` : d.date}
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>{m?.label ?? `${b.visitType} Consultation`}</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 2 }}>{m.label}</div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                     <span
@@ -527,6 +548,11 @@ export const BillingScreen: React.FC = () => {
               style={{ minHeight: 60, height: 60, fontSize: 11.5, padding: '8px 8px', resize: 'none', borderColor: 'var(--border-subtle)' }}
               value={currentBill.notes}
               onChange={(e) => updateBill(currentBill.id, { notes: e.target.value })}
+              onBlur={(e) =>
+                billingService
+                  .updateNotes(currentBill.id, e.target.value)
+                  .catch((err) => showToast(`Notes not saved: ${errorMessage(err)}`, 'error'))
+              }
             />
           </div>
         </div>
@@ -555,7 +581,7 @@ export const BillingScreen: React.FC = () => {
                 <div style={{ fontSize: 14.5, fontWeight: 700, color: statusTone }}>{paid ? 'Fully Paid' : partial ? 'Partially Paid' : 'Payment Pending'}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>
                   {paid
-                    ? `Payment completed on ${meta?.paidOn ?? billDate.date}`
+                    ? `Paid in full · ${currentBill.paymentMode || 'payment mode not recorded'}`
                     : `₹ ${inr(currentBill.balanceDue)} outstanding since ${billDate.date}`}
                 </div>
               </div>
@@ -591,6 +617,7 @@ export const BillingScreen: React.FC = () => {
               </button>
             </div>
 
+            {insurance ? (
             <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', rowGap: 3, fontSize: 12, marginTop: 6 }}>
               <span>Insurance Provider</span>
               <span>{insurance.provider}</span>
@@ -601,16 +628,17 @@ export const BillingScreen: React.FC = () => {
               <span>Coverage Type</span>
               <span>{insurance.coverageType}</span>
               <span>Claim Status</span>
-              <span style={{ color: claimStatus === 'Not Claimed' ? '#e8590c' : 'var(--blue-text)' }}>{claimStatus}</span>
+              <span style={{ color: insurance.claimStatus === 'Not Claimed' ? '#e8590c' : 'var(--blue-text)' }}>{insurance.claimStatus}</span>
             </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>No insurance on record for this patient (self-pay).</p>
+            )}
 
             <button
               className="btn-outline-blue"
               style={{ width: '100%', height: 34, fontSize: 11.5, marginTop: 10 }}
-              onClick={() => {
-                setClaimStatus('In Progress');
-                showToast('Insurance pre-authorization claim initiated');
-              }}
+              disabled={!insurance}
+              onClick={() => showToast('Insurance claim submission is not connected yet', 'info')}
             >
               <ClipboardPlus size={14} />
               <span>Initiate Insurance Claim</span>
@@ -652,9 +680,7 @@ export const BillingScreen: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto' }}>
-              <button className="btn-primary" style={{ width: 156, height: 36, fontSize: 12.5 }} onClick={() => showToast('CPT / ICD-10 medical billing codes applied')}>
-                Apply Suggestions
-              </button>
+              <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Built from the patient record; AI suggestions are not connected yet.</span>
             </div>
           </div>
         </div>

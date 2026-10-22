@@ -1,23 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { PatientBanner } from '../layout/PatientBanner';
 import { CLINICAL_TABS } from '../layout/patientTabs';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
+import { SampleBadge } from '../common/SampleBadge';
 import { AutoTextarea } from '../common/AutoTextarea';
 import { StudyThumb } from '../common/StudyThumb';
-import { CHEST_XRAY_THUMB, USG_ABDOMEN_THUMB } from '../../mock/imagingThumbsData';
-import { Patient, SoapNote } from '../../types';
-import { consultationService, patientService } from '../../services';
+import { SoapNote } from '../../types';
+import { consultationService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { usePatientChart, labHighlightsOf } from '../../hooks/usePatientChart';
+import { recordSummary } from '../../utils/recordSummary';
 import {
   mockAIConsiderations,
-  mockConsultationRx,
   mockPatientEducation,
   mockRxTemplates,
   mockSoapTemplates,
   mockSuggestedInvestigations,
   mockSuggestedTreatmentPlan,
-  mockVisitsTimeline,
   type ConsultationRxRow
 } from '../../mock/consultationsData';
 import {
@@ -168,16 +170,6 @@ const RecGlyph: React.FC = () => (
   </span>
 );
 
-const LAB_RESULTS = [
-  { name: 'HbA1c', value: '7.8 %', flag: 'High', valueColor: 'var(--red-dark)', icon: 'blue' },
-  { name: 'Hemoglobin', value: '10.4 g/dL', flag: 'Low', valueColor: 'var(--red-dark)', icon: 'orange' },
-  { name: 'WBC', value: '10,900 /µL', flag: 'High', valueColor: 'var(--orange-amber)', icon: 'orange' },
-  { name: 'Platelets', value: '2.1 lakhs/µL', flag: 'Normal', valueColor: 'var(--text-primary)', icon: 'green' },
-  { name: 'Creatinine', value: '1.0 mg/dL', flag: 'Normal', valueColor: 'var(--text-primary)', icon: 'green' }
-] as const;
-
-const CURRENT_MEDS = ['Amlodipine 5 mg (OD)', 'Metformin 500 mg (BD)', 'Atorvastatin 10 mg (OD)'];
-
 const SOAP_META: Record<SoapKey, { letter: string; title: string; hint: string; tileBg: string; tileFg: string; aiLabel: string; aiToast: string }> = {
   subjective: {
     letter: 'S',
@@ -218,10 +210,11 @@ const SOAP_META: Record<SoapKey, { letter: string; title: string; hint: string; 
 };
 
 export const ConsultationScreen: React.FC = () => {
-  const { activePatient, setActivePatient, showToast, setActiveScreen } = useApp();
-  const [soapNote, setSoapNote] = useState<SoapNote | null>(null);
-  const [prescriptions, setPrescriptions] = useState<ConsultationRxRow[]>(mockConsultationRx);
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const { activePatient, setActivePatient, showToast, setActiveScreen, patients } = useApp();
+  const [loadedNote, setSoapNote] = useState<SoapNote | null>(null);
+  // Medicines added during this consultation (a working list; the Prescriptions screen stores Rx).
+  // Keyed by patient so switching patients starts an empty list.
+  const [rxDraft, setRxDraft] = useState<{ uhid?: string; rows: ConsultationRxRow[] }>({ rows: [] });
   const [consultType, setConsultType] = useState('Follow-up');
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('soap');
   const [subjFormat, setSubjFormat] = useState({ bold: false, italic: false, underline: false });
@@ -244,19 +237,24 @@ export const ConsultationScreen: React.FC = () => {
     instruction: 'After food'
   });
 
-  useEffect(() => {
-    if (activePatient) {
-      consultationService.getSoapNote(activePatient.uhid).then(setSoapNote);
-    }
-  }, [activePatient]);
+  const uhid = activePatient?.uhid;
+  useLoader(async () => (uhid ? consultationService.getSoapNote(uhid) : null), setSoapNote, [uhid]);
+  const { chart } = usePatientChart(uhid);
+  // Never show the previous patient's note while the next one loads.
+  const soapNote = loadedNote && loadedNote.uhid === uhid ? loadedNote : null;
 
-  useEffect(() => {
-    patientService.getPatients().then(setPatients);
-  }, []);
+  const prescriptions = rxDraft.uhid === uhid ? rxDraft.rows : [];
+  const setPrescriptions = (update: (prev: ConsultationRxRow[]) => ConsultationRxRow[]) =>
+    setRxDraft((prev) => ({ uhid, rows: update(prev.uhid === uhid ? prev.rows : []) }));
 
-  if (!soapNote) return <div className="page-scroll-body">Loading consultation session...</div>;
+  if (!soapNote) return <div className="page-scroll-body">{uhid ? 'Loading consultation session...' : <p className="data-empty">Select a patient to start a consultation.</p>}</div>;
 
   const vitals = activePatient?.vitals;
+  const activeMeds = chart?.medications.filter((m) => m.status === 'Active') ?? [];
+  const labResults = labHighlightsOf(chart?.labs ?? [], 5);
+  const recentStudies = chart?.studies.slice(0, 2) ?? [];
+  const previousNotes = chart?.visits.filter((v) => v.id !== soapNote.id) ?? [];
+  const show = (n?: number) => (n === undefined || n === null ? '—' : n);
   const updateSoap = (key: SoapKey, value: string) => setSoapNote((prev) => (prev ? { ...prev, [key]: value } : prev));
 
   const switchPatient = (direction: 1 | -1) => {
@@ -267,9 +265,15 @@ export const ConsultationScreen: React.FC = () => {
     showToast(`Now consulting ${next.name} (${next.uhid})`, 'info');
   };
 
-  const handleSaveToEMR = async () => {
-    await consultationService.saveSoapNote(soapNote);
-    showToast('Consultation SOAP Note saved to EMR successfully!');
+  /** Drafts stay open; "Save to EMR" marks the note final. */
+  const saveNote = async (isFinal: boolean) => {
+    try {
+      const saved = await consultationService.saveSoapNote({ ...soapNote, isFinal });
+      setSoapNote(saved);
+      showToast(isFinal ? 'Consultation SOAP note saved to EMR' : 'Draft saved');
+    } catch (err) {
+      showToast(`Note not saved: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const handleApplyAISuggestion = (suggestionText: string) => {
@@ -287,9 +291,8 @@ export const ConsultationScreen: React.FC = () => {
     const q = customQuery || aiChatInput;
     if (!q) return;
     setAiChatInput(q);
-    setAiChatResponse(
-      `GPT-6 Astro: Patient ${activePatient?.name ?? 'Arun Kumar'} has chronic Grade 1 HTN (BP 140/90) and Type 2 Diabetes with recent HbA1c 7.8%. Given upper respiratory symptoms for 3 days without wheeze, current regimen of Paracetamol 650mg TID + hydration is safe. Amlodipine & Metformin should continue uninterrupted.`
-    );
+    // No AI model is connected yet: answer from the record, and say so.
+    setAiChatResponse(recordSummary(activePatient, activeMeds));
   };
 
   const applySoapTemplate = (tpl: (typeof mockSoapTemplates)[number]) => {
@@ -592,7 +595,7 @@ export const ConsultationScreen: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                 <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <span style={{ ...subTitle, fontSize: 12.5 }}>Vitals</span>
-                  <span style={muted}>(Today, {vitals?.recordedAt.split(', ')[1] ?? '09:15 AM'})</span>
+                  <span style={muted}>({vitals?.recordedAt ?? 'not recorded'})</span>
                 </span>
                 <button style={softBlueBtn} onClick={() => setActiveScreen('vitals')}>
                   <Plus size={11} />
@@ -600,21 +603,21 @@ export const ConsultationScreen: React.FC = () => {
                 </button>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr 0.85fr', gap: 5 }}>
-                {vitalCell('BP', `${vitals?.bpSystolic ?? 140}/${vitals?.bpDiastolic ?? 90}`, 'mmHg', { alert: true })}
-                {vitalCell('HR', vitals?.heartRate ?? 86, 'bpm')}
-                {vitalCell('Temp', vitals?.temperature ?? 98.4, '°F')}
+                {vitalCell('BP', vitals ? `${vitals.bpSystolic}/${vitals.bpDiastolic}` : '—', 'mmHg', { alert: !!vitals && (vitals.bpSystolic >= 140 || vitals.bpDiastolic >= 90) })}
+                {vitalCell('HR', show(vitals?.heartRate), 'bpm')}
+                {vitalCell('Temp', show(vitals?.temperature), '°F')}
                 {vitalCell(
                   <>
                     SpO<sub style={{ fontSize: 8 }}>2</sub>
                   </>,
-                  vitals?.spo2 ?? 98,
+                  show(vitals?.spo2),
                   '%'
                 )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr 1.45fr', gap: 5, marginTop: 5 }}>
-                {vitalCell('Weight', vitals?.weightKg ?? 78, 'kg')}
-                {vitalCell('Height', vitals?.heightCm ?? 172, 'cm')}
-                {vitalCell('BMI', vitals?.bmi ?? 26.4, `(${vitals?.bmiStatus ?? 'Overweight'})`)}
+                {vitalCell('Weight', show(vitals?.weightKg), 'kg')}
+                {vitalCell('Height', show(vitals?.heightCm), 'cm')}
+                {vitalCell('BMI', show(vitals?.bmi), vitals?.bmiStatus ? `(${vitals.bmiStatus})` : '')}
               </div>
             </div>
 
@@ -629,9 +632,11 @@ export const ConsultationScreen: React.FC = () => {
                   View All
                 </button>
               </div>
-              {CURRENT_MEDS.map((med, i) => (
+              {activeMeds.map(({ id, medicine, frequency }, i) => {
+                const med = `${medicine} (${frequency})`;
+                return (
                 <div
-                  key={med}
+                  key={id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -647,7 +652,9 @@ export const ConsultationScreen: React.FC = () => {
                     <EllipsisVertical size={14} />
                   </button>
                 </div>
-              ))}
+                );
+              })}
+              {!activeMeds.length && <p style={{ ...muted, padding: '3px 4px' }}>{chart ? 'No active medications on record.' : 'Loading…'}</p>}
             </div>
 
             {/* Recent Lab Results */}
@@ -655,13 +662,13 @@ export const ConsultationScreen: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
                 <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <span style={subTitle}>Recent Lab Results</span>
-                  <span style={muted}>(12 Sep 2026)</span>
+                  {labResults[0] && <span style={muted}>({labResults[0].date})</span>}
                 </span>
                 <button style={link} onClick={() => setActiveScreen('lab-reports')}>
                   View All
                 </button>
               </div>
-              {LAB_RESULTS.map((lab, i) => (
+              {labResults.map((lab, i) => (
                 <div
                   key={lab.name}
                   style={{
@@ -675,14 +682,17 @@ export const ConsultationScreen: React.FC = () => {
                     fontSize: 11.5
                   }}
                 >
-                  {labIcon(lab.icon)}
-                  <span style={{ color: 'var(--text-primary)' }}>{lab.name}</span>
-                  <span style={{ color: lab.valueColor, whiteSpace: 'nowrap' }}>{lab.value}</span>
-                  <span style={{ ...flagStyle(lab.flag), fontSize: 10, height: 18, padding: '0 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center' }}>
-                    ({lab.flag})
+                  {labIcon(lab.status === 'Normal' ? 'green' : lab.status === 'Abnormal' ? 'orange' : 'blue')}
+                  <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lab.name}>{lab.name}</span>
+                  <span style={{ color: lab.status === 'Normal' ? 'var(--text-primary)' : 'var(--red-dark)', whiteSpace: 'nowrap' }}>
+                    {lab.result} {lab.unit}
+                  </span>
+                  <span style={{ ...flagStyle(lab.status), fontSize: 10, height: 18, padding: '0 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center' }}>
+                    ({lab.status})
                   </span>
                 </div>
               ))}
+              {!labResults.length && <p style={{ ...muted, padding: '3px 4px' }}>{chart ? 'No lab results on record.' : 'Loading…'}</p>}
               <button
                 onClick={() => setActiveScreen('lab-reports')}
                 style={{ ...softBlueBtn, width: '100%', height: 26, fontSize: 10.5, marginTop: 5, background: '#edf4fe' }}
@@ -699,19 +709,17 @@ export const ConsultationScreen: React.FC = () => {
                   View All
                 </button>
               </div>
-              {[
-                { title: 'Chest X-Ray', date: '12 Sep 2026', result: 'Normal', dot: 'var(--green-emerald)', color: 'var(--green-dark)', thumb: <StudyThumb src={CHEST_XRAY_THUMB} alt="Chest X-Ray" /> },
-                {
-                  title: 'USG Abdomen',
-                  date: '21 Mar 2026',
-                  result: 'Fatty liver (mild)',
-                  dot: 'var(--orange-amber)',
-                  color: 'var(--text-secondary)',
-                  thumb: <StudyThumb src={USG_ABDOMEN_THUMB} alt="USG Abdomen" />
-                }
-              ].map((img, i) => (
+              {recentStudies.map((study) => ({
+                id: study.id,
+                title: study.title,
+                date: study.date,
+                result: study.impression || (study.status === 'Pending' ? 'Report pending' : study.status),
+                dot: study.status === 'Pending' ? 'var(--orange-amber)' : 'var(--blue-primary)',
+                color: 'var(--text-secondary)',
+                thumb: study.thumbnailUrl ? <StudyThumb src={study.thumbnailUrl} alt={study.title} /> : null
+              })).map((img, i) => (
                 <button
-                  key={img.title}
+                  key={img.id}
                   onClick={() => setActiveScreen('imaging')}
                   style={{
                     display: 'flex',
@@ -738,6 +746,7 @@ export const ConsultationScreen: React.FC = () => {
                   </span>
                 </button>
               ))}
+              {!recentStudies.length && <p style={{ ...muted, padding: '3px 4px' }}>{chart ? 'No imaging studies on record.' : 'Loading…'}</p>}
             </div>
           </div>
         </div>
@@ -809,7 +818,7 @@ export const ConsultationScreen: React.FC = () => {
                   {(['subjective', 'objective', 'assessment', 'plan'] as const).map(renderSoapSection)}
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 1 }}>
-                    <button className="btn-secondary" style={{ ...smallBtn, padding: '0 20px' }} onClick={() => showToast('Draft saved')}>
+                    <button className="btn-secondary" style={{ ...smallBtn, padding: '0 20px' }} onClick={() => saveNote(false)}>
                       <Save size={13} />
                       <span>Save as Draft</span>
                     </button>
@@ -824,7 +833,7 @@ export const ConsultationScreen: React.FC = () => {
                       <RotateCcw size={12} />
                       <span>Clear</span>
                     </button>
-                    <button className="btn-primary" style={{ ...smallBtn, marginLeft: 'auto', width: 178 }} onClick={handleSaveToEMR}>
+                    <button className="btn-primary" style={{ ...smallBtn, marginLeft: 'auto', width: 178 }} onClick={() => saveNote(true)}>
                       <Plus size={13} />
                       <span>Save to EMR</span>
                     </button>
@@ -834,15 +843,16 @@ export const ConsultationScreen: React.FC = () => {
 
               {workspaceTab === 'previous' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {mockVisitsTimeline.slice(1).map((v) => (
+                  {!previousNotes.length && <p style={{ ...muted, padding: 6 }}>{chart ? 'No earlier notes for this patient.' : 'Loading…'}</p>}
+                  {previousNotes.map((v) => (
                     <div key={v.id} style={{ ...innerCard, display: 'flex', alignItems: 'center', gap: 12 }}>
                       <FileText size={15} color="var(--blue-text)" />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600 }}>
-                          {v.date} · {v.type}
+                          {v.visitDate} · {v.visitType}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                          {v.time} • {v.doctor} • {v.reason}
+                          {[v.visitTime, v.doctor, v.reason].filter(Boolean).join(' • ')}
                         </div>
                       </div>
                       <button className="btn-outline-blue btn-sm" style={{ height: 24, fontSize: 11 }} onClick={() => setActiveScreen('emr')}>
@@ -1043,7 +1053,8 @@ export const ConsultationScreen: React.FC = () => {
           <div style={{ ...band, height: 40 }}>
             <span style={{ ...bandTitle, fontSize: 15, gap: 9 }}>
               <AiSparkle size={20} />
-              AI Clinical Assistant (GPT-6 Astro)
+              AI Clinical Assistant
+              <SampleBadge />
             </span>
             <button style={{ ...link, display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => aiInputRef.current?.focus()}>
               <BotMessageSquare size={14} />

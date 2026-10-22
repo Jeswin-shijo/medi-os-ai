@@ -3,8 +3,11 @@ import { useApp } from '../../context/appContextCore';
 import { PatientBanner } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockTimelineEvents } from '../../mock/timelineData';
 import { ScreenId, TimelineEvent } from '../../types';
+import { timelineService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { displayDate, displayTime } from '../../utils/clinicDate';
 import {
   ChartNoAxesGantt,
   Search,
@@ -25,8 +28,6 @@ import {
   Building2,
   CircleCheck,
   CircleAlert,
-  RefreshCw,
-  SquarePen,
   X,
   type LucideIcon
 } from 'lucide-react';
@@ -73,35 +74,24 @@ const FILTERS: { label: string; category?: Category }[] = [
 
 const pillStyle = (tone: Tone): React.CSSProperties => ({ backgroundColor: TONES[tone].bg, color: TONES[tone].fg });
 
-const AI_KEY_EVENTS: { text: string; ok: boolean }[] = [
-  { text: 'HbA1c 7.8% – sub-optimal glycaemic control', ok: false },
-  { text: 'BP 136–142 / 86–92 mmHg over the last 4 visits', ok: false },
-  { text: 'Grade 1 fatty liver on USG abdomen (21 Mar)', ok: false },
-  { text: 'Chest X-Ray clear – no active disease (12 Sep)', ok: true },
-  { text: 'ER visit (10 Jan) – non-cardiac chest pain', ok: true }
-];
-
-const AI_RECOMMENDATIONS = [
-  'Repeat HbA1c in 3 months (Dec 2026)',
-  'Home BP log; review Amlodipine dose if > 140/90',
-  'Complete Preventive Cardiology referral (TMT)',
-  'Repeat LFT and USG abdomen in 6 months'
-];
+/** Events open by default: the most recent few. */
+const EXPANDED_BY_DEFAULT = 3;
 
 export const TimelineScreen: React.FC = () => {
   const { activePatient, showToast, setActiveScreen } = useApp();
   const [selectedFilter, setSelectedFilter] = useState<string>('All Events');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({
-    'tl-1': true,
-    'tl-2': true,
-    'tl-3': true
-  });
+  /** Explicit open/closed choices; others follow EXPANDED_BY_DEFAULT. */
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newCategory, setNewCategory] = useState<Category>('Consultation');
   const [newNotes, setNewNotes] = useState('');
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(mockTimelineEvents);
+  const [loaded, setLoaded] = useState<{ uhid: string; events: TimelineEvent[] } | null>(null);
+  const uhid = activePatient?.uhid;
+  const { loading } = useLoader(async () => (uhid ? { uhid, events: await timelineService.getEvents(uhid) } : null), setLoaded, [uhid]);
+  const timelineEvents = loaded && loaded.uhid === uhid ? loaded.events : [];
+  const setTimelineEvents = (events: TimelineEvent[]) => uhid && setLoaded({ uhid, events });
 
   if (!activePatient) {
     return (
@@ -113,8 +103,10 @@ export const TimelineScreen: React.FC = () => {
     );
   }
 
+  const isExpandedAt = (id: string, index: number) => expandedIds[id] ?? index < EXPANDED_BY_DEFAULT;
   const toggleExpand = (id: string) => {
-    setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
+    const index = timelineEvents.findIndex(e => e.id === id);
+    setExpandedIds(prev => ({ ...prev, [id]: !isExpandedAt(id, index) }));
   };
 
   const countOf = (category?: Category) =>
@@ -150,36 +142,46 @@ export const TimelineScreen: React.FC = () => {
     { label: 'Emergency', value: countOf('Emergency'), sub: 'ER visits', tone: 'red', filter: 'Emergency' }
   ];
 
-  const handleAddMilestone = (e: React.FormEvent) => {
+  const handleAddMilestone = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
       showToast('Please enter an event title', 'warning');
       return;
     }
 
-    const newEvent: TimelineEvent = {
-      id: `tl-${Date.now()}`,
-      uhid: activePatient.uhid,
-      date: 'Today, 26 Sep 2026',
-      time: 'Just now',
-      category: newCategory,
-      title: newTitle,
-      subtitle: 'Manual Clinical Entry',
-      doctor: 'Dr. Shajin',
-      department: 'General Medicine',
-      status: 'Completed',
-      details: {
-        notes: newNotes
-      }
-    };
-
-    setTimelineEvents([newEvent, ...timelineEvents]);
-    setExpandedIds(prev => ({ ...prev, [newEvent.id]: true }));
-    setIsAddModalOpen(false);
-    setNewTitle('');
-    setNewNotes('');
-    showToast('Clinical milestone recorded successfully');
+    try {
+      // The backend records the signed-in doctor.
+      const newEvent = await timelineService.addEvent({
+        uhid: activePatient.uhid,
+        date: displayDate(),
+        time: displayTime(),
+        category: newCategory,
+        title: newTitle.trim(),
+        subtitle: 'Manual Clinical Entry',
+        doctor: '',
+        department: activePatient.department,
+        status: 'Completed',
+        details: {
+          notes: newNotes
+        }
+      });
+      setTimelineEvents([newEvent, ...timelineEvents]);
+      setExpandedIds(prev => ({ ...prev, [newEvent.id]: true }));
+      setIsAddModalOpen(false);
+      setNewTitle('');
+      setNewNotes('');
+      showToast('Clinical milestone recorded');
+    } catch (err) {
+      showToast(`Milestone not saved: ${errorMessage(err)}`, 'error');
+    }
   };
+
+  // Summary panel: facts from this patient's own timeline (no AI model is connected yet).
+  const keyEvents = timelineEvents.slice(0, 5).map(ev => ({
+    id: ev.id,
+    text: `${ev.title}${ev.details?.diagnosis ? ` – ${ev.details.diagnosis}` : ''} (${ev.date})`,
+    done: ev.status === 'Completed' || ev.status === 'Reviewed'
+  }));
 
   const detailRow = (label: string, value: React.ReactNode) => (
     <>
@@ -271,7 +273,7 @@ export const TimelineScreen: React.FC = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', paddingTop: '14px' }}>
               {filteredEvents.map((event, index) => {
-                const isExpanded = !!expandedIds[event.id];
+                const isExpanded = isExpandedAt(event.id, timelineEvents.indexOf(event));
                 const isLast = index === filteredEvents.length - 1;
                 const meta = CATEGORY_META[event.category];
                 const Icon = meta.icon;
@@ -436,11 +438,8 @@ export const TimelineScreen: React.FC = () => {
             <div className="ai-header-bar">
               <div className="ai-title-row">
                 <AiSparkle size={20} />
-                <span>AI Timeline Summary (GPT-6 Astro)</span>
+                <span>Timeline Summary</span>
               </div>
-              <button className="icon-btn" style={{ width: '28px', height: '28px' }} title="Regenerate" onClick={() => showToast('AI timeline summary regenerated', 'info')}>
-                <RefreshCw size={14} />
-              </button>
             </div>
 
             <div className="ai-section">
@@ -449,12 +448,13 @@ export const TimelineScreen: React.FC = () => {
                 <span>Key Events</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                {AI_KEY_EVENTS.map((item) => (
-                  <div key={item.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: 'var(--fs-sm)', color: 'var(--text-primary)' }}>
-                    {item.ok ? (
+                {!keyEvents.length && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{loading ? 'Loading…' : 'No events recorded yet.'}</span>}
+                {keyEvents.map((item) => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: 'var(--fs-sm)', color: 'var(--text-primary)' }}>
+                    {item.done ? (
                       <CircleCheck size={14} color="#ffffff" fill="var(--green-emerald)" style={{ flexShrink: 0, marginTop: '1px' }} />
                     ) : (
-                      <CircleAlert size={14} color="#ffffff" fill="var(--red-rose)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <CircleAlert size={14} color="#ffffff" fill="var(--orange-amber)" style={{ flexShrink: 0, marginTop: '1px' }} />
                     )}
                     <span>{item.text}</span>
                   </div>
@@ -465,36 +465,19 @@ export const TimelineScreen: React.FC = () => {
             <div className="ai-section">
               <div className="ai-section-title">
                 <AiSparkle size={12} />
-                <span>Clinical Interpretation</span>
+                <span>Overview</span>
               </div>
               <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-primary)', lineHeight: 1.5 }}>
-                {activePatient.age}-year-old {activePatient.gender.toLowerCase()} with hypertension and type 2 diabetes,{' '}
-                {timelineEvents.length} encounters in 9 months. Chronic disease control is fair – BP and glycaemic targets
-                not yet met. Acute URTI under evaluation today.
+                {activePatient.age}-year-old {activePatient.gender.toLowerCase()}
+                {activePatient.conditions.length ? ` with ${activePatient.conditions.join(', ').toLowerCase()}` : ', no chronic conditions recorded'}.{' '}
+                {timelineEvents.length} recorded encounter{timelineEvents.length === 1 ? '' : 's'}
+                {oldestDate ? ` since ${oldestDate}` : ''}.
               </p>
             </div>
 
-            <div className="ai-section">
-              <div className="ai-section-title" style={{ justifyContent: 'space-between' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
-                  <AiSparkle size={12} />
-                  <span>Recommendations</span>
-                </span>
-                <button
-                  className="btn-outline-blue btn-sm"
-                  style={{ height: '24px', fontSize: 'var(--fs-xs)', padding: '0 8px', backgroundColor: 'var(--blue-light)' }}
-                  onClick={() => showToast('Recommendations added to care plan')}
-                >
-                  <SquarePen size={12} />
-                  <span>Add to Plan</span>
-                </button>
-              </div>
-              <ul style={{ margin: 0, paddingLeft: '18px', fontSize: 'var(--fs-sm)', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                {AI_RECOMMENDATIONS.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-            </div>
+            <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', padding: '0 12px 10px' }}>
+              Built from the recorded events. AI interpretation and recommendations will appear here once an AI model is connected.
+            </p>
           </div>
         </div>
       </div>

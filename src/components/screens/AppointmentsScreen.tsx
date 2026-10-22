@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/appContextCore';
-import { Appointment, Patient } from '../../types';
-import { appointmentService, patientService } from '../../services';
-import { mockPreviousAppointments, mockUpcomingAppointments } from '../../mock/appointmentsData';
+import { Appointment, SoapNote } from '../../types';
+import { appointmentService, consultationService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { displayDate, isoDay } from '../../utils/clinicDate';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { AllergyIcon, DiabetesDots, HypertensionIcon } from '../common/icons';
@@ -44,8 +46,8 @@ import {
 const VIEW_TABS = ['Daily View', 'Calendar View', 'List View', 'Follow-ups', 'Waiting List', 'Canceled / No Show', 'Teleconsultation'] as const;
 type ViewTab = (typeof VIEW_TABS)[number];
 
-/** The demo's "today". */
-const TODAY = '2026-09-26';
+/** The clinic's today (pinned to the seed's day in development, see utils/clinicDate). */
+const TODAY = isoDay();
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -88,10 +90,6 @@ const STATUS_META: Record<Appointment['status'], { pill: string; dot: string }> 
   Canceled: { pill: 'red', dot: 'var(--red-rose)' }
 };
 
-// Walk-ins already checked in / waiting at reception today (not booked through this list).
-const WALK_INS = { checkedIn: 6, waiting: 1 };
-
-const VISIT_REASON: Record<string, string> = { 'apt-1': 'Blood pressure review' };
 
 const tagBadge = (tag: string) => {
   const t = tag.toLowerCase();
@@ -185,10 +183,10 @@ const cardTitle: React.CSSProperties = { fontSize: 14, fontWeight: 700, color: '
 const detailRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-primary)', minHeight: 20 };
 
 export const AppointmentsScreen: React.FC = () => {
-  const { setActiveScreen, setActivePatient, showToast } = useApp();
+  const { setActiveScreen, setActivePatient, showToast, patients, activePatient } = useApp();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedAptId, setSelectedAptId] = useState<string>('apt-1');
+  const [selectedAptId, setSelectedAptId] = useState<string>('');
+  const [patientVisits, setPatientVisits] = useState<{ uhid: string; visits: SoapNote[] } | null>(null);
   const [viewTab, setViewTab] = useState<ViewTab>('Daily View');
   const [isAddAptModalOpen, setIsAddAptModalOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -210,22 +208,17 @@ export const AppointmentsScreen: React.FC = () => {
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // Notes (local edits)
-  const [noteEdits, setNoteEdits] = useState<Record<string, string>>({});
+  // Notes
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
 
-  // Add Appointment State
-  const [patientName, setPatientName] = useState('');
-  const [age, setAge] = useState('');
+  // Add Appointment State: bookings are for registered patients.
+  const [bookingUhid, setBookingUhid] = useState('');
   const [time, setTime] = useState('11:00 AM');
   const [type, setType] = useState('Follow-up');
   const [condition, setCondition] = useState('');
 
-  useEffect(() => {
-    appointmentService.getAppointments().then(setAppointments);
-    patientService.getPatients().then(setPatients);
-  }, []);
+  useLoader(() => appointmentService.getAppointments(), setAppointments, []);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -277,20 +270,50 @@ export const AppointmentsScreen: React.FC = () => {
   const selectedApt = appointments.find((a) => a.id === selectedAptId) || pageRows[0] || appointments[0];
   const selectedPatient = selectedApt ? patients.find((p) => p.uhid === selectedApt.uhid) : undefined;
 
+  // The selected patient's earlier consultations and later bookings.
+  const selectedUhid = selectedApt?.uhid;
+  useLoader(
+    async () => (selectedUhid ? { uhid: selectedUhid, visits: await consultationService.getVisits(selectedUhid) } : null),
+    setPatientVisits,
+    [selectedUhid]
+  );
+  const dayStart = parseIso(selectedDate).getTime();
+  const previousVisits = (patientVisits && patientVisits.uhid === selectedUhid ? patientVisits.visits : [])
+    .filter((v) => Date.parse(v.visitDate) < dayStart)
+    .slice(0, 4);
+  const upcomingAppointments = appointments
+    .filter((a) => a.uhid === selectedUhid && a.date > selectedDate && a.status !== 'Canceled')
+    .sort((a, b) => a.date.localeCompare(b.date) || toMinutes(a.time) - toMinutes(b.time))
+    .slice(0, 2);
+
   const count = (s: Appointment['status']) => dayAppointments.filter((a) => a.status === s).length;
   const isToday = selectedDate === TODAY;
   const kpis = [
-    { label: 'Checked In', value: count('Checked In') + (isToday ? WALK_INS.checkedIn : 0), color: 'var(--green-dark)', bg: '#eefaf5', border: 'var(--green-border)', filter: 'Checked In' },
-    { label: 'Waiting', value: count('Waiting') + (isToday ? WALK_INS.waiting : 0), color: 'var(--orange-dark)', bg: '#fef5e8', border: 'var(--orange-border)', filter: 'Waiting' },
+    { label: 'Checked In', value: count('Checked In'), color: 'var(--green-dark)', bg: '#eefaf5', border: 'var(--green-border)', filter: 'Checked In' },
+    { label: 'Waiting', value: count('Waiting'), color: 'var(--orange-dark)', bg: '#fef5e8', border: 'var(--orange-border)', filter: 'Waiting' },
     { label: 'In Consultation', value: count('In Consultation'), color: 'var(--blue-text)', bg: '#edf3fe', border: 'var(--blue-border)', filter: 'In Consultation' },
     { label: 'Completed', value: count('Completed'), color: 'var(--purple-dark)', bg: '#f6f2fe', border: 'var(--purple-border)', filter: 'Completed' }
   ];
 
+  const replaceAppointment = (updated: Appointment) => setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+
   const handleUpdateStatus = async (id: string, newStatus: Appointment['status']) => {
-    await appointmentService.updateStatus(id, newStatus);
-    const updated = await appointmentService.getAppointments();
-    setAppointments(updated);
-    showToast(`Appointment status updated to ${newStatus}`);
+    try {
+      replaceAppointment(await appointmentService.updateStatus(id, newStatus));
+      showToast(`Appointment status updated to ${newStatus}`);
+    } catch (err) {
+      showToast(`Status not updated: ${errorMessage(err)}`, 'error');
+    }
+  };
+
+  const saveNote = async (id: string, notes: string) => {
+    try {
+      replaceAppointment(await appointmentService.update(id, { notes }));
+      setEditingNote(false);
+      showToast('Appointment note saved');
+    } catch (err) {
+      showToast(`Note not saved: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const openPatientScreen = (apt: Appointment, screen: Parameters<typeof setActiveScreen>[0]) => {
@@ -301,27 +324,31 @@ export const AppointmentsScreen: React.FC = () => {
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientName) return;
+    const patient = patients.find((p) => p.uhid === bookingUhid);
+    if (!patient) return;
 
-    const newApt = await appointmentService.addAppointment({
-      uhid: `MHK202500${Math.floor(100 + Math.random() * 900)}`,
-      patientName,
-      age: parseInt(age) || 30,
-      gender: 'Male',
-      phone: '+91 98765 00000',
-      time,
-      date: selectedDate,
-      type,
-      condition: condition || 'General Consultation',
-      status: 'Scheduled',
-      notes: 'Scheduled via appointment portal'
-    });
-
-    const refreshed = await appointmentService.getAppointments();
-    setAppointments(refreshed);
-    setSelectedAptId(newApt.id);
-    setIsAddAptModalOpen(false);
-    showToast(`Appointment created for ${patientName} at ${time}!`);
+    try {
+      const newApt = await appointmentService.addAppointment({
+        uhid: patient.uhid,
+        patientName: patient.name,
+        age: patient.age,
+        gender: patient.gender as Appointment['gender'],
+        phone: patient.phone,
+        time,
+        date: selectedDate,
+        type,
+        condition,
+        status: 'Scheduled',
+        notes: '',
+        tags: patient.conditions
+      });
+      setAppointments((prev) => [...prev, newApt]);
+      setSelectedAptId(newApt.id);
+      setIsAddAptModalOpen(false);
+      showToast(`Appointment booked for ${patient.name} at ${time}`);
+    } catch (err) {
+      showToast(`Could not book appointment: ${errorMessage(err)}`, 'error');
+    }
   };
 
   const resetFilters = () => {
@@ -347,7 +374,7 @@ export const AppointmentsScreen: React.FC = () => {
       return { y: d.getFullYear(), m: d.getMonth() };
     });
 
-  const note = selectedApt ? (noteEdits[selectedApt.id] ?? selectedApt.notes ?? '') : '';
+  const note = selectedApt?.notes ?? '';
 
   const statusLine = (apt: Appointment) => {
     switch (apt.status) {
@@ -386,7 +413,14 @@ export const AppointmentsScreen: React.FC = () => {
               <CalendarDays size={16} />
               <span>Block Time</span>
             </button>
-            <button className="btn-primary" style={{ padding: '0 22px' }} onClick={() => setIsAddAptModalOpen(true)}>
+            <button
+              className="btn-primary"
+              style={{ padding: '0 22px' }}
+              onClick={() => {
+                setBookingUhid(activePatient?.uhid ?? '');
+                setIsAddAptModalOpen(true);
+              }}
+            >
               <Plus size={18} />
               <span>Add Appointment</span>
             </button>
@@ -835,7 +869,7 @@ export const AppointmentsScreen: React.FC = () => {
                   </span>
                   <span style={detailRow}>
                     <NotebookPen size={15} />
-                    {VISIT_REASON[selectedApt.id] || selectedApt.condition}
+                    {selectedApt.condition || '—'}
                   </span>
                   <span style={{ ...detailRow, color: statusLine(selectedApt).color, fontWeight: 600, whiteSpace: 'pre' }}>
                     <BadgeCheck size={15} color="var(--text-primary)" />
@@ -861,9 +895,7 @@ export const AppointmentsScreen: React.FC = () => {
                     style={{ width: 30, height: 30 }}
                     onClick={() => {
                       if (editingNote) {
-                        setNoteEdits((prev) => ({ ...prev, [selectedApt.id]: noteDraft }));
-                        setEditingNote(false);
-                        showToast('Appointment note saved');
+                        saveNote(selectedApt.id, noteDraft);
                       } else {
                         setNoteDraft(note);
                         setEditingNote(true);
@@ -904,14 +936,15 @@ export const AppointmentsScreen: React.FC = () => {
                       View All
                     </button>
                   </div>
-                  {mockPreviousAppointments.map((p, i) => (
-                    <div key={p.date} style={{ display: 'grid', gridTemplateColumns: '18px 92px 94px 1fr', alignItems: 'center', height: 27, fontSize: 11.5, color: 'var(--text-secondary)', borderBottom: i < mockPreviousAppointments.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                  {previousVisits.map((p, i) => (
+                    <div key={p.id ?? p.visitDate} style={{ display: 'grid', gridTemplateColumns: '18px 92px 94px 1fr', alignItems: 'center', height: 27, fontSize: 11.5, color: 'var(--text-secondary)', borderBottom: i < previousVisits.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: i === 0 ? '#5f7896' : 'var(--green-emerald)', boxShadow: `0 0 0 3px ${i === 0 ? '#e3e9f2' : 'var(--green-light)'}` }} />
-                      <span>{p.date}</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{p.type}</span>
-                      <span>{p.notes}</span>
+                      <span>{p.visitDate}</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{p.visitType}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.reason}</span>
                     </div>
                   ))}
+                  {!previousVisits.length && <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '4px 0' }}>No earlier visits on record.</p>}
                 </div>
 
                 {/* Upcoming appointments */}
@@ -922,10 +955,10 @@ export const AppointmentsScreen: React.FC = () => {
                       View All
                     </button>
                   </div>
-                  {mockUpcomingAppointments.map((u) => (
-                    <div key={u.date} style={{ display: 'grid', gridTemplateColumns: '18px 92px 94px 1fr', alignItems: 'center', height: 27, fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                  {upcomingAppointments.map((u) => (
+                    <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '18px 92px 94px 1fr', alignItems: 'center', height: 27, fontSize: 11.5, color: 'var(--text-secondary)' }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--orange-amber)' }} />
-                      <span>{u.date}</span>
+                      <span>{displayDate(parseIso(u.date))}</span>
                       <span style={{ color: 'var(--text-primary)' }}>{u.type}</span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={11} />
@@ -933,16 +966,17 @@ export const AppointmentsScreen: React.FC = () => {
                       </span>
                     </div>
                   ))}
+                  {!upcomingAppointments.length && <p style={{ fontSize: 11.5, color: 'var(--text-muted)', padding: '4px 0' }}>No upcoming appointments booked.</p>}
                 </div>
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: '0 4px' }}>
                 {[
-                  ['Blood Group', selectedPatient?.bloodGroup ?? '—'],
-                  ['Department', selectedPatient?.department ?? 'General Medicine'],
-                  ['Consulting Doctor', selectedPatient?.doctor ?? 'Dr. Shajin'],
-                  ['Last Visit', selectedPatient?.lastVisit ?? '—'],
-                  ['Visit Type', selectedPatient?.visitType ?? 'OPD'],
+                  ['Blood Group', selectedPatient?.bloodGroup || 'Not known'],
+                  ['Department', selectedPatient?.department || '—'],
+                  ['Consulting Doctor', selectedPatient?.doctor || '—'],
+                  ['Last Visit', selectedPatient?.lastVisit || '—'],
+                  ['Visit Type', selectedPatient?.visitType ?? '—'],
                   ['Allergies', selectedPatient?.allergies.length ? selectedPatient.allergies.join(', ').replace(/Allergy:\s*/g, '') : 'None known'],
                   ['Insurance', selectedPatient?.insurance ? `${selectedPatient.insurance.provider} (${selectedPatient.insurance.policyNumber})` : 'Self-pay'],
                   [
@@ -1020,15 +1054,20 @@ export const AppointmentsScreen: React.FC = () => {
             <form onSubmit={handleCreateAppointment}>
               <div className="modal-body">
                 <div>
-                  <label className="form-label">Patient Name *</label>
-                  <input type="text" required className="input-field" placeholder="e.g. Arun Kumar" value={patientName} onChange={(e) => setPatientName(e.target.value)} />
+                  <label className="form-label">Patient *</label>
+                  <select required className="form-select" value={bookingUhid} onChange={(e) => setBookingUhid(e.target.value)}>
+                    <option value="" disabled>
+                      Select a registered patient
+                    </option>
+                    {patients.map((p) => (
+                      <option key={p.uhid} value={p.uhid}>
+                        {p.name} · {p.uhid}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="form-label">Age</label>
-                    <input type="number" className="input-field" placeholder="e.g. 34" value={age} onChange={(e) => setAge(e.target.value)} />
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label className="form-label">Time Slot *</label>
                     <select className="form-select" value={time} onChange={(e) => setTime(e.target.value)}>
@@ -1057,7 +1096,7 @@ export const AppointmentsScreen: React.FC = () => {
                   <label className="form-label">Chief Complaint / Purpose</label>
                   <input type="text" className="input-field" placeholder="e.g. Hypertension follow-up, Fever review" value={condition} onChange={(e) => setCondition(e.target.value)} />
                 </div>
-                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>Booking for {fmtDate(selectedDate)}</p>
+                <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>Booking for {fmtDate(selectedDate)}. New patients are registered from the Patients screen.</p>
               </div>
 
               <div className="modal-footer">

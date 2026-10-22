@@ -83,18 +83,23 @@ export interface Appointment {
   tags?: string[];
 }
 
+/** A consultation. `id` is absent on the blank draft the API returns for a patient with no notes yet. */
 export interface SoapNote {
-  id: string;
+  id?: string;
   uhid: string;
   visitDate: string;
   visitTime: string;
   visitType: string;
   doctor: string;
   department: string;
+  /** Chief complaint, shown in visit lists. */
+  reason?: string;
   subjective: string;
   objective: string;
   assessment: string;
   plan: string;
+  /** Unstructured note from the EMR's Free Text mode. */
+  freeText?: string;
   icd10: {
     code: string;
     description: string;
@@ -111,7 +116,7 @@ export interface PrescriptionItem {
   frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'HS' | 'SOS';
   duration: string;
   route: string;
-  instructions: 'After food' | 'Before food' | 'At night' | 'SOS (Fever)' | 'With warm water';
+  instructions?: 'After food' | 'Before food' | 'At night' | 'SOS (Fever)' | 'With warm water';
   indication?: string;
   status: 'Active' | 'Paused' | 'Stopped' | 'Completed';
   startDate?: string;
@@ -158,7 +163,8 @@ export interface LabTestReport {
   time: string;
   status: 'Completed' | 'Pending' | 'Abnormal';
   groups: LabReportGroup[];
-  aiSummary: {
+  /** Present only when an interpretation has been recorded for the report. */
+  aiSummary?: {
     findings: string[];
     interpretation: string;
     recommendations: string[];
@@ -167,6 +173,14 @@ export interface LabTestReport {
     parameter: string;
     history: { date: string; value: number }[];
   };
+}
+
+/** GET /lab-reports/trends/:uhid — one parameter's results over time. */
+export interface LabTrend {
+  parameter: string;
+  unit: string;
+  targetRange: string;
+  history: { date: string; value: number }[];
 }
 
 export interface ImagingStudy {
@@ -346,9 +360,13 @@ export interface ClinicalDocument {
   fileType: 'pdf' | 'doc' | 'image' | 'dicom';
   fileSize: string;
   status: 'Signed' | 'Pending Signature' | 'Draft' | 'Archived';
+  /** Set by PATCH /documents/:id/sign. */
+  signedBy?: string;
+  signedOn?: string;
   description?: string;
 }
 
+/** One vitals reading. Only BP and heart rate are always present; other values only when measured. */
 export interface VitalsRecord {
   id: string;
   uhid: string;
@@ -357,16 +375,112 @@ export interface VitalsRecord {
   bpSystolic: number;
   bpDiastolic: number;
   heartRate: number;
-  temperature: number;
-  spo2: number;
-  respiratoryRate: number;
+  temperature?: number;
+  spo2?: number;
+  respiratoryRate?: number;
   bloodSugarFasting?: number;
   bloodSugarPostPrandial?: number;
-  weightKg: number;
-  heightCm: number;
-  bmi: number;
-  bmiStatus: 'Normal' | 'Overweight' | 'Underweight' | 'Obese';
+  weightKg?: number;
+  heightCm?: number;
+  bmi?: number;
+  bmiStatus?: 'Normal' | 'Overweight' | 'Underweight' | 'Obese';
   status: 'Normal' | 'Warning' | 'Critical';
   notes?: string;
 }
 
+
+/** The signed-in doctor or staff member (GET /auth/me). */
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  specialty: string;
+  department: string;
+  doctorId: string;
+  avatar: string;
+  phone: string;
+  role: string;
+}
+
+/** Workstation settings (GET/PUT /settings). */
+export interface SettingsState {
+  profile: {
+    name: string;
+    designation: string;
+    credentials: string;
+    regNo: string;
+    email: string;
+    phone: string;
+    specialization: string;
+    bio: string;
+  };
+  hospital: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    timeZone: string;
+    dateFormat: string;
+    timeFormat: string;
+  };
+  ai: {
+    model: string;
+    useClinicalSuggestions: boolean;
+    autoGenerateNotes: boolean;
+    voiceToNotes: boolean;
+    drugInteractionAlerts: boolean;
+    followUpSuggestions: boolean;
+    responseTone: string;
+    language: string;
+  };
+  notifications: {
+    appointmentReminders: boolean;
+    followUpAlerts: boolean;
+    labResultAlerts: boolean;
+    criticalAlerts: boolean;
+    systemNotifications: boolean;
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+    pushNotifications: boolean;
+  };
+  security: {
+    twoFactorAuth: boolean;
+    sessionTimeout: string;
+    loginAlerts: boolean;
+    ipRestrictions: boolean;
+    auditLogAccess: boolean;
+  };
+  preferences: {
+    defaultDashboard: string;
+    itemsPerPage: number;
+    defaultPatientView: string;
+    autoSaveInterval: string;
+    enableSoundAlerts: boolean;
+    showTipsAndGuides: boolean;
+    compactMode: boolean;
+  };
+}
+
+/** GET /dashboard/stats — one day's numbers; the dashboard formats them. */
+export interface DashboardStats {
+  date: string;
+  appointments: { total: number; completed: number; pending: number };
+  patients: { total: number; newToday: number };
+  consultations: { total: number; finalised: number };
+  labReports: { total: number; pending: number };
+  imaging: { total: number; pending: number };
+  billing: { revenue: number; invoices: number };
+  schedule: { id: string; uhid: string; time: string; patientName: string; type: string; condition: string; status: Appointment['status'] }[];
+  patientFlow: { label: string; count: number }[];
+  consultationTypes: { label: string; count: number }[];
+  criticalAlerts: { id: string; title: string; subtitle: string; patientName: string; uhid: string; type: TaskAlertItem['type']; category: TaskAlertItem['category']; dueDateTime: string }[];
+  recentPatients: { id: string; uhid: string; name: string; age: number; gender: string; avatar?: string; reason: string; lastVisit: string }[];
+}
+
+/** A medication on the patient's list (GET /medications). */
+export interface Medication extends Omit<PrescriptionItem, 'instructions'> {
+  uhid: string;
+  instructions?: string;
+  /** Percentage of doses taken, once measured. */
+  adherenceScore?: number;
+}

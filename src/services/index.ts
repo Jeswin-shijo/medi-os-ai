@@ -1,227 +1,206 @@
-import { Patient, Appointment, SoapNote, PrescriptionRecord, PrescriptionItem, LabTestReport, ImagingStudy, BillInvoice, FollowUpItem, TaskAlertItem, MessageThread } from '../types';
-import { mockPatients } from '../mock/patientsData';
-import { mockAppointments } from '../mock/appointmentsData';
-import { mockSoapNote } from '../mock/consultationsData';
-import { mockPrescriptionRecord } from '../mock/prescriptionsData';
-import { mockLabReports } from '../mock/labReportsData';
-import { mockImagingStudies } from '../mock/imagingData';
-import { mockBillInvoices } from '../mock/billingData';
-import { mockFollowUps } from '../mock/followUpsData';
-import { mockTasksAlerts } from '../mock/tasksAlertsData';
-import { mockMessageThreads } from '../mock/messagesData';
-import { initialSettings, SettingsState } from '../mock/settingsData';
+import {
+  Patient,
+  Appointment,
+  SoapNote,
+  PrescriptionRecord,
+  LabTestReport,
+  ImagingStudy,
+  BillInvoice,
+  FollowUpItem,
+  TaskAlertItem,
+  MessageThread,
+  TimelineEvent,
+  ClinicalDocument,
+  VitalsRecord,
+  AuthUser,
+  SettingsState,
+  DashboardStats,
+  Medication,
+  LabTrend
+} from '../types';
+import { api, authToken } from './api';
+import { displayDate, displayTime } from '../utils/clinicDate';
 
-// Helper for local storage persistence
-function getStorage<T>(key: string, fallback: T): T {
-  try {
-    const data = localStorage.getItem(`medios_${key}`);
-    return data ? JSON.parse(data) : fallback;
-  } catch {
-    return fallback;
-  }
-}
+// One service per backend module. Patient-scoped records are always fetched by
+// UHID, so a patient with no records gets an empty list, never someone else's.
 
-function setStorage<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(`medios_${key}`, JSON.stringify(value));
-  } catch {
-    // ignore
-  }
-}
+const enc = encodeURIComponent;
+
+// Auth Service
+export const authService = {
+  async login(email: string, password: string): Promise<AuthUser> {
+    const { accessToken, user } = await api<{ accessToken: string; user: AuthUser }>('/auth/login', {
+      method: 'POST',
+      body: { email, password }
+    });
+    authToken.set(accessToken);
+    return user;
+  },
+  me: () => api<AuthUser>('/auth/me'),
+  hasSession: () => authToken.get() !== null,
+  logout: () => authToken.clear()
+};
 
 // Patient Service
 export const patientService = {
   async getPatients(): Promise<Patient[]> {
-    return getStorage<Patient[]>('patients', mockPatients);
+    const { patients } = await api<{ patients: Patient[]; total: number }>('/patients', { query: { limit: 500 } });
+    return patients;
   },
-  async getPatientById(id: string): Promise<Patient | undefined> {
-    const list = await this.getPatients();
-    return list.find(p => p.id === id || p.uhid === id);
-  },
-  async addPatient(patient: Omit<Patient, 'id'>): Promise<Patient> {
-    const list = await this.getPatients();
-    const newPatient: Patient = {
-      ...patient,
-      id: `p-${Date.now()}`
-    };
-    const updated = [newPatient, ...list];
-    setStorage('patients', updated);
-    return newPatient;
-  },
-  async updatePatient(id: string, updates: Partial<Patient>): Promise<Patient | null> {
-    const list = await this.getPatients();
-    const index = list.findIndex(p => p.id === id || p.uhid === id);
-    if (index === -1) return null;
-    const updatedPatient = { ...list[index], ...updates };
-    list[index] = updatedPatient;
-    setStorage('patients', list);
-    return updatedPatient;
-  }
+  getPatientById: (idOrUhid: string) => api<Patient>(`/patients/${enc(idOrUhid)}`),
+  /** The server assigns the UHID when it is omitted. */
+  addPatient: (patient: Omit<Patient, 'id' | 'uhid'> & { uhid?: string }) =>
+    api<Patient>('/patients', { method: 'POST', body: patient }),
+  updatePatient: (idOrUhid: string, updates: Partial<Patient>) =>
+    api<Patient>(`/patients/${enc(idOrUhid)}`, { method: 'PUT', body: updates })
 };
 
 // Appointment Service
 export const appointmentService = {
-  async getAppointments(): Promise<Appointment[]> {
-    return getStorage<Appointment[]>('appointments', mockAppointments);
+  async getAppointments(query: { date?: string; uhid?: string } = {}): Promise<Appointment[]> {
+    const { appointments } = await api<{ appointments: Appointment[]; total: number }>('/appointments', {
+      query: { ...query, limit: 500 }
+    });
+    return appointments;
   },
-  async addAppointment(apt: Omit<Appointment, 'id'>): Promise<Appointment> {
-    const list = await this.getAppointments();
-    const newApt: Appointment = {
-      ...apt,
-      id: `apt-${Date.now()}`
-    };
-    const updated = [...list, newApt];
-    setStorage('appointments', updated);
-    return newApt;
-  },
-  async updateStatus(id: string, status: Appointment['status']): Promise<void> {
-    const list = await this.getAppointments();
-    const item = list.find(a => a.id === id);
-    if (item) {
-      item.status = status;
-      setStorage('appointments', list);
-    }
-  }
+  addAppointment: (apt: Omit<Appointment, 'id'>) => api<Appointment>('/appointments', { method: 'POST', body: apt }),
+  updateStatus: (id: string, status: Appointment['status']) =>
+    api<Appointment>(`/appointments/${id}/status`, { method: 'PATCH', body: { status } }),
+  update: (id: string, updates: Partial<Appointment>) =>
+    api<Appointment>(`/appointments/${id}`, { method: 'PUT', body: updates })
 };
 
 // Consultation / EMR Service
 export const consultationService = {
+  /** Latest note, or an unsaved blank draft (no `id`) when the patient has none. */
   async getSoapNote(uhid: string): Promise<SoapNote> {
-    const saved = getStorage<SoapNote | null>(`soap_${uhid}`, null);
-    return saved || mockSoapNote;
+    const note = await api<SoapNote>(`/consultations/soap/${enc(uhid)}`);
+    // A draft is dated by the server's clock; use the clinic's today (see utils/clinicDate).
+    return note.id ? note : { ...note, visitDate: displayDate(), visitTime: displayTime() };
   },
-  async saveSoapNote(note: SoapNote): Promise<void> {
-    setStorage(`soap_${note.uhid}`, note);
-  }
+  /** Creates the note when it has no `id`, otherwise updates it. Returns the stored note. */
+  saveSoapNote: (note: SoapNote) => api<SoapNote>('/consultations/soap', { method: 'POST', body: note }),
+  /** Every consultation for the patient, newest first. */
+  getVisits: (uhid: string) => api<SoapNote[]>('/consultations', { query: { uhid } })
 };
 
 // Prescription Service
 export const prescriptionService = {
-  async getPrescription(uhid: string): Promise<PrescriptionRecord> {
-    const saved = getStorage<PrescriptionRecord | null>(`prescription_${uhid}`, null);
-    return saved || mockPrescriptionRecord;
+  /** All of the patient's prescriptions, newest first. */
+  getPrescriptions: (uhid: string) => api<PrescriptionRecord[]>('/prescriptions', { query: { uhid } }),
+  /** The patient's latest prescription, or null when none has been written. */
+  async getPrescription(uhid: string): Promise<PrescriptionRecord | null> {
+    const list = await prescriptionService.getPrescriptions(uhid);
+    return list[0] ?? null;
   },
-  async savePrescription(rx: PrescriptionRecord): Promise<void> {
-    setStorage(`prescription_${rx.uhid}`, rx);
-  },
-  async addMedicine(uhid: string, item: Omit<PrescriptionItem, 'id'>): Promise<PrescriptionRecord> {
-    const rx = await this.getPrescription(uhid);
-    const newItem: PrescriptionItem = { ...item, id: `rx-${Date.now()}` };
-    const updated: PrescriptionRecord = {
-      ...rx,
-      items: [...rx.items, newItem]
-    };
-    await this.savePrescription(updated);
-    return updated;
-  },
-  async removeMedicine(uhid: string, id: string): Promise<PrescriptionRecord> {
-    const rx = await this.getPrescription(uhid);
-    const updated: PrescriptionRecord = {
-      ...rx,
-      items: rx.items.filter(i => i.id !== id)
-    };
-    await this.savePrescription(updated);
-    return updated;
-  }
+  /** Rule-based check against the backend's (small) built-in interaction table. */
+  checkInteractions: (medicines: string[]) =>
+    api<{ hasInteractions: boolean; warnings: string[]; checkedMedicinesCount: number }>('/prescriptions/check-interactions', {
+      method: 'POST',
+      body: { medicines }
+    }),
+  savePrescription: (rx: Omit<PrescriptionRecord, 'id'> & { id?: string }) =>
+    rx.id
+      ? api<PrescriptionRecord>(`/prescriptions/${rx.id}`, { method: 'PUT', body: rx })
+      : api<PrescriptionRecord>('/prescriptions', { method: 'POST', body: rx })
+};
+
+// Medication Service
+export const medicationService = {
+  getMedications: (uhid: string) => api<Medication[]>('/medications', { query: { uhid } }),
+  updateStatus: (id: string, status: Medication['status']) =>
+    api<Medication>(`/medications/${id}/status`, { method: 'PATCH', body: { status } })
 };
 
 // Lab Service
 export const labService = {
-  async getReports(uhid?: string): Promise<LabTestReport[]> {
-    const list = getStorage<LabTestReport[]>('lab_reports', mockLabReports);
-    if (uhid) return list.filter(r => r.uhid === uhid);
-    return list;
+  getReports: (uhid: string) => api<LabTestReport[]>('/lab-reports', { query: { uhid } }),
+  /** Per-parameter series computed by the backend from this patient's reports. */
+  async getTrends(uhid: string): Promise<LabTrend[]> {
+    const { trends } = await api<{ trends: LabTrend[] }>(`/lab-reports/trends/${enc(uhid)}`);
+    return trends;
   }
 };
 
 // Imaging Service
 export const imagingService = {
-  async getStudies(uhid?: string): Promise<ImagingStudy[]> {
-    const list = getStorage<ImagingStudy[]>('imaging_studies', mockImagingStudies);
-    if (uhid) return list.filter(i => i.uhid === uhid);
-    return list;
-  }
+  getStudies: (uhid: string) => api<ImagingStudy[]>('/imaging', { query: { uhid } })
 };
 
 // Billing Service
 export const billingService = {
-  async getInvoices(uhid?: string): Promise<BillInvoice[]> {
-    const list = getStorage<BillInvoice[]>('bill_invoices', mockBillInvoices);
-    if (uhid) return list.filter(b => b.uhid === uhid);
-    return list;
-  },
-  async createInvoice(invoice: Omit<BillInvoice, 'id'>): Promise<BillInvoice> {
-    const list = await this.getInvoices();
-    const newInv: BillInvoice = { ...invoice, id: `b-${Date.now()}` };
-    const updated = [newInv, ...list];
-    setStorage('bill_invoices', updated);
-    return newInv;
-  }
+  getInvoices: (uhid?: string) => api<BillInvoice[]>('/billing/invoices', { query: { uhid } }),
+  createInvoice: (invoice: Omit<BillInvoice, 'id'>) =>
+    api<BillInvoice>('/billing/invoices', { method: 'POST', body: invoice }),
+  recordPayment: (id: string, amount: number, paymentMode?: string) =>
+    api<BillInvoice>(`/billing/invoices/${id}/pay`, { method: 'PATCH', body: { amount, paymentMode } }),
+  updateNotes: (id: string, notes: string) => api<BillInvoice>(`/billing/invoices/${id}/notes`, { method: 'PATCH', body: { notes } })
 };
 
 // Follow-up Service
 export const followUpService = {
-  async getFollowUps(): Promise<FollowUpItem[]> {
-    return getStorage<FollowUpItem[]>('follow_ups', mockFollowUps);
-  },
-  async updateStatus(id: string, status: FollowUpItem['status']): Promise<void> {
-    const list = await this.getFollowUps();
-    const item = list.find(f => f.id === id);
-    if (item) {
-      item.status = status;
-      setStorage('follow_ups', list);
-    }
-  }
+  getFollowUps: () => api<FollowUpItem[]>('/follow-ups'),
+  updateStatus: (id: string, status: FollowUpItem['status']) =>
+    api<FollowUpItem>(`/follow-ups/${id}/status`, { method: 'PATCH', body: { status } }),
+  addFollowUp: (item: Omit<FollowUpItem, 'id'>) => api<FollowUpItem>('/follow-ups', { method: 'POST', body: item }),
+  /** The backend reports `sent: false` until an SMS/WhatsApp provider is configured. */
+  sendReminder: (id: string) =>
+    api<{ sent: boolean; message: string }>(`/follow-ups/${id}/send-reminder`, { method: 'POST' })
 };
 
 // Tasks & Alerts Service
 export const taskService = {
-  async getTasks(): Promise<TaskAlertItem[]> {
-    return getStorage<TaskAlertItem[]>('tasks_alerts', mockTasksAlerts);
-  },
-  async toggleTaskStatus(id: string): Promise<TaskAlertItem[]> {
-    const list = await this.getTasks();
-    const item = list.find(t => t.id === id);
-    if (item) {
-      item.status = item.status === 'Completed' ? 'Pending' : 'Completed';
-      setStorage('tasks_alerts', list);
-    }
-    return list;
-  }
+  getTasks: () => api<TaskAlertItem[]>('/tasks-alerts'),
+  /** Flips Pending <-> Completed and returns the updated task. */
+  toggleTaskStatus: (id: string) => api<TaskAlertItem>(`/tasks-alerts/${id}/toggle`, { method: 'PATCH' }),
+  updateStatus: (id: string, status: TaskAlertItem['status']) =>
+    api<TaskAlertItem>(`/tasks-alerts/${id}/status`, { method: 'PATCH', body: { status } }),
+  addTask: (task: Omit<TaskAlertItem, 'id'>) => api<TaskAlertItem>('/tasks-alerts', { method: 'POST', body: task })
 };
 
 // Messages Service
 export const messageService = {
-  async getThreads(): Promise<MessageThread[]> {
-    return getStorage<MessageThread[]>('message_threads', mockMessageThreads);
-  },
-  async sendMessage(threadId: string, text: string): Promise<MessageThread[]> {
-    const list = await this.getThreads();
-    const thread = list.find(t => t.id === threadId);
-    if (thread) {
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      thread.messages.push({
-        id: `m-${Date.now()}`,
-        sender: 'doctor',
-        text,
-        time: timeStr,
-        status: 'delivered'
-      });
-      thread.preview = text;
-      thread.time = timeStr;
-      setStorage('message_threads', list);
-    }
-    return list;
+  getThreads: () => api<MessageThread[]>('/messages/threads'),
+  /** Appends a doctor message and returns the updated thread. */
+  sendMessage: (threadId: string, text: string) =>
+    api<MessageThread>(`/messages/threads/${threadId}/send`, { method: 'POST', body: { text } }),
+  markAsRead: (threadId: string) => api<MessageThread>(`/messages/threads/${threadId}/read`, { method: 'PATCH' }),
+  async getUnreadCount(): Promise<number> {
+    const { unreadCount } = await api<{ unreadCount: number }>('/messages/unread-count');
+    return unreadCount;
   }
+};
+
+// Timeline Service
+export const timelineService = {
+  getEvents: (uhid: string) => api<TimelineEvent[]>(`/timeline/${enc(uhid)}`),
+  addEvent: (event: Omit<TimelineEvent, 'id'>) => api<TimelineEvent>('/timeline', { method: 'POST', body: event })
+};
+
+// Clinical Documents Service
+export const documentService = {
+  getDocuments: (uhid: string) => api<ClinicalDocument[]>('/documents', { query: { uhid } }),
+  addDocument: (doc: Omit<ClinicalDocument, 'id'>) => api<ClinicalDocument>('/documents', { method: 'POST', body: doc }),
+  /** Signs as the signed-in user. */
+  sign: (id: string) => api<ClinicalDocument>(`/documents/${id}/sign`, { method: 'PATCH' })
+};
+
+// Vitals Service
+export const vitalsService = {
+  /** Newest first. */
+  getVitals: (uhid: string) => api<VitalsRecord[]>(`/vitals/${enc(uhid)}`),
+  /** BMI, BMI status and the overall status are computed by the backend. */
+  addVitals: (record: Omit<VitalsRecord, 'id' | 'bmi' | 'bmiStatus' | 'status'>) =>
+    api<VitalsRecord>('/vitals', { method: 'POST', body: record })
+};
+
+// Dashboard Service
+export const dashboardService = {
+  getStats: (date: string) => api<DashboardStats>('/dashboard/stats', { query: { date } })
 };
 
 // Settings Service
 export const settingsService = {
-  async getSettings(): Promise<SettingsState> {
-    return getStorage<SettingsState>('settings', initialSettings);
-  },
-  async saveSettings(settings: SettingsState): Promise<void> {
-    setStorage('settings', settings);
-  }
+  getSettings: () => api<SettingsState>('/settings'),
+  saveSettings: (settings: SettingsState) => api<SettingsState>('/settings', { method: 'PUT', body: settings })
 };

@@ -3,8 +3,11 @@ import { useApp } from '../../context/appContextCore';
 import { PatientBanner } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockHistoricalVitals } from '../../mock/vitalsData';
 import { VitalsRecord } from '../../types';
+import { vitalsService } from '../../services';
+import { errorMessage } from '../../services/api';
+import { useLoader } from '../../hooks/useLoader';
+import { clinicNow, displayDateTime } from '../../utils/clinicDate';
 import {
   Activity,
   HeartPulse,
@@ -22,8 +25,6 @@ import {
   CalendarDays,
   CircleCheck,
   CircleAlert,
-  RefreshCw,
-  SquarePen,
   X,
   type LucideIcon
 } from 'lucide-react';
@@ -39,7 +40,6 @@ const CHART_TABS: { id: ChartTab; label: string; hint: string }[] = [
 ];
 
 const RANGE_DAYS: Record<Range, number> = { '1M': 31, '3M': 92, '6M': 183, '1Y': 366, All: Infinity };
-const TODAY = new Date('26 Sep 2026');
 
 const recordDate = (v: VitalsRecord) => v.recordedAt.replace('Today, ', '').split(',')[0];
 
@@ -52,21 +52,23 @@ const bpStatus = (sys: number, dia: number): Status => {
   if (sys >= 120 || dia >= 80) return { label: 'Elevated', pill: 'waiting' };
   return { label: 'Normal', pill: 'normal' };
 };
+const NOT_RECORDED: Status = { label: 'Not recorded', pill: 'gray' };
 const pulseStatus = (hr: number): Status =>
   hr > 100 ? { label: 'Tachycardia', pill: 'high' } : hr < 60 ? { label: 'Bradycardia', pill: 'waiting' } : { label: 'Normal Sinus', pill: 'normal' };
-const spo2Status = (s: number): Status =>
-  s < 90 ? { label: 'Hypoxia', pill: 'critical' } : s < 95 ? { label: 'Low', pill: 'waiting' } : { label: 'Room Air', pill: 'normal' };
-const tempStatus = (t: number): Status =>
-  t > 100.4 ? { label: 'Febrile', pill: 'high' } : t > 99.5 ? { label: 'Low-grade', pill: 'waiting' } : t < 97 ? { label: 'Low', pill: 'waiting' } : { label: 'Normothermic', pill: 'normal' };
-const respStatus = (r: number): Status =>
-  r > 20 ? { label: 'Tachypnea', pill: 'waiting' } : r < 12 ? { label: 'Bradypnea', pill: 'waiting' } : { label: 'Normal', pill: 'normal' };
+const spo2Status = (s?: number): Status =>
+  s === undefined ? NOT_RECORDED : s < 90 ? { label: 'Hypoxia', pill: 'critical' } : s < 95 ? { label: 'Low', pill: 'waiting' } : { label: 'Room Air', pill: 'normal' };
+const tempStatus = (t?: number): Status =>
+  t === undefined ? NOT_RECORDED : t > 100.4 ? { label: 'Febrile', pill: 'high' } : t > 99.5 ? { label: 'Low-grade', pill: 'waiting' } : t < 97 ? { label: 'Low', pill: 'waiting' } : { label: 'Normothermic', pill: 'normal' };
+const respStatus = (r?: number): Status =>
+  r === undefined ? NOT_RECORDED : r > 20 ? { label: 'Tachypnea', pill: 'waiting' } : r < 12 ? { label: 'Bradypnea', pill: 'waiting' } : { label: 'Normal', pill: 'normal' };
 const glucoseStatus = (g?: number): Status => {
-  if (!g) return { label: 'Not recorded', pill: 'gray' };
+  if (!g) return NOT_RECORDED;
   if (g > 150) return { label: 'High', pill: 'high' };
   if (g >= 100) return { label: 'Above Target', pill: 'waiting' };
   return { label: 'Normal', pill: 'normal' };
 };
-const bmiPill: Record<VitalsRecord['bmiStatus'], string> = { Normal: 'normal', Overweight: 'waiting', Obese: 'high', Underweight: 'waiting' };
+type BmiStatus = NonNullable<VitalsRecord['bmiStatus']>;
+const bmiPill: Record<BmiStatus, string> = { Normal: 'normal', Overweight: 'waiting', Obese: 'high', Underweight: 'waiting' };
 const rowStatusPill: Record<VitalsRecord['status'], string> = { Normal: 'normal', Warning: 'waiting', Critical: 'critical' };
 
 // ---- Trend chart ----
@@ -155,22 +157,26 @@ const TrendChart: React.FC<{
 };
 
 export const VitalsScreen: React.FC = () => {
-  const { activePatient, showToast } = useApp();
-  const [vitalsList, setVitalsList] = useState<VitalsRecord[]>(mockHistoricalVitals);
+  const { activePatient, showToast, refreshPatients } = useApp();
+  const uhid = activePatient?.uhid;
+  const [loaded, setLoaded] = useState<{ uhid: string; list: VitalsRecord[] } | null>(null);
+  const { loading } = useLoader(async () => (uhid ? { uhid, list: await vitalsService.getVitals(uhid) } : null), setLoaded, [uhid]);
+  const vitalsList = loaded && loaded.uhid === uhid ? loaded.list : [];
   const [timeRange, setTimeRange] = useState<Range>('1Y');
   const [activeChartTab, setActiveChartTab] = useState<ChartTab>('BP');
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Form states for new vitals
-  const [newSys, setNewSys] = useState('138');
-  const [newDia, setNewDia] = useState('88');
-  const [newPulse, setNewPulse] = useState('82');
-  const [newSpo2, setNewSpo2] = useState('98');
-  const [newTemp, setNewTemp] = useState('98.4');
-  const [newResp, setNewResp] = useState('18');
-  const [newGlucose, setNewGlucose] = useState('124');
-  const [newWeight, setNewWeight] = useState('78');
-  const [newHeight, setNewHeight] = useState('172');
+  // Form states for new vitals: blank until measured, never a "typical" reading.
+  const [newSys, setNewSys] = useState('');
+  const [newDia, setNewDia] = useState('');
+  const [newPulse, setNewPulse] = useState('');
+  const [newSpo2, setNewSpo2] = useState('');
+  const [newTemp, setNewTemp] = useState('');
+  const [newResp, setNewResp] = useState('');
+  const [newGlucose, setNewGlucose] = useState('');
+  const [newWeight, setNewWeight] = useState('');
+  const [newHeight, setNewHeight] = useState('');
   const [newNotes, setNewNotes] = useState('');
 
   if (!activePatient) {
@@ -183,62 +189,213 @@ export const VitalsScreen: React.FC = () => {
     );
   }
 
-  const latestVitals = vitalsList[0] || mockHistoricalVitals[0];
+  const latestVitals: VitalsRecord | undefined = vitalsList[0];
   const previousVitals = vitalsList[1];
-  const oldestVitals = vitalsList[vitalsList.length - 1];
 
-  // Live BMI calculation
-  const calcWeight = parseFloat(newWeight) || 0;
-  const calcHeight = (parseFloat(newHeight) || 0) / 100;
-  const calcBmi = calcHeight > 0 ? (calcWeight / (calcHeight * calcHeight)).toFixed(1) : '0';
-  const getBmiStatus = (bmi: number): 'Normal' | 'Overweight' | 'Underweight' | 'Obese' => {
+  // Live BMI preview (the backend computes the stored value).
+  const calcWeight = parseFloat(newWeight);
+  const calcHeight = parseFloat(newHeight) / 100;
+  const calcBmi = calcWeight > 0 && calcHeight > 0 ? (calcWeight / (calcHeight * calcHeight)).toFixed(1) : '';
+  const getBmiStatus = (bmi: number): BmiStatus => {
     if (bmi < 18.5) return 'Underweight';
     if (bmi < 25) return 'Normal';
     if (bmi < 30) return 'Overweight';
     return 'Obese';
   };
 
-  const handleRecordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const sys = parseInt(newSys) || 120;
-    const dia = parseInt(newDia) || 80;
-    const pulse = parseInt(newPulse) || 72;
-    const spo2 = parseInt(newSpo2) || 98;
-    const temp = parseFloat(newTemp) || 98.6;
-    const resp = parseInt(newResp) || 16;
-    const weight = parseFloat(newWeight) || 70;
-    const height = parseFloat(newHeight) || 170;
-    const bmiNum = parseFloat(calcBmi) || 24;
-
-    const newRecord: VitalsRecord = {
-      id: `vit-${Date.now()}`,
-      uhid: activePatient.uhid,
-      recordedAt: 'Today, 26 Sep 2026, 09:20 AM',
-      recordedBy: 'Dr. Shajin (Consultation)',
-      bpSystolic: sys,
-      bpDiastolic: dia,
-      heartRate: pulse,
-      temperature: temp,
-      spo2: spo2,
-      respiratoryRate: resp,
-      bloodSugarFasting: parseInt(newGlucose) || undefined,
-      weightKg: weight,
-      heightCm: height,
-      bmi: bmiNum,
-      bmiStatus: getBmiStatus(bmiNum),
-      status: sys >= 140 || dia >= 90 ? 'Warning' : 'Normal',
-      notes: newNotes || 'Routine consultation vitals check.'
-    };
-
-    setVitalsList([newRecord, ...vitalsList]);
-    setIsRecordModalOpen(false);
-    showToast('New vitals recorded and trends updated successfully');
+  const resetForm = () => {
+    [setNewSys, setNewDia, setNewPulse, setNewSpo2, setNewTemp, setNewResp, setNewGlucose, setNewWeight, setNewHeight, setNewNotes].forEach((set) => set(''));
   };
 
+  const handleRecordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
+    const sys = num(newSys);
+    const dia = num(newDia);
+    const pulse = num(newPulse);
+    if (sys === undefined || dia === undefined || pulse === undefined || [sys, dia, pulse].some(Number.isNaN)) {
+      showToast('Blood pressure and heart rate are required', 'warning');
+      return;
+    }
+    setSaving(true);
+    try {
+      // The backend records who took the reading and derives BMI and status.
+      const saved = await vitalsService.addVitals({
+        uhid: activePatient.uhid,
+        recordedAt: displayDateTime(),
+        recordedBy: '',
+        bpSystolic: sys,
+        bpDiastolic: dia,
+        heartRate: pulse,
+        temperature: num(newTemp),
+        spo2: num(newSpo2),
+        respiratoryRate: num(newResp),
+        bloodSugarFasting: num(newGlucose),
+        weightKg: num(newWeight),
+        heightCm: num(newHeight),
+        notes: newNotes
+      });
+      setLoaded((prev) => (prev && prev.uhid === saved.uhid ? { ...prev, list: [saved, ...prev.list] } : prev));
+      setIsRecordModalOpen(false);
+      resetForm();
+      showToast(`Vitals recorded (${saved.status})`);
+      // The patient record's latest-vitals snapshot changed on the server.
+      refreshPatients().catch(() => undefined);
+    } catch (err) {
+      showToast(`Vitals not saved: ${errorMessage(err)}`, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const numberField = (id: string, label: string, value: string, set: (v: string) => void, opts: { required?: boolean; step?: string } = {}) => (
+    <div>
+      <label className="form-label" htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="number"
+        step={opts.step}
+        required={opts.required}
+        className="input-field"
+        value={value}
+        onChange={(e) => set(e.target.value)}
+      />
+    </div>
+  );
+
+  const liveBmiStatus = calcBmi ? getBmiStatus(parseFloat(calcBmi)) : undefined;
+
+  const recordModal = isRecordModalOpen && (
+    <div className="modal-backdrop" onClick={() => setIsRecordModalOpen(false)}>
+      <div className="modal-card" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <HeartPulse size={18} color="var(--red-rose)" />
+            <span>Record Patient Vitals</span>
+          </h3>
+          <button className="icon-btn" title="Close" onClick={() => setIsRecordModalOpen(false)}>
+            <X size={16} />
+          </button>
+        </div>
+        <form onSubmit={handleRecordSubmit}>
+          <div className="modal-body">
+            <div
+              style={{
+                backgroundColor: 'var(--bg-subtle)',
+                padding: '9px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: 'var(--fs-sm)',
+                color: 'var(--text-secondary)'
+              }}
+            >
+              Recording for <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{activePatient.name}</strong> · UHID:{' '}
+              <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{activePatient.uhid}</strong>. Leave a field empty if it was not measured.
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+              {numberField('vit-sys', 'Systolic BP (mmHg) *', newSys, setNewSys, { required: true })}
+              {numberField('vit-dia', 'Diastolic BP (mmHg) *', newDia, setNewDia, { required: true })}
+              {numberField('vit-pulse', 'Heart Rate (bpm) *', newPulse, setNewPulse, { required: true })}
+              {numberField('vit-spo2', 'SpO₂ (%)', newSpo2, setNewSpo2)}
+              {numberField('vit-temp', 'Temperature (°F)', newTemp, setNewTemp, { step: '0.1' })}
+              {numberField('vit-resp', 'Resp. Rate (/min)', newResp, setNewResp)}
+              {numberField('vit-weight', 'Weight (kg)', newWeight, setNewWeight, { step: '0.1' })}
+              {numberField('vit-height', 'Height (cm)', newHeight, setNewHeight)}
+              {numberField('vit-glucose', 'Fasting Sugar (mg/dL)', newGlucose, setNewGlucose)}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: 'var(--bg-subtle)',
+                padding: '9px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)'
+              }}
+            >
+              <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>Calculated BMI</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>{calcBmi || '—'}</span>
+                <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>kg/m²</span>
+                {liveBmiStatus && <span className={`status-pill ${bmiPill[liveBmiStatus]}`}>{liveBmiStatus}</span>}
+              </span>
+            </div>
+
+            <div>
+              <label className="form-label" htmlFor="vit-notes">Clinical Observations / Notes</label>
+              <textarea
+                id="vit-notes"
+                rows={2}
+                className="input-field"
+                placeholder="Enter any context or patient symptoms at the time of recording..."
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn-secondary" onClick={() => setIsRecordModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'Saving…' : 'Save Vitals'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const header = (
+    <>
+      <ScreenHeader
+        title="Vitals"
+        subtitle="Monitor vital signs, trends and biometric history"
+        actions={
+          <>
+            <button className="btn-secondary" onClick={() => showToast('Vitals longitudinal report exported as CSV/PDF')}>
+              <Download size={18} />
+              <span>Export Trends</span>
+            </button>
+            <button className="btn-secondary" onClick={() => window.print()}>
+              <Printer size={18} />
+              <span>Print Sheet</span>
+            </button>
+            <button className="btn-primary" onClick={() => setIsRecordModalOpen(true)}>
+              <Plus size={18} />
+              <span>Record New Vitals</span>
+            </button>
+          </>
+        }
+      />
+
+      <PatientBanner activeTab="vitals" />
+    </>
+  );
+
+  if (!latestVitals) {
+    return (
+      <div className="page-scroll-body">
+        {header}
+        <div className="medios-card">
+          <p className="data-empty">{loading ? 'Loading vitals…' : 'No vitals recorded for this patient yet. Use “Record New Vitals” to add the first reading.'}</p>
+        </div>
+        {recordModal}
+      </div>
+    );
+  }
+
   // ---- Latest vitals tiles ----
+  const show = (n?: number) => (n === undefined || n === null ? '—' : n);
   const bpDelta = previousVitals ? latestVitals.bpSystolic - previousVitals.bpSystolic : 0;
-  const weightDelta = oldestVitals ? +(latestVitals.weightKg - oldestVitals.weightKg).toFixed(1) : 0;
-  const bmiState: Status = { label: latestVitals.bmiStatus, pill: bmiPill[latestVitals.bmiStatus] };
+  const weighed = vitalsList.filter((v) => v.weightKg !== undefined);
+  const firstWeighed = weighed[weighed.length - 1];
+  const weightDelta = latestVitals.weightKg !== undefined && firstWeighed && firstWeighed !== latestVitals ? +(latestVitals.weightKg - (firstWeighed.weightKg ?? 0)).toFixed(1) : null;
+  const bmiState: Status = latestVitals.bmiStatus ? { label: latestVitals.bmiStatus, pill: bmiPill[latestVitals.bmiStatus] } : NOT_RECORDED;
 
   const tiles: {
     label: string;
@@ -266,9 +423,9 @@ export const VitalsScreen: React.FC = () => {
       ) : null
     },
     { label: 'Pulse Rate', icon: Heart, iconColor: 'var(--red-rose)', value: latestVitals.heartRate, unit: 'bpm', status: pulseStatus(latestVitals.heartRate), note: '60–100' },
-    { label: 'SpO₂', icon: Wind, iconColor: 'var(--chart-blue)', value: latestVitals.spo2, unit: '%', status: spo2Status(latestVitals.spo2), note: '≥ 95%' },
-    { label: 'Temperature', icon: Thermometer, iconColor: 'var(--orange-amber)', value: latestVitals.temperature, unit: '°F', status: tempStatus(latestVitals.temperature), note: 'Oral' },
-    { label: 'Resp. Rate', icon: Gauge, iconColor: 'var(--cyan-lab)', value: latestVitals.respiratoryRate, unit: '/min', status: respStatus(latestVitals.respiratoryRate), note: '12–20' },
+    { label: 'SpO₂', icon: Wind, iconColor: 'var(--chart-blue)', value: show(latestVitals.spo2), unit: '%', status: spo2Status(latestVitals.spo2), note: '≥ 95%' },
+    { label: 'Temperature', icon: Thermometer, iconColor: 'var(--orange-amber)', value: show(latestVitals.temperature), unit: '°F', status: tempStatus(latestVitals.temperature), note: 'Oral' },
+    { label: 'Resp. Rate', icon: Gauge, iconColor: 'var(--cyan-lab)', value: show(latestVitals.respiratoryRate), unit: '/min', status: respStatus(latestVitals.respiratoryRate), note: '12–20' },
     {
       label: 'Fasting Glucose',
       icon: Droplet,
@@ -282,114 +439,92 @@ export const VitalsScreen: React.FC = () => {
       label: 'Weight',
       icon: Scale,
       iconColor: 'var(--text-secondary)',
-      value: latestVitals.weightKg,
+      value: show(latestVitals.weightKg),
       unit: 'kg',
-      note: (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: weightDelta <= 0 ? 'var(--green-dark)' : 'var(--orange-dark)' }}>
-          {weightDelta <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
-          {weightDelta > 0 ? '+' : ''}{weightDelta} kg since {oldestVitals ? recordDate(oldestVitals).slice(3) : '—'}
-        </span>
-      )
+      note:
+        weightDelta === null ? null : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: weightDelta <= 0 ? 'var(--green-dark)' : 'var(--orange-dark)' }}>
+            {weightDelta <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
+            {weightDelta > 0 ? '+' : ''}{weightDelta} kg since {recordDate(firstWeighed).slice(3)}
+          </span>
+        )
     },
-    { label: 'BMI', icon: HeartPulse, iconColor: 'var(--orange-dark)', value: latestVitals.bmi, unit: 'kg/m²', status: bmiState, note: `Ht ${latestVitals.heightCm} cm` }
+    { label: 'BMI', icon: HeartPulse, iconColor: 'var(--orange-dark)', value: show(latestVitals.bmi), unit: 'kg/m²', status: bmiState, note: latestVitals.heightCm ? `Ht ${latestVitals.heightCm} cm` : '' }
   ];
 
-  // ---- Trend data ----
-  const chartRecords = [...vitalsList]
-    .filter((v) => (TODAY.getTime() - new Date(recordDate(v)).getTime()) / 86400000 <= RANGE_DAYS[timeRange])
+  // ---- Trend data: each chart uses only the readings that include its measure ----
+  const today = clinicNow();
+  const inRange = [...vitalsList]
+    .filter((v) => (today.getTime() - new Date(recordDate(v)).getTime()) / 86400000 <= RANGE_DAYS[timeRange])
     .reverse();
-  const chartLabels = chartRecords.map((v) => recordDate(v).slice(0, 6));
+  const measured = (pick: (v: VitalsRecord) => number | undefined) => inRange.filter((v) => pick(v) !== undefined);
   const chartProps = (() => {
     switch (activeChartTab) {
       case 'BP':
         return {
+          records: inRange,
           series: [
-            { name: 'Systolic', color: 'var(--red-rose)', values: chartRecords.map((v) => v.bpSystolic) },
-            { name: 'Diastolic', color: 'var(--chart-blue)', values: chartRecords.map((v) => v.bpDiastolic), labelBelow: true }
+            { name: 'Systolic', color: 'var(--red-rose)', values: inRange.map((v) => v.bpSystolic) },
+            { name: 'Diastolic', color: 'var(--chart-blue)', values: inRange.map((v) => v.bpDiastolic), labelBelow: true }
           ],
           domain: [60, 170] as [number, number],
           ticks: [60, 80, 100, 120, 140, 160],
           refLines: [{ value: 120, label: 'Target 120' }, { value: 80, label: 'Target 80' }]
         };
-      case 'Glucose':
+      case 'Glucose': {
+        const records = measured((v) => v.bloodSugarFasting);
         return {
-          series: [{ name: 'Fasting Glucose', color: 'var(--chart-purple)', values: chartRecords.map((v) => v.bloodSugarFasting ?? 0) }],
+          records,
+          series: [{ name: 'Fasting Glucose', color: 'var(--chart-purple)', values: records.map((v) => v.bloodSugarFasting ?? 0) }],
           domain: [60, 170] as [number, number],
           ticks: [60, 80, 100, 120, 140, 160],
           refLines: [{ value: 100, label: 'Normal 100' }]
         };
+      }
       case 'Pulse':
         return {
-          series: [{ name: 'Pulse Rate', color: 'var(--chart-green)', values: chartRecords.map((v) => v.heartRate), format: (n: number) => `${n}` }],
+          records: inRange,
+          series: [{ name: 'Pulse Rate', color: 'var(--chart-green)', values: inRange.map((v) => v.heartRate), format: (n: number) => `${n}` }],
           domain: [50, 110] as [number, number],
           ticks: [50, 60, 70, 80, 90, 100, 110],
           refLines: [{ value: 100, label: 'Max 100' }, { value: 60, label: 'Min 60' }]
         };
-      default:
+      default: {
+        const records = measured((v) => v.bmi);
         return {
-          series: [{ name: 'BMI', color: 'var(--chart-orange)', values: chartRecords.map((v) => v.bmi), format: (n: number) => n.toFixed(1) }],
+          records,
+          series: [{ name: 'BMI', color: 'var(--chart-orange)', values: records.map((v) => v.bmi ?? 0), format: (n: number) => n.toFixed(1) }],
           domain: [23, 29] as [number, number],
           ticks: [23, 24, 25, 26, 27, 28, 29],
           refLines: [{ value: 25, label: 'BMI 25' }]
         };
+      }
     }
   })();
+  const { records: chartRecords, ...chartSeries } = chartProps;
+  const chartLabels = chartRecords.map((v) => recordDate(v).slice(0, 6));
 
-  // ---- AI observations (derived from the log) ----
+  // ---- Observations (derived from the log) ----
   const highBpCount = vitalsList.filter((v) => v.bpSystolic >= 140 || v.bpDiastolic >= 90).length;
-  const glucoseValues = vitalsList.map((v) => v.bloodSugarFasting).filter((g): g is number => !!g);
-  const spo2Values = vitalsList.map((v) => v.spo2);
+  const glucoseValues = vitalsList.map((v) => v.bloodSugarFasting).filter((g): g is number => g !== undefined);
+  const spo2Values = vitalsList.map((v) => v.spo2).filter((s): s is number => s !== undefined);
   const observations: { text: string; ok: boolean }[] = [
     { text: `BP ≥ 140/90 in ${highBpCount} of ${vitalsList.length} readings`, ok: highBpCount === 0 },
-    {
-      text: `Fasting glucose ${Math.min(...glucoseValues)}–${Math.max(...glucoseValues)} mg/dL, above target`,
-      ok: Math.max(...glucoseValues) < 100
-    },
-    { text: `Weight ${weightDelta > 0 ? 'up' : 'down'} ${Math.abs(weightDelta)} kg since ${oldestVitals ? recordDate(oldestVitals) : '—'}`, ok: weightDelta <= 0 },
-    { text: `SpO₂ stable at ${Math.min(...spo2Values)}–${Math.max(...spo2Values)}% on room air`, ok: true }
+    ...(glucoseValues.length
+      ? [
+          {
+            text: `Fasting glucose ${Math.min(...glucoseValues)}–${Math.max(...glucoseValues)} mg/dL${Math.max(...glucoseValues) >= 100 ? ', above target' : ''}`,
+            ok: Math.max(...glucoseValues) < 100
+          }
+        ]
+      : []),
+    ...(weightDelta !== null ? [{ text: `Weight ${weightDelta > 0 ? 'up' : 'down'} ${Math.abs(weightDelta)} kg since ${recordDate(firstWeighed)}`, ok: weightDelta <= 0 }] : []),
+    ...(spo2Values.length ? [{ text: `SpO₂ ${Math.min(...spo2Values)}–${Math.max(...spo2Values)}%`, ok: Math.min(...spo2Values) >= 95 }] : [])
   ];
-
-  const numberField = (id: string, label: string, value: string, set: (v: string) => void, opts: { required?: boolean; step?: string } = {}) => (
-    <div>
-      <label className="form-label" htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type="number"
-        step={opts.step}
-        required={opts.required}
-        className="input-field"
-        value={value}
-        onChange={(e) => set(e.target.value)}
-      />
-    </div>
-  );
-
-  const liveBmiStatus = getBmiStatus(parseFloat(calcBmi));
 
   return (
     <div className="page-scroll-body">
-      <ScreenHeader
-        title="Vitals"
-        subtitle="Monitor vital signs, trends and biometric history"
-        actions={
-          <>
-            <button className="btn-secondary" onClick={() => showToast('Vitals longitudinal report exported as CSV/PDF')}>
-              <Download size={18} />
-              <span>Export Trends</span>
-            </button>
-            <button className="btn-secondary" onClick={() => window.print()}>
-              <Printer size={18} />
-              <span>Print Sheet</span>
-            </button>
-            <button className="btn-primary" onClick={() => setIsRecordModalOpen(true)}>
-              <Plus size={18} />
-              <span>Record New Vitals</span>
-            </button>
-          </>
-        }
-      />
-
-      <PatientBanner activeTab="vitals" />
+      {header}
 
       {/* Latest vitals */}
       <div className="medios-card">
@@ -397,7 +532,7 @@ export const VitalsScreen: React.FC = () => {
           <h3 className="card-title" style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
             <span>Latest Vitals</span>
             <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 400, color: 'var(--text-secondary)' }}>
-              ({latestVitals.recordedAt.replace('Today, ', '')}) · {latestVitals.recordedBy}
+              ({latestVitals.recordedAt.replace('Today, ', '')}){latestVitals.recordedBy ? ` · ${latestVitals.recordedBy}` : ''}
             </span>
           </h3>
           <button className="text-link" onClick={() => setIsRecordModalOpen(true)}>+ Add Vitals</button>
@@ -467,7 +602,7 @@ export const VitalsScreen: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '10px 0 4px', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>
             <span>{CHART_TABS.find((t) => t.id === activeChartTab)?.hint}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {chartProps.series.map((s) => (
+              {chartSeries.series.map((s) => (
                 <span key={s.name} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: 'var(--text-primary)' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: s.color }} />
                   {s.name}
@@ -481,7 +616,7 @@ export const VitalsScreen: React.FC = () => {
               No readings in the selected period
             </div>
           ) : (
-            <TrendChart labels={chartLabels} {...chartProps} />
+            <TrendChart labels={chartLabels} {...chartSeries} />
           )}
         </div>
 
@@ -489,11 +624,8 @@ export const VitalsScreen: React.FC = () => {
           <div className="ai-header-bar">
             <div className="ai-title-row">
               <AiSparkle size={20} />
-              <span>AI Vitals Summary (GPT-6 Astro)</span>
+              <span>Vitals Summary</span>
             </div>
-            <button className="icon-btn" style={{ width: '28px', height: '28px' }} title="Regenerate" onClick={() => showToast('AI vitals summary regenerated', 'info')}>
-              <RefreshCw size={14} />
-            </button>
           </div>
 
           <div className="ai-section">
@@ -515,28 +647,9 @@ export const VitalsScreen: React.FC = () => {
             </div>
           </div>
 
-          <div className="ai-section">
-            <div className="ai-section-title" style={{ justifyContent: 'space-between' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
-                <AiSparkle size={12} />
-                <span>Recommendations</span>
-              </span>
-              <button
-                className="btn-outline-blue btn-sm"
-                style={{ height: '24px', fontSize: 'var(--fs-xs)', padding: '0 8px', backgroundColor: 'var(--blue-light)' }}
-                onClick={() => showToast('Vitals recommendations added to care plan')}
-              >
-                <SquarePen size={12} />
-                <span>Add to Plan</span>
-              </button>
-            </div>
-            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: 'var(--fs-sm)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              <li>Home BP monitoring twice daily for 2 weeks</li>
-              <li>Review Amlodipine dose if BP stays &gt; 140/90</li>
-              <li>Repeat HbA1c in 3 months; reinforce diet plan</li>
-              <li>Continue weight loss – target BMI &lt; 25</li>
-            </ul>
-          </div>
+          <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', padding: '0 12px 10px' }}>
+            Observations are computed from the readings above. AI recommendations will appear here once an AI model is connected.
+          </p>
         </div>
       </div>
 
@@ -578,13 +691,13 @@ export const VitalsScreen: React.FC = () => {
                       {v.bpSystolic}/{v.bpDiastolic} mmHg
                     </td>
                     <td>{v.heartRate} bpm</td>
-                    <td style={{ color: v.spo2 < 95 ? 'var(--red-dark)' : 'var(--text-primary)' }}>{v.spo2}%</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{v.temperature} °F</td>
-                    <td>{v.respiratoryRate} /min</td>
+                    <td style={{ color: v.spo2 !== undefined && v.spo2 < 95 ? 'var(--red-dark)' : 'var(--text-primary)' }}>{v.spo2 !== undefined ? `${v.spo2}%` : '—'}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{v.temperature !== undefined ? `${v.temperature} °F` : '—'}</td>
+                    <td>{v.respiratoryRate !== undefined ? `${v.respiratoryRate} /min` : '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{v.bloodSugarFasting ? `${v.bloodSugarFasting} mg/dL` : '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
-                      <span style={{ fontWeight: 600 }}>{v.weightKg} kg</span>
-                      <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>({v.bmi} · {v.bmiStatus})</span>
+                      <span style={{ fontWeight: 600 }}>{v.weightKg !== undefined ? `${v.weightKg} kg` : '—'}</span>
+                      {v.bmi !== undefined && <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>({v.bmi} · {v.bmiStatus})</span>}
                     </td>
                     <td style={{ color: 'var(--text-secondary)' }}>{v.recordedBy}</td>
                     <td>
@@ -598,101 +711,7 @@ export const VitalsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Record New Vitals Modal */}
-      {isRecordModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsRecordModalOpen(false)}>
-          <div className="modal-card" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <HeartPulse size={18} color="var(--red-rose)" />
-                <span>Record Patient Vitals</span>
-              </h3>
-              <button className="icon-btn" title="Close" onClick={() => setIsRecordModalOpen(false)}>
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={handleRecordSubmit}>
-              <div className="modal-body">
-                <div
-                  style={{
-                    backgroundColor: 'var(--bg-subtle)',
-                    padding: '9px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)',
-                    fontSize: 'var(--fs-sm)',
-                    color: 'var(--text-secondary)'
-                  }}
-                >
-                  Recording for <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{activePatient.name}</strong> · UHID:{' '}
-                  <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{activePatient.uhid}</strong>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
-                  {numberField('vit-sys', 'Systolic BP (mmHg) *', newSys, setNewSys, { required: true })}
-                  {numberField('vit-dia', 'Diastolic BP (mmHg) *', newDia, setNewDia, { required: true })}
-                  {numberField('vit-pulse', 'Heart Rate (bpm) *', newPulse, setNewPulse, { required: true })}
-                  {numberField('vit-spo2', 'SpO₂ (%) *', newSpo2, setNewSpo2, { required: true })}
-                  <div>
-                    <label className="form-label" htmlFor="vit-temp">Temperature (°F) *</label>
-                    <input
-                      id="vit-temp"
-                      type="text"
-                      required
-                      className="input-field"
-                      value={newTemp}
-                      onChange={(e) => setNewTemp(e.target.value)}
-                    />
-                  </div>
-                  {numberField('vit-resp', 'Resp. Rate (/min)', newResp, setNewResp)}
-                  {numberField('vit-weight', 'Weight (kg) *', newWeight, setNewWeight, { required: true, step: '0.1' })}
-                  {numberField('vit-height', 'Height (cm) *', newHeight, setNewHeight, { required: true })}
-                  {numberField('vit-glucose', 'Fasting Sugar (mg/dL)', newGlucose, setNewGlucose)}
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: 'var(--bg-subtle)',
-                    padding: '9px 12px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)'
-                  }}
-                >
-                  <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>Calculated BMI</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>{calcBmi}</span>
-                    <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>kg/m²</span>
-                    <span className={`status-pill ${bmiPill[liveBmiStatus]}`}>{liveBmiStatus}</span>
-                  </span>
-                </div>
-
-                <div>
-                  <label className="form-label" htmlFor="vit-notes">Clinical Observations / Notes</label>
-                  <textarea
-                    id="vit-notes"
-                    rows={2}
-                    className="input-field"
-                    placeholder="Enter any context or patient symptoms at the time of recording..."
-                    value={newNotes}
-                    onChange={(e) => setNewNotes(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setIsRecordModalOpen(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  Save Vitals
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {recordModal}
     </div>
   );
 };

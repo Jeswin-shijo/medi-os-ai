@@ -3,8 +3,10 @@ import { useApp } from '../../context/appContextCore';
 import { PatientBanner, type BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
-import { mockImagingStudies, IMAGING_IMAGES } from '../../mock/imagingData';
+import { IMAGING_IMAGES } from '../../mock/imagingData';
 import type { ImagingStudy } from '../../types';
+import { imagingService } from '../../services';
+import { useLoader } from '../../hooks/useLoader';
 import {
   Plus,
   Search,
@@ -49,14 +51,9 @@ const MODALITY_TABS: BannerTab[] = [
 ];
 
 /* Short captions for the "Related Images / Previous Studies" strip. */
-const SHORT_TITLES: Record<string, string> = {
-  'img-1': 'X-Ray Chest',
-  'img-2': 'USG Abdomen',
-  'img-3': 'CT Brain',
-  'img-4': 'MRI Knee',
-  'img-5': 'X-Ray Knee',
-  'img-6': 'USG Thyroid'
-};
+/** Thumbnail captions: "X-Ray Chest", "USG Abdomen", "CT Brain". */
+const MODALITY_SHORT: Partial<Record<ImagingStudy['modality'], string>> = { Ultrasound: 'USG', 'CT Scan': 'CT' };
+const shortTitle = (s: ImagingStudy) => `${MODALITY_SHORT[s.modality] ?? s.modality} ${s.bodyPart}`;
 
 /* Some source images carry a scout/localiser panel — crop to the anatomy (image px). */
 const CROPS: Record<string, { W: number; H: number; x: number; y: number; w: number; h: number }> = {
@@ -96,7 +93,11 @@ const modalityMatches = (study: ImagingStudy, modality: string) => modality === 
 
 export const ImagingScreen: React.FC = () => {
   const { showToast, activePatient } = useApp();
-  const [selectedStudyId, setSelectedStudyId] = useState('img-1');
+  const uhid = activePatient?.uhid;
+  const [loaded, setLoaded] = useState<{ uhid: string; studies: ImagingStudy[] } | null>(null);
+  const { loading } = useLoader(async () => (uhid ? { uhid, studies: await imagingService.getStudies(uhid) } : null), setLoaded, [uhid]);
+  const studies = loaded && loaded.uhid === uhid ? loaded.studies : [];
+  const [selectedStudyId, setSelectedStudyId] = useState('');
   const [activeModality, setActiveModality] = useState('all');
   const [dateFilter, setDateFilter] = useState('All Dates');
   const [search, setSearch] = useState('');
@@ -109,15 +110,15 @@ export const ImagingScreen: React.FC = () => {
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  const filteredStudies = mockImagingStudies.filter(study => {
+  const filteredStudies = studies.filter(study => {
     if (!modalityMatches(study, activeModality)) return false;
     if (dateFilter !== 'All Dates' && !study.date.endsWith(dateFilter)) return false;
     const q = search.trim().toLowerCase();
     return !q || study.title.toLowerCase().includes(q) || study.bodyPart.toLowerCase().includes(q);
   });
 
-  const currentStudy = filteredStudies.find(s => s.id === selectedStudyId) || filteredStudies[0] || mockImagingStudies[0];
-  const slices = currentStudy.slices.length ? currentStudy.slices : [currentStudy.thumbnailUrl];
+  const currentStudy: ImagingStudy | undefined = filteredStudies.find(s => s.id === selectedStudyId) || filteredStudies[0] || studies[0];
+  const slices = !currentStudy ? [] : currentStudy.slices.length ? currentStudy.slices : [currentStudy.thumbnailUrl];
   const sliceIndex = Math.min(activeSliceIndex, slices.length - 1);
 
   const resetView = () => {
@@ -134,8 +135,8 @@ export const ImagingScreen: React.FC = () => {
 
   const selectModality = (id: string) => {
     setActiveModality(id);
-    const first = mockImagingStudies.find(s => modalityMatches(s, id));
-    if (first && !modalityMatches(currentStudy, id)) selectStudy(first.id);
+    const first = studies.find(s => modalityMatches(s, id));
+    if (first && currentStudy && !modalityMatches(currentStudy, id)) selectStudy(first.id);
     if (!first) showToast(`No ${MODALITY_TABS.find(t => t.id === id)?.label ?? id} studies on record`, 'info');
   };
 
@@ -174,14 +175,10 @@ export const ImagingScreen: React.FC = () => {
     setDragging(false);
   };
 
-  const [nextDate, ...nextTime] = (activePatient?.nextAppointment ?? '26 Sep 2026 10:30 AM').split(/\s(?=\d{1,2}:\d{2})/);
-  const report = currentStudy.radiologistReport;
-  const [reportedDate, ...reportedTime] = report.reportedOn.split(/\s(?=\d{1,2}:\d{2})/);
+  const [nextDate, ...nextTime] = (activePatient?.nextAppointment ?? '').split(/\s(?=\d{1,2}:\d{2})/);
 
-  const metaParts = [currentStudy.date, currentStudy.time, currentStudy.modality, currentStudy.bodyPart, currentStudy.radiologist];
-
-  return (
-    <div className="page-scroll-body">
+  const header = (
+    <>
       <ScreenHeader
         title="Imaging (RIS)"
         subtitle="View, analyse and manage radiology images and reports"
@@ -201,14 +198,37 @@ export const ImagingScreen: React.FC = () => {
 
       <PatientBanner
         metrics={[
-          { label: 'Last Imaging', value: mockImagingStudies[0].date },
-          { label: 'Next Appointment', value: nextDate, sub: nextTime.join(' ') || undefined },
+          { label: 'Last Imaging', value: studies[0]?.date ?? '—' },
+          { label: 'Next Appointment', value: nextDate || '—', sub: nextTime.join(' ') || undefined },
           { label: 'Department', value: 'Radiology' }
         ]}
         tabs={MODALITY_TABS}
         activeTab={activeModality.toLowerCase()}
         onTabChange={selectModality}
       />
+    </>
+  );
+
+  if (!currentStudy) {
+    return (
+      <div className="page-scroll-body">
+        {header}
+        <div className="medios-card">
+          <p className="data-empty">{loading ? 'Loading imaging studies…' : 'No imaging studies for this patient yet.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // A study has a radiologist report only once one has been filed.
+  const report = currentStudy.radiologistReport;
+  const [reportedDate, ...reportedTime] = (report?.reportedOn ?? '').split(/\s(?=\d{1,2}:\d{2})/);
+
+  const metaParts = [currentStudy.date, currentStudy.time, currentStudy.modality, currentStudy.bodyPart, currentStudy.radiologist].filter(Boolean);
+
+  return (
+    <div className="page-scroll-body">
+      {header}
 
       <div
         style={{
@@ -541,6 +561,7 @@ export const ImagingScreen: React.FC = () => {
                 {currentStudy.findings.map(f => (
                   <li key={f}>{f}</li>
                 ))}
+                {!currentStudy.findings.length && <li style={{ listStyle: 'none', marginLeft: -26, color: 'var(--text-muted)' }}>No findings recorded.</li>}
               </ul>
             </div>
 
@@ -549,9 +570,10 @@ export const ImagingScreen: React.FC = () => {
                 <BadgeCheck size={15} fill="var(--green-emerald)" color="#ffffff" strokeWidth={2.2} />
                 <span>Impression (AI)</span>
               </div>
-              <p style={{ fontSize: 'var(--fs-xs)', marginTop: 5 }}>{currentStudy.impression}</p>
+              <p style={{ fontSize: 'var(--fs-xs)', marginTop: 5 }}>{currentStudy.impression || 'No impression recorded.'}</p>
             </div>
 
+            {currentStudy.confidenceScore !== undefined && (
             <div>
               <div style={{ fontSize: 'var(--fs-xs)' }}>Confidence Score</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 7 }}>
@@ -561,6 +583,7 @@ export const ImagingScreen: React.FC = () => {
                 <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>{currentStudy.confidenceScore}%</span>
               </div>
             </div>
+            )}
 
             <button className="btn-outline-blue" style={{ width: '100%', height: 34, fontSize: 'var(--fs-sm)' }} onClick={() => showToast('Detailed structured AI imaging report generated')}>
               <ScanEye size={15} />
@@ -578,13 +601,16 @@ export const ImagingScreen: React.FC = () => {
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 8, fontSize: 'var(--fs-2xs)' }}>
               <tbody>
-                {[
-                  { label: 'Findings', value: report.findings },
-                  { label: 'Impression', value: report.impression },
-                  { label: 'Reported By', value: report.reportedBy },
-                  { label: 'Reported On', value: <span style={{ display: 'inline-flex', gap: 10 }}><span>{reportedDate}</span><span>{reportedTime.join(' ')}</span></span> },
-                  { label: 'Status', value: <span className="status-pill completed" style={{ height: 19, fontSize: 'var(--fs-2xs)' }}>{report.status}</span> }
-                ].map((row, i, arr) => (
+                {(report
+                  ? [
+                      { label: 'Findings', value: report.findings || '—' },
+                      { label: 'Impression', value: report.impression || '—' },
+                      { label: 'Reported By', value: report.reportedBy || '—' },
+                      { label: 'Reported On', value: <span style={{ display: 'inline-flex', gap: 10 }}><span>{reportedDate || '—'}</span><span>{reportedTime.join(' ')}</span></span> },
+                      { label: 'Status', value: <span className={`status-pill ${report.status === 'Final Report' ? 'completed' : 'orange'}`} style={{ height: 19, fontSize: 'var(--fs-2xs)' }}>{report.status}</span> }
+                    ]
+                  : [{ label: 'Status', value: <span className="status-pill orange" style={{ height: 19, fontSize: 'var(--fs-2xs)' }}>Awaiting radiologist report</span> }]
+                ).map((row, i, arr) => (
                   <tr key={row.label} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                     <td style={{ width: 78, padding: '5px 0 5px 8px', verticalAlign: 'top', color: 'var(--text-secondary)' }}>{row.label}</td>
                     <td style={{ padding: '5px 0', lineHeight: 1.5 }}>{row.value}</td>
@@ -600,7 +626,7 @@ export const ImagingScreen: React.FC = () => {
           <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>Related Images / Previous Studies</span>
           <div style={{ display: 'flex', gap: 14, marginTop: 8, alignItems: 'stretch' }}>
             <div style={{ display: 'flex', gap: 14, overflowX: 'auto', minWidth: 0 }}>
-              {mockImagingStudies.map(s => {
+              {studies.map(s => {
                 const active = currentStudy.id === s.id;
                 return (
                   <button
@@ -624,7 +650,7 @@ export const ImagingScreen: React.FC = () => {
                     <div style={{ width: '100%', height: 68, background: '#000' }}>
                       <ScanImage src={s.thumbnailUrl} alt={s.title} />
                     </div>
-                    <span style={{ fontSize: 'var(--fs-xs)', fontWeight: 600, marginTop: 5, whiteSpace: 'nowrap' }}>{SHORT_TITLES[s.id] ?? s.title}</span>
+                    <span style={{ fontSize: 'var(--fs-xs)', fontWeight: 600, marginTop: 5, whiteSpace: 'nowrap' }}>{shortTitle(s)}</span>
                     <span style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-secondary)', marginBottom: 5 }}>{s.date}</span>
                   </button>
                 );
