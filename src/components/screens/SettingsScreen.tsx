@@ -5,6 +5,8 @@ import { SettingsState } from '../../types';
 import { errorMessage } from '../../services/api';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
+import { ChangePasswordDialog } from '../common/ChangePasswordDialog';
+import { ActiveSessions } from '../common/ActiveSessions';
 import {
   Settings as SettingsIcon,
   Building2,
@@ -133,29 +135,31 @@ const Select: React.FC<SelectProps> = ({ value, onChange, options, leading, styl
   </div>
 );
 
-const Toggle: React.FC<{ checked: boolean; onChange: (checked: boolean) => void; label: string }> = ({ checked, onChange, label }) => (
-  <label className="switch-label" aria-label={label}>
-    <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} />
+type ToggleProps = { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean };
+
+const Toggle: React.FC<ToggleProps & { label: string }> = ({ checked, onChange, label, disabled }) => (
+  <label className="switch-label" aria-label={label} style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
+    <input type="checkbox" checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} />
     <span className="switch-slider"></span>
   </label>
 );
 
-const ToggleRow: React.FC<{ icon: LucideIcon; label: string; checked: boolean; onChange: (checked: boolean) => void; height?: number; gap?: number }> = ({ icon: Icon, label, checked, onChange, height = 28, gap = 12 }) => (
+const ToggleRow: React.FC<ToggleProps & { icon: LucideIcon; label: string; height?: number; gap?: number }> = ({ icon: Icon, label, checked, onChange, disabled, height = 28, gap = 12 }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap, height }}>
     <Icon size={16} color="var(--text-primary)" strokeWidth={1.9} style={{ flexShrink: 0 }} />
-    <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-primary)' }}>{label}</span>
-    <Toggle checked={checked} onChange={onChange} label={label} />
+    <span style={{ flex: 1, fontSize: 12.5, color: disabled ? 'var(--text-muted)' : 'var(--text-primary)' }}>{label}</span>
+    <Toggle checked={checked} onChange={onChange} label={label} disabled={disabled} />
   </div>
 );
 
 /** Bordered row used by the detailed (non-General) tabs. */
-const DetailToggle: React.FC<{ title: string; desc: string; checked: boolean; onChange: (checked: boolean) => void }> = ({ title, desc, checked, onChange }) => (
+const DetailToggle: React.FC<ToggleProps & { title: string; desc: string }> = ({ title, desc, checked, onChange, disabled }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, padding: '12px 16px', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{title}</div>
       <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: 2 }}>{desc}</div>
     </div>
-    <Toggle checked={checked} onChange={onChange} label={title} />
+    <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
   </div>
 );
 
@@ -163,8 +167,10 @@ const BOX: React.CSSProperties = { padding: 16, border: '1px solid var(--border-
 const BOX_TITLE: React.CSSProperties = { fontSize: 'var(--fs-h4)', fontWeight: 700, color: 'var(--text-primary)' };
 
 export const SettingsScreen: React.FC = () => {
-  const { showToast, user } = useApp();
+  const { showToast, user, setSessionTimeout } = useApp();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordChangedAt, setPasswordChangedAt] = useState(user?.passwordChangedAt);
   // Null until loaded: never render (or save) placeholder values over the stored settings.
   const [settings, setSettings] = useState<SettingsState | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -195,7 +201,9 @@ export const SettingsScreen: React.FC = () => {
     if (!settings) return;
     setSaving(true);
     try {
-      setSettings(await settingsService.saveSettings(settings));
+      const saved = await settingsService.saveSettings(settings);
+      setSettings(saved);
+      setSessionTimeout(saved.security.sessionTimeout);
       setSavedSuccess(true);
       showToast('Settings saved successfully', 'success');
       setTimeout(() => setSavedSuccess(false), 3000);
@@ -536,17 +544,24 @@ export const SettingsScreen: React.FC = () => {
             <div className="medios-card" style={{ padding: '10px 16px 6px 16px' }}>
               <SectionTitle icon={ShieldCheck} color="var(--green-emerald)" title="Security Settings" />
               <div style={{ marginTop: 2 }}>
-                <ToggleRow icon={ShieldCheck} label="Two-Factor Authentication (2FA)" gap={20} checked={settings.security.twoFactorAuth} onChange={v => updateSecurity('twoFactorAuth', v)} />
+                <ToggleRow icon={ShieldCheck} label="Two-Factor Authentication (coming soon)" gap={20} checked={false} onChange={() => undefined} disabled />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 20, height: 34 }}>
                   <LockKeyhole size={16} color="var(--text-primary)" strokeWidth={1.9} />
                   <span style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>Password</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, marginTop: 1, marginBottom: 6 }}>
-                  <input type="password" className="input-field" style={{ ...INPUT, flex: 1, letterSpacing: 2 }} value="MediOS@2026" readOnly aria-label="Current password" />
+                  <input
+                    type="text"
+                    className="input-field"
+                    style={{ ...INPUT, flex: 1, color: 'var(--text-secondary)' }}
+                    value={passwordChangedAt ? `Last changed ${new Date(passwordChangedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : '••••••••'}
+                    readOnly
+                    aria-label="Password status"
+                  />
                   <button
                     className="btn-outline-blue"
                     style={{ height: 32, padding: '0 14px', fontSize: 13, fontWeight: 400, backgroundColor: 'var(--blue-light)' }}
-                    onClick={() => showToast('Password change dialog opened')}
+                    onClick={() => setChangingPassword(true)}
                   >
                     Change
                   </button>
@@ -563,8 +578,9 @@ export const SettingsScreen: React.FC = () => {
                     {['15 minutes', '30 minutes', '1 hour', '4 hours'].map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
+                {/* Not enforced by the API yet, so shown off and locked rather than as a false assurance. */}
                 {securityToggles.map(t => (
-                  <ToggleRow key={t.key} icon={t.icon} label={t.label} gap={20} height={29.5} checked={settings.security[t.key]} onChange={v => updateSecurity(t.key, v)} />
+                  <ToggleRow key={t.key} icon={t.icon} label={`${t.label} (coming soon)`} gap={20} height={29.5} checked={false} onChange={() => undefined} disabled />
                 ))}
               </div>
             </div>
@@ -904,14 +920,15 @@ export const SettingsScreen: React.FC = () => {
       {/* ===================== SECURITY ===================== */}
       {activeTab === 'security' && (
         <div className="medios-card" style={{ padding: '14px 18px 18px' }}>
-          <SectionTitle icon={ShieldCheck} color="var(--green-emerald)" title="Security & Authentication" subtitle="Protect patient electronic health records (EHR) with 2FA, session timeouts, and audit logging" />
+          <SectionTitle icon={ShieldCheck} color="var(--green-emerald)" title="Security & Authentication" subtitle="Protect patient electronic health records (EHR) with strong passwords, session timeouts, and device sign-out" />
           <div className="divider" style={{ margin: '14px 0 16px' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <DetailToggle
               title="Two-Factor Authentication (2FA)"
-              desc="Enforce Google Authenticator / TOTP verification on doctor login"
-              checked={settings.security.twoFactorAuth}
-              onChange={v => updateSecurity('twoFactorAuth', v)}
+              desc="Authenticator-app (TOTP) verification at sign-in is not available yet"
+              checked={false}
+              onChange={() => undefined}
+              disabled
             />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -924,37 +941,11 @@ export const SettingsScreen: React.FC = () => {
                 />
               </Field>
               <Field label="Password Policy">
-                <input type="text" className="input-field" readOnly value="Strong (Min 10 chars, symbols & numbers)" style={{ backgroundColor: 'var(--bg-subtle)', color: 'var(--text-secondary)' }} />
+                <input type="text" className="input-field" readOnly value="8+ chars, upper & lower case, number, symbol" style={{ backgroundColor: 'var(--bg-subtle)', color: 'var(--text-secondary)' }} />
               </Field>
             </div>
 
-            <div style={{ marginTop: 4 }}>
-              <h3 style={{ ...BOX_TITLE, marginBottom: 6 }}>Recent Doctor Login Audit History</h3>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Date & Time</th>
-                    <th>Device / Browser</th>
-                    <th>IP Address</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { time: '26 Sep 2026, 08:30 AM', dev: 'Chrome 128 (macOS Sonoma)', ip: '192.168.1.45 (Hospital LAN)', status: 'Success' },
-                    { time: '25 Sep 2026, 08:45 AM', dev: 'Chrome 128 (macOS Sonoma)', ip: '192.168.1.45 (Hospital LAN)', status: 'Success' },
-                    { time: '24 Sep 2026, 08:15 AM', dev: 'Safari Mobile (iOS 19)', ip: '117.247.12.8 (Mobile Data)', status: 'Success' }
-                  ].map(log => (
-                    <tr key={log.time}>
-                      <td style={{ fontWeight: 500 }}>{log.time}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{log.dev}</td>
-                      <td style={{ color: 'var(--text-muted)' }}>{log.ip}</td>
-                      <td><span className="badge-pill badge-green">{log.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ActiveSessions />
           </div>
         </div>
       )}
@@ -1044,6 +1035,17 @@ export const SettingsScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {changingPassword && (
+        <ChangePasswordDialog
+          onClose={() => setChangingPassword(false)}
+          onChanged={() => {
+            setChangingPassword(false);
+            setPasswordChangedAt(new Date().toISOString());
+            showToast('Password changed. Your other devices have been signed out.', 'success');
+          }}
+        />
       )}
     </div>
   );

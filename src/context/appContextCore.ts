@@ -20,6 +20,8 @@ export interface AppContextType {
   /** Throws ApiError on bad credentials or when the API is unreachable. */
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
+  /** Applies a Settings "Session Timeout" value (e.g. "30 minutes") to the inactivity sign-out. */
+  setSessionTimeout: (label: string) => void;
   activeScreen: ScreenId;
   setActiveScreen: (screen: ScreenId) => void;
   /** All patients, most recently updated first. */

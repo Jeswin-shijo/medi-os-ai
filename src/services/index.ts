@@ -18,7 +18,7 @@ import {
   Medication,
   LabTrend
 } from '../types';
-import { api, authToken } from './api';
+import { api, refreshSession, session, SessionPayload } from './api';
 import { displayDate, displayTime } from '../utils/clinicDate';
 
 // One service per backend module. Patient-scoped records are always fetched by
@@ -26,19 +26,51 @@ import { displayDate, displayTime } from '../utils/clinicDate';
 
 const enc = encodeURIComponent;
 
+/** A signed-in device, from GET /auth/sessions. */
+export interface UserSession {
+  id: string;
+  lastActiveAt: string;
+  expiresAt: string;
+  userAgent: string;
+  ip: string;
+  current: boolean;
+}
+
 // Auth Service
 export const authService = {
+  /** The API also sets the httpOnly refresh cookie. */
   async login(email: string, password: string): Promise<AuthUser> {
-    const { accessToken, user } = await api<{ accessToken: string; user: AuthUser }>('/auth/login', {
-      method: 'POST',
-      body: { email, password }
-    });
-    authToken.set(accessToken);
+    const { accessToken, user } = await api<SessionPayload<AuthUser>>('/auth/login', { method: 'POST', body: { email, password } });
+    session.setAccessToken(accessToken);
     return user;
   },
+  /** Resumes a session from the refresh cookie (page load); null when signed out. */
+  async restore(): Promise<AuthUser | null> {
+    const restored = await refreshSession<AuthUser>();
+    return restored?.user ?? null;
+  },
   me: () => api<AuthUser>('/auth/me'),
-  hasSession: () => authToken.get() !== null,
-  logout: () => authToken.clear()
+  /** Ends this device's session; local state is cleared even if the API is unreachable. */
+  async logout(): Promise<void> {
+    await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
+    session.clear();
+  },
+  /** Ends every session, on all devices. */
+  async logoutAll(): Promise<void> {
+    await api('/auth/logout-all', { method: 'POST' });
+    session.clear();
+  },
+  /** Other devices are signed out; this one continues with a new session. */
+  async changePassword(currentPassword: string, newPassword: string): Promise<AuthUser> {
+    const { accessToken, user } = await api<SessionPayload<AuthUser>>('/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword }
+    });
+    session.setAccessToken(accessToken);
+    return user;
+  },
+  getSessions: () => api<UserSession[]>('/auth/sessions'),
+  revokeSession: (id: string) => api<void>(`/auth/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
 };
 
 // Patient Service

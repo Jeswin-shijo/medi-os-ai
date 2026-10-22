@@ -35,15 +35,21 @@ npm run lint          # oxlint
 
 ```
 src/
-├── services/api.ts        fetch client: bearer token, unwraps { data }, ApiError, 401 → sign-out event
+├── services/api.ts        fetch client: in-memory access token, cookie refresh + retry on 401, unwraps { data }, ApiError
 ├── services/index.ts      one service per backend module (patients, appointments, consultations, …)
-├── context/AppContext.tsx session (sign in/out, current user), shared patient list, active patient, toasts
+├── context/AppContext.tsx session (restore, sign in/out, idle sign-out), shared patient list, active patient, toasts
 ├── hooks/useLoader.ts     load a screen's records when deps change; errors become toasts
 ├── hooks/usePatientChart.ts  a patient's meds, labs, imaging, timeline and visits for summary panels
 ├── utils/clinicDate.ts    the clinic's "today" and the record date formats
 ├── components/screens/    one screen per sidebar item (+ Login, Timeline, Vitals, Documents)
 └── mock/                  reference content only: templates, guideline/knowledge library, demo AI text
 ```
+
+Sessions:
+- The access token (15 minutes) lives only in memory, never in `localStorage`. The refresh token is an httpOnly cookie the page cannot read. On a page load the app asks `/auth/refresh` whether a session exists. On a `401` it refreshes once (concurrent requests share one refresh) and retries, then signs out.
+- The API must list this app's origin in `CORS_ORIGIN`, and the app sends `X-MediOS-Client` on every request (the API's CSRF check).
+- Settings → General has a working **Change password** dialog. Settings → Security lists **active sessions** with per-device and all-device sign-out. The **Session Timeout** setting signs out an idle workstation.
+- 2FA, login alerts, IP restrictions and audit-log access are shown as "coming soon": the API does not enforce them yet.
 
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.

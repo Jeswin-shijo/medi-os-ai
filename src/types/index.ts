@@ -400,6 +400,8 @@ export interface AuthUser {
   avatar: string;
   phone: string;
   role: string;
+  lastLoginAt?: string | null;
+  passwordChangedAt?: string | null;
 }
 
 /** Workstation settings (GET/PUT /settings). */

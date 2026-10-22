@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ScreenId, Patient, AuthUser } from '../types';
-import { authService, messageService, patientService, taskService } from '../services';
+import { authService, messageService, patientService, settingsService, taskService } from '../services';
+import { parseSessionTimeout, useIdleSignOut } from '../hooks/useIdleSignOut';
 import { UNAUTHORIZED_EVENT, errorMessage } from '../services/api';
 import { AppContext, type AuthStatus, type Toast } from './appContextCore';
 
@@ -24,7 +25,14 @@ const rememberedPatient = () => {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [authStatus, setAuthStatus] = useState<AuthStatus>(() => (authService.hasSession() ? 'checking' : 'signed-out'));
+  // Always 'checking' first: whether a session exists is only known by asking the
+  // API (the refresh cookie is httpOnly, so the page cannot see it).
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
+  const authStatusRef = useRef<AuthStatus>('checking');
+  useEffect(() => {
+    authStatusRef.current = authStatus;
+  }, [authStatus]);
+  const [idleMinutes, setIdleMinutes] = useState<number | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [activeScreen, setActiveScreen] = useState<ScreenId>('dashboard');
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -66,6 +74,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveScreen('dashboard');
     setUnreadMessagesCount(0);
     setOpenAlertCount(0);
+    setIdleMinutes(null);
     setAuthStatus('signed-out');
   }, []);
 
@@ -80,29 +89,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .getTasks()
       .then(tasks => setOpenAlertCount(tasks.filter(t => t.category === 'Critical' && t.status !== 'Completed').length))
       .catch(() => setOpenAlertCount(0));
+    settingsService
+      .getSettings()
+      .then(s => setIdleMinutes(parseSessionTimeout(s.security?.sessionTimeout)))
+      .catch(() => setIdleMinutes(null));
   }, [refreshPatients, showToast]);
 
-  // Restore a stored session on load.
+  // Resume the session from the refresh cookie on page load.
   useEffect(() => {
-    if (!authService.hasSession()) return;
-    authService
-      .me()
-      .then(me => {
-        setUser(me);
-        setAuthStatus('signed-in');
-        loadSessionData();
-      })
-      .catch(() => {
-        authService.logout();
+    authService.restore().then(me => {
+      if (!me) {
         resetSession();
-      });
+        return;
+      }
+      setUser(me);
+      setAuthStatus('signed-in');
+      loadSessionData();
+    });
   }, [resetSession, loadSessionData]);
 
-  // The API rejected the token (expired or revoked): back to sign-in.
+  // The session could not be renewed (expired, revoked, signed out elsewhere).
   useEffect(() => {
     const onUnauthorized = () => {
+      // Several requests can fail at once; report it a single time.
+      if (authStatusRef.current !== 'signed-in') return;
       resetSession();
-      showToast('Your session has expired. Please sign in again.', 'warning');
+      showToast('Your session has ended. Please sign in again.', 'warning');
     };
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
@@ -115,10 +127,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadSessionData();
   };
 
-  const signOut = () => {
-    authService.logout();
+  const signOut = useCallback(() => {
     resetSession();
-  };
+    authService.logout();
+  }, [resetSession]);
+
+  // Sign out unattended workstations (Settings → Session Timeout).
+  useIdleSignOut(authStatus === 'signed-in' ? idleMinutes : null, () => {
+    signOut();
+    showToast(`Signed out after ${idleMinutes} minutes of inactivity`, 'info');
+  });
 
   // Listen for keyboard shortcut Cmd+K or Ctrl+K
   useEffect(() => {
@@ -156,6 +174,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         openAlertCount,
         setOpenAlertCount,
+        setSessionTimeout: (label: string) => setIdleMinutes(parseSessionTimeout(label)),
         unreadMessagesCount,
         setUnreadMessagesCount,
         navigateToPatientScreen
