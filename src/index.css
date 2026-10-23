@@ -1786,3 +1786,21 @@ textarea.input-field {
   color: var(--text-muted);
   font-size: var(--fs-body);
 }
+
+/* AI call agent: live "Calling…" dot. */
+.call-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: callPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes callPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-pulse { animation: none; }
+}

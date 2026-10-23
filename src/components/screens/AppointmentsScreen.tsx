@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/appContextCore';
-import { Appointment, SoapNote } from '../../types';
-import { appointmentService, consultationService } from '../../services';
+import { AgentCall, Appointment, SoapNote } from '../../types';
+import { appointmentService, callAgentService, consultationService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
+import { useCallRunner } from '../../hooks/useCallRunner';
 import { displayDate, isoDay } from '../../utils/clinicDate';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { AllergyIcon, DiabetesDots, HypertensionIcon } from '../common/icons';
+import { BookByCallDialog } from '../common/BookByCallDialog';
+import { CallResultBadge, ConfirmationChip } from '../common/callAgentUi';
+import { callTime, isLive } from '../../utils/callAgent';
 import {
   CalendarDays,
   CalendarClock,
@@ -40,6 +44,8 @@ import {
   Timer,
   X,
   Activity,
+  PhoneCall,
+  PhoneForwarded,
   type LucideIcon
 } from 'lucide-react';
 
@@ -189,6 +195,9 @@ export const AppointmentsScreen: React.FC = () => {
   const [patientVisits, setPatientVisits] = useState<{ uhid: string; visits: SoapNote[] } | null>(null);
   const [viewTab, setViewTab] = useState<ViewTab>('Daily View');
   const [isAddAptModalOpen, setIsAddAptModalOpen] = useState(false);
+  const [isBookByCallOpen, setIsBookByCallOpen] = useState(false);
+  const [aptCalls, setAptCalls] = useState<{ id: string; calls: AgentCall[] } | null>(null);
+  const [callsVersion, setCallsVersion] = useState(0);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<'details' | 'quick'>('details');
 
@@ -218,7 +227,12 @@ export const AppointmentsScreen: React.FC = () => {
   const [type, setType] = useState('Follow-up');
   const [condition, setCondition] = useState('');
 
-  useLoader(() => appointmentService.getAppointments(), setAppointments, []);
+  const { reload: reloadAppointments } = useLoader(() => appointmentService.getAppointments(), setAppointments, []);
+  // AI calls change appointments (confirmed, moved, cancelled, booked): reload when one ends.
+  const runCall = useCallRunner(() => {
+    reloadAppointments();
+    setCallsVersion((v) => v + 1);
+  });
 
   useEffect(() => {
     if (!openMenu) return;
@@ -239,7 +253,7 @@ export const AppointmentsScreen: React.FC = () => {
     setPage(1);
   };
 
-  const dayAppointments = appointments.filter((a) => a.date === selectedDate);
+  const dayAppointments = appointments.filter((a) => a.date === selectedDate).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
   const q = search.trim().toLowerCase();
 
   const displayedAppointments = dayAppointments.filter((apt) => {
@@ -277,6 +291,17 @@ export const AppointmentsScreen: React.FC = () => {
     setPatientVisits,
     [selectedUhid]
   );
+  // The selected appointment's AI calls, newest first.
+  const selectedId = selectedApt?.id;
+  useLoader(
+    async () => (selectedId ? { id: selectedId, calls: await callAgentService.getCalls({ appointmentId: selectedId, limit: 3 }) } : null),
+    setAptCalls,
+    [selectedId, callsVersion]
+  );
+  const selectedCalls = aptCalls && aptCalls.id === selectedId ? aptCalls.calls : [];
+  const callInProgress = selectedCalls.some(isLive);
+  const confirmByCall = (apt: Appointment) => runCall(() => callAgentService.confirmAppointment(apt.id));
+
   const dayStart = parseIso(selectedDate).getTime();
   const previousVisits = (patientVisits && patientVisits.uhid === selectedUhid ? patientVisits.visits : [])
     .filter((v) => Date.parse(v.visitDate) < dayStart)
@@ -394,6 +419,7 @@ export const AppointmentsScreen: React.FC = () => {
   };
 
   const rowMenu = (apt: Appointment): MenuItem[] => [
+    ...(apt.status === 'Scheduled' ? [{ label: 'AI confirmation call', icon: PhoneCall, onClick: () => confirmByCall(apt) }] : []),
     { label: 'Mark as Waiting', icon: Timer, onClick: () => handleUpdateStatus(apt.id, 'Waiting') },
     { label: 'Reschedule', icon: CalendarClock, onClick: () => showToast(`Reschedule request sent to front desk for ${apt.patientName}`, 'info') },
     { label: 'Open EMR', icon: FolderOpen, onClick: () => openPatientScreen(apt, 'emr') },
@@ -412,6 +438,10 @@ export const AppointmentsScreen: React.FC = () => {
             <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 20px' }} onClick={() => showToast('Schedule block slot added for 1:00 PM - 2:00 PM')}>
               <CalendarDays size={16} />
               <span>Block Time</span>
+            </button>
+            <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 18px' }} onClick={() => setIsBookByCallOpen(true)}>
+              <PhoneForwarded size={16} />
+              <span>Book by AI Call</span>
             </button>
             <button
               className="btn-primary"
@@ -685,7 +715,14 @@ export const AppointmentsScreen: React.FC = () => {
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 14, alignSelf: 'stretch', borderBottom: i < pageRows.length - 1 ? '1px solid var(--border-subtle)' : 'none', paddingLeft: 12 }}>
                       <Avatar name={apt.patientName} size={44} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', lineHeight: '17px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{apt.patientName}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, lineHeight: '17px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{apt.patientName}</span>
+                          {apt.status === 'Scheduled' && (
+                            <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+                              <ConfirmationChip value={apt.confirmation} compact />
+                            </span>
+                          )}
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-secondary)', lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                           <span>{apt.age} Yrs</span>
                           <span style={{ width: 1, height: 10, background: 'var(--border-strong)' }} />
@@ -875,6 +912,42 @@ export const AppointmentsScreen: React.FC = () => {
                     <BadgeCheck size={15} color="var(--text-primary)" />
                     {statusLine(selectedApt).text}
                   </span>
+                  {selectedApt.status === 'Scheduled' && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={detailRow}>
+                        <PhoneCall size={15} />
+                        <ConfirmationChip value={selectedApt.confirmation} />
+                      </span>
+                      <button
+                        className="btn-outline-blue"
+                        style={{ height: 30, padding: '0 10px', fontSize: 11.5, borderColor: 'var(--border-strong)' }}
+                        disabled={callInProgress || !!selectedPatient?.doNotCall}
+                        title={selectedPatient?.doNotCall ? `AI calls blocked: ${selectedPatient.doNotCallReason || 'do-not-call'}` : 'The AI agent phones the patient to confirm, move or cancel'}
+                        onClick={() => confirmByCall(selectedApt)}
+                      >
+                        <PhoneCall size={13} />
+                        {callInProgress ? 'Calling…' : 'Call to confirm'}
+                      </button>
+                    </div>
+                  )}
+                  {selectedCalls[0] && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                      <CallResultBadge call={selectedCalls[0]} />
+                      <span style={{ flex: 1 }}>
+                        AI call {callTime(selectedCalls[0].startedAt ?? selectedCalls[0].createdAt)}
+                        {selectedCalls[0].actionTaken ? ` — ${selectedCalls[0].actionTaken}` : ''}{' '}
+                        <button className="text-link" style={{ fontSize: 11.5, fontWeight: 400 }} onClick={() => setActiveScreen('call-agent')}>
+                          View call
+                        </button>
+                      </span>
+                    </div>
+                  )}
+                  {selectedApt.bookedVia === 'AI call' && (
+                    <span style={{ ...detailRow, color: 'var(--purple-dark)' }}>
+                      <PhoneForwarded size={15} />
+                      Booked by the AI call agent
+                    </span>
+                  )}
                 </div>
 
                 {/* Note */}
@@ -1040,6 +1113,8 @@ export const AppointmentsScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      {isBookByCallOpen && <BookByCallDialog uhid={activePatient?.uhid} onClose={() => setIsBookByCallOpen(false)} onSubmit={runCall} />}
 
       {/* Add Appointment Modal */}
       {isAddAptModalOpen && (

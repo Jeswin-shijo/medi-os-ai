@@ -18,6 +18,7 @@ import {
   MessageSquareMore,
   Settings,
   LogOut,
+  PhoneCall,
   type LucideIcon
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
@@ -39,6 +40,7 @@ export const Sidebar: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
     { id: 'patients', label: 'Patients', icon: UsersRound },
     { id: 'appointments', label: 'Appointments', icon: CalendarCheck },
+    { id: 'call-agent', label: 'AI Call Agent', icon: PhoneCall },
     { id: 'consultation', label: 'Consultation', icon: UserRoundSearch },
     { id: 'emr', label: 'EMR / Clinical Notes', icon: FileAxis3d },
     { id: 'lab-reports', label: 'Lab Reports', icon: FlaskConical },

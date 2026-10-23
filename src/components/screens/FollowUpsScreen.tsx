@@ -8,6 +8,8 @@ import { FollowUpItem, Medication, Patient } from '../../types';
 import { followUpService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
+import { useCallRunner } from '../../hooks/useCallRunner';
+import { BookByCallDialog } from '../common/BookByCallDialog';
 import { usePatientChart } from '../../hooks/usePatientChart';
 import { clinicNow } from '../../utils/clinicDate';
 import {
@@ -33,6 +35,7 @@ import {
   Check,
   Clock,
   Send,
+  PhoneForwarded,
   CircleX
 } from 'lucide-react';
 
@@ -104,7 +107,10 @@ const FilterSelect: React.FC<{ value: string; onChange: (v: string) => void; opt
 export const FollowUpsScreen: React.FC = () => {
   const { showToast, activePatient, patients } = useApp();
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
-  const { loading } = useLoader(() => followUpService.getFollowUps(), setFollowUps, []);
+  const { loading, reload } = useLoader(() => followUpService.getFollowUps(), setFollowUps, []);
+  // A booking call updates the follow-up with the booked slot.
+  const runCall = useCallRunner(() => reload());
+  const [bookingFor, setBookingFor] = useState<FollowUpItem | null>(null);
   const [selectedId, setSelectedId] = useState('');
   const [weekOffset, setWeekOffset] = useState(0);
   const [subTab, setSubTab] = useState('follow-up-list');
@@ -391,6 +397,18 @@ export const FollowUpsScreen: React.FC = () => {
                                 <Send size={13} />
                                 <span>Send Reminder</span>
                               </button>
+                              <button
+                                onClick={() => {
+                                  setMenuFor(null);
+                                  setBookingFor(item);
+                                }}
+                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                              >
+                                <PhoneForwarded size={13} />
+                                <span>Book by AI Call</span>
+                              </button>
                             </div>
                           </>
                         )}
@@ -658,6 +676,15 @@ export const FollowUpsScreen: React.FC = () => {
           </div>
         </div>
       </div>
+      {bookingFor && (
+        <BookByCallDialog
+          uhid={bookingFor.uhid}
+          followUpId={bookingFor.id}
+          visitReason={bookingFor.followUpType === 'Review' ? 'a review consultation' : bookingFor.followUpType}
+          onClose={() => setBookingFor(null)}
+          onSubmit={runCall}
+        />
+      )}
     </div>
   );
 };

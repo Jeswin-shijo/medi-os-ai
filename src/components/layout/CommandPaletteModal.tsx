@@ -23,7 +23,8 @@ import {
   Settings,
   ArrowRight,
   CornerDownLeft,
-  type LucideIcon
+  type LucideIcon,
+  PhoneCall
 } from 'lucide-react';
 import { AiSparkle, Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
@@ -40,6 +41,7 @@ const MODULES: ModuleItem[] = [
   { id: 'dashboard', label: 'Dashboard', hint: "Today's overview", icon: LayoutGrid },
   { id: 'patients', label: 'Patients', hint: 'Patient directory', icon: UsersRound },
   { id: 'appointments', label: 'Appointments', hint: 'Schedule & queue', icon: CalendarCheck },
+  { id: 'call-agent', label: 'AI Call Agent', hint: 'Confirmation & booking calls', icon: PhoneCall },
   { id: 'consultation', label: 'Consultation', hint: 'SOAP workspace', icon: UserRoundSearch },
   { id: 'emr', label: 'EMR / Clinical Notes', hint: 'Medical records', icon: FileAxis3d },
   { id: 'timeline', label: 'Patient Timeline', hint: 'Encounter history', icon: ChartNoAxesGantt },

@@ -10,6 +10,7 @@ import { CommandPaletteModal } from './components/layout/CommandPaletteModal';
 import { DashboardScreen } from './components/screens/DashboardScreen';
 import { PatientsScreen } from './components/screens/PatientsScreen';
 import { AppointmentsScreen } from './components/screens/AppointmentsScreen';
+import { CallAgentScreen } from './components/screens/CallAgentScreen';
 import { ConsultationScreen } from './components/screens/ConsultationScreen';
 import { ClinicalNotesScreen } from './components/screens/ClinicalNotesScreen';
 import { LabReportsScreen } from './components/screens/LabReportsScreen';
@@ -40,6 +41,8 @@ const MainLayout: React.FC = () => {
         return <PatientsScreen />;
       case 'appointments':
         return <AppointmentsScreen />;
+      case 'call-agent':
+        return <CallAgentScreen />;
       case 'consultation':
         return <ConsultationScreen />;
       case 'emr':

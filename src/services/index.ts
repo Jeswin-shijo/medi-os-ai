@@ -16,7 +16,16 @@ import {
   SettingsState,
   DashboardStats,
   Medication,
-  LabTrend
+  LabTrend,
+  AgentCall,
+  CallAgentSettings,
+  CallStats,
+  CallAgentConfig,
+  AgentScript,
+  OfferedSlot,
+  CallPurpose,
+  CallStatus,
+  CallOutcome
 } from '../types';
 import { api, refreshSession, session, SessionPayload } from './api';
 import { displayDate, displayTime } from '../utils/clinicDate';
@@ -234,5 +243,32 @@ export const dashboardService = {
 // Settings Service
 export const settingsService = {
   getSettings: () => api<SettingsState>('/settings'),
-  saveSettings: (settings: SettingsState) => api<SettingsState>('/settings', { method: 'PUT', body: settings })
+  /** The API merges each section sent over the stored one. */
+  saveSettings: (settings: Partial<SettingsState>) => api<SettingsState>('/settings', { method: 'PUT', body: settings }),
+  saveCallAgent: (callAgent: Partial<CallAgentSettings>) => api<SettingsState>('/settings', { method: 'PUT', body: { callAgent } })
+};
+
+// AI Call Agent: the backend places calls through a voice provider and applies each
+// outcome (confirm, move, cancel, book) itself; the web app starts calls and reads results.
+export interface BookingCallRequest {
+  uhid: string;
+  visitReason?: string;
+  appointmentType?: string;
+  fromDate?: string;
+  followUpId?: string;
+}
+
+export const callAgentService = {
+  getCalls: (query: { purpose?: CallPurpose; status?: CallStatus; outcome?: CallOutcome; uhid?: string; appointmentId?: string; limit?: number } = {}) =>
+    api<AgentCall[]>('/calls', { query }),
+  getCall: (id: string) => api<AgentCall>(`/calls/${enc(id)}`),
+  getStats: () => api<CallStats>('/calls/stats'),
+  getConfig: () => api<CallAgentConfig>('/calls/config'),
+  getScripts: () => api<AgentScript[]>('/calls/scripts'),
+  getFreeSlots: (from?: string) => api<OfferedSlot[]>('/calls/slots', { query: { from } }),
+  confirmAppointment: (appointmentId: string) => api<AgentCall>('/calls/confirmation', { method: 'POST', body: { appointmentId } }),
+  bookAppointment: (request: BookingCallRequest) => api<AgentCall>('/calls/booking', { method: 'POST', body: request }),
+  cancelCall: (id: string) => api<AgentCall>(`/calls/${enc(id)}/cancel`, { method: 'POST' }),
+  runDue: () => api<{ expired: number; queued: number; placed: number; withinCallingHours: boolean }>('/calls/run-due', { method: 'POST' }),
+  allowCalls: (uhid: string) => api<{ uhid: string; doNotCall: boolean }>(`/calls/do-not-call/${enc(uhid)}`, { method: 'DELETE' })
 };

@@ -2,6 +2,7 @@ export type ScreenId =
   | 'dashboard'
   | 'patients'
   | 'appointments'
+  | 'call-agent'
   | 'consultation'
   | 'emr'
   | 'timeline'
@@ -49,6 +50,9 @@ export interface Patient {
     summary: string;
     keyPoints: string[];
   };
+  /** The AI call agent never calls a patient with this flag (wrong number, or asked not to be called). */
+  doNotCall?: boolean;
+  doNotCallReason?: string;
 }
 
 export interface Vitals {
@@ -81,7 +85,14 @@ export interface Appointment {
   checkedInTime?: string;
   notes?: string;
   tags?: string[];
+  /** Whether the patient has said they will come (AI call agent or front desk). */
+  confirmation?: AppointmentConfirmation;
+  confirmedAt?: string;
+  /** '' (front desk) or 'AI call'. */
+  bookedVia?: string;
 }
+
+export type AppointmentConfirmation = 'Unconfirmed' | 'Confirmed' | 'Reschedule Requested' | 'Cancelled by Patient' | 'Unreachable';
 
 /** A consultation. `id` is absent on the blank draft the API returns for a patient with no notes yet. */
 export interface SoapNote {
@@ -461,6 +472,113 @@ export interface SettingsState {
     showTipsAndGuides: boolean;
     compactMode: boolean;
   };
+  callAgent: CallAgentSettings;
+}
+
+// ---------------------------------------------------------------- AI call agent
+
+/** How the simulated provider's "patient" answers (development only). */
+export type SimulatedResponse = 'random' | 'positive' | 'reschedule' | 'callback' | 'cancel' | 'no_answer' | 'escalate' | 'do_not_call';
+
+export interface CallAgentSettings {
+  autoConfirm: boolean;
+  confirmHoursBefore: number;
+  callingHoursStart: string;
+  callingHoursEnd: string;
+  maxAttempts: number;
+  retryMinutes: number;
+  agentName: string;
+  language: string;
+  clinicSessions: string;
+  slotMinutes: number;
+  closedDays: string[];
+  simulatedResponse: SimulatedResponse;
+}
+
+export type CallPurpose = 'confirmation' | 'booking';
+export type CallStatus = 'scheduled' | 'calling' | 'completed' | 'failed' | 'canceled';
+export type CallOutcome =
+  | 'confirmed'
+  | 'rescheduled'
+  | 'reschedule_requested'
+  | 'cancelled'
+  | 'booked'
+  | 'slot_taken'
+  | 'callback'
+  | 'declined'
+  | 'no_answer'
+  | 'busy'
+  | 'wrong_number'
+  | 'do_not_call'
+  | 'escalated'
+  | 'failed';
+
+export interface OfferedSlot {
+  date: string;
+  time: string;
+  label: string;
+}
+
+/** One phone call placed by the AI agent (GET /calls). The list omits transcript and variables. */
+export interface AgentCall {
+  id: string;
+  purpose: CallPurpose;
+  status: CallStatus;
+  outcome?: CallOutcome;
+  uhid: string;
+  patientName: string;
+  phone: string;
+  appointmentId?: string;
+  followUpId?: string;
+  visitReason: string;
+  appointmentType: string;
+  scheduledFor: string;
+  attempt: number;
+  trigger: 'manual' | 'scheduler' | 'retry' | 'callback';
+  requestedBy: string;
+  provider: string;
+  offeredSlots: OfferedSlot[];
+  result: { chosenSlot?: number; callbackAt?: string; notes?: string };
+  summary: string;
+  transcript?: { speaker: 'agent' | 'patient'; text: string }[];
+  variables?: Record<string, string>;
+  actionTaken: string;
+  startedAt?: string;
+  endedAt?: string;
+  durationSec?: number;
+  error: string;
+  createdAt: string;
+}
+
+export interface CallStats {
+  callsToday: number;
+  answeredToday: number;
+  contactRate: number | null;
+  confirmedToday: number;
+  bookedToday: number;
+  cancelledToday: number;
+  escalatedToday: number;
+  unansweredToday: number;
+  active: number;
+  upcomingUnconfirmed: number;
+  needsAttention: number;
+}
+
+export interface CallAgentConfig {
+  provider: 'none' | 'simulated' | 'snapserve';
+  live: boolean;
+  settings: CallAgentSettings;
+}
+
+export interface AgentScript {
+  purpose: CallPurpose;
+  title: string;
+  goal: string;
+  variables: string[];
+  welcome: string;
+  instructions: string;
+  outcomes: { label: string; outcome: string }[];
+  dataFields: { name: string; description: string }[];
 }
 
 /** GET /dashboard/stats — one day's numbers; the dashboard formats them. */

@@ -41,6 +41,7 @@ src/
 ├── hooks/useLoader.ts     load a screen's records when deps change; errors become toasts
 ├── hooks/usePatientChart.ts  a patient's meds, labs, imaging, timeline and visits for summary panels
 ├── utils/clinicDate.ts    the clinic's "today" and the record date formats
+├── hooks/useCallRunner.ts  start an AI call and report its outcome
 ├── components/screens/    one screen per sidebar item (+ Login, Timeline, Vitals, Documents)
 └── mock/                  reference content only: templates, guideline/knowledge library, demo AI text
 ```
@@ -50,6 +51,19 @@ Sessions:
 - The API must list this app's origin in `CORS_ORIGIN`, and the app sends `X-MediOS-Client` on every request (the API's CSRF check).
 - Settings → General has a working **Change password** dialog. Settings → Security lists **active sessions** with per-device and all-device sign-out. The **Session Timeout** setting signs out an idle workstation.
 - 2FA, login alerts, IP restrictions and audit-log access are shown as "coming soon": the API does not enforce them yet.
+
+AI Call Agent:
+- **AI Call Agent** screen (sidebar):
+  - today's call numbers;
+  - the call log with each conversation, the slots offered and what the system changed;
+  - automation settings (automatic confirmations, calling hours, retries, bookable sessions, closed days);
+  - the agent scripts to paste into the voice provider.
+- **Appointments**:
+  - each scheduled row shows a confirmation icon;
+  - the details panel has **Call to confirm** and the latest call's result;
+  - **Book by AI Call** in the header.
+- **Follow-ups**: **Book by AI Call** in a row's menu. A booked slot updates the follow-up.
+- `hooks/useCallRunner.ts` starts a call and follows it to the end with toasts. With the backend's simulated provider no phone rings; the screen says so and lets you pick how the pretend patient answers.
 
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.
