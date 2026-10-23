@@ -97,7 +97,8 @@ const SCHEDULE_PILL: Record<Appointment['status'], { label: string; pill: string
   'Checked In': { label: 'Checked In', pill: 'waiting' },
   Waiting: { label: 'Waiting', pill: 'waiting' },
   Scheduled: { label: 'Scheduled', pill: 'scheduled' },
-  Canceled: { label: 'Canceled', pill: 'red' }
+  Canceled: { label: 'Canceled', pill: 'red' },
+  'No Show': { label: 'No Show', pill: 'red' }
 };
 
 type AlertFilter = 'all' | 'critical' | 'followups' | 'lab' | 'system';

@@ -80,7 +80,7 @@ export interface Appointment {
   date: string;
   type: string;
   condition: string;
-  status: 'Checked In' | 'Waiting' | 'In Consultation' | 'Scheduled' | 'Completed' | 'Canceled';
+  status: 'Checked In' | 'Waiting' | 'In Consultation' | 'Scheduled' | 'Completed' | 'Canceled' | 'No Show';
   consultationDuration?: string;
   checkedInTime?: string;
   notes?: string;
@@ -364,7 +364,16 @@ export interface ClinicalDocument {
   id: string;
   uhid: string;
   title: string;
-  category: 'Discharge Summary' | 'Consent Form' | 'Referral Letter' | 'Insurance & Claims' | 'Lab / Diagnostic' | 'Medical Certificate' | 'Prescription / Bill';
+  category:
+    | 'Discharge Summary'
+    | 'Consent Form'
+    | 'Referral Letter'
+    | 'Insurance & Claims'
+    | 'Lab / Diagnostic'
+    | 'Imaging Report'
+    | 'Medical Certificate'
+    | 'Prescription / Bill'
+    | 'ID Proof';
   date: string;
   author: string;
   department: string;

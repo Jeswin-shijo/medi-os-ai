@@ -93,7 +93,8 @@ const STATUS_META: Record<Appointment['status'], { pill: string; dot: string }> 
   'In Consultation': { pill: 'in-consultation', dot: 'var(--blue-primary)' },
   Scheduled: { pill: 'scheduled', dot: '#a3adbf' },
   Completed: { pill: 'completed', dot: 'var(--green-emerald)' },
-  Canceled: { pill: 'red', dot: 'var(--red-rose)' }
+  Canceled: { pill: 'red', dot: 'var(--red-rose)' },
+  'No Show': { pill: 'red', dot: 'var(--orange-amber)' }
 };
 
 
@@ -259,7 +260,7 @@ export const AppointmentsScreen: React.FC = () => {
   const displayedAppointments = dayAppointments.filter((apt) => {
     if (viewTab === 'Follow-ups' && !apt.type.toLowerCase().includes('follow-up')) return false;
     if (viewTab === 'Waiting List' && apt.status !== 'Waiting') return false;
-    if (viewTab === 'Canceled / No Show' && apt.status !== 'Canceled') return false;
+    if (viewTab === 'Canceled / No Show' && apt.status !== 'Canceled' && apt.status !== 'No Show') return false;
     if (viewTab === 'Teleconsultation' && !(apt.type === 'Teleconsultation' || apt.notes?.toLowerCase().includes('tele'))) return false;
     const mins = toMinutes(apt.time);
     const session = SESSIONS.find((s) => mins >= s.from && mins < s.to);
@@ -413,6 +414,8 @@ export const AppointmentsScreen: React.FC = () => {
         return { text: 'Consultation completed', color: 'var(--green-dark)' };
       case 'Canceled':
         return { text: 'Appointment canceled', color: 'var(--red-dark)' };
+      case 'No Show':
+        return { text: 'Patient did not arrive', color: 'var(--orange-dark)' };
       default:
         return { text: 'Scheduled – not checked in', color: 'var(--text-secondary)' };
     }
@@ -609,7 +612,7 @@ export const AppointmentsScreen: React.FC = () => {
               </button>
             </div>
             <SelectBox label="Appointment Type" value={typeFilter} options={['All Types', 'OPD Consultation', 'Follow-up', 'Teleconsultation', 'Emergency']} onChange={(v) => { setTypeFilter(v); setPage(1); }} />
-            <SelectBox label="Patient Status" value={statusFilter} options={['All', 'Checked In', 'Waiting', 'In Consultation', 'Scheduled', 'Completed', 'Canceled']} onChange={(v) => { setStatusFilter(v); setPage(1); }} />
+            <SelectBox label="Patient Status" value={statusFilter} options={['All', 'Checked In', 'Waiting', 'In Consultation', 'Scheduled', 'Completed', 'Canceled', 'No Show']} onChange={(v) => { setStatusFilter(v); setPage(1); }} />
             <SelectBox label="Time Slot" value={slotFilter} options={['All', 'Morning (09:00 - 13:00)', 'Afternoon (13:00 - 17:00)']} onChange={(v) => { setSlotFilter(v); setPage(1); }} />
             <div style={{ display: 'flex', height: 38, border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: '#ffffff', marginTop: 6 }}>
               <input
@@ -771,7 +774,7 @@ export const AppointmentsScreen: React.FC = () => {
                             Summary
                           </button>
                         )}
-                        {apt.status === 'Canceled' && (
+                        {(apt.status === 'Canceled' || apt.status === 'No Show') && (
                           <button className="btn-outline-blue" style={{ ...outlineBtn, width: 76, padding: 0, fontSize: 11.5 }} onClick={() => handleUpdateStatus(apt.id, 'Scheduled')}>
                             Restore
                           </button>

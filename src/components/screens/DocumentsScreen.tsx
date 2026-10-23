@@ -40,8 +40,10 @@ const CATEGORY_TABS: ('All Documents' | Category)[] = [
   'Referral Letter',
   'Insurance & Claims',
   'Lab / Diagnostic',
+  'Imaging Report',
   'Medical Certificate',
-  'Prescription / Bill'
+  'Prescription / Bill',
+  'ID Proof'
 ];
 
 const SHORT_LABEL: Record<string, string> = {
@@ -51,8 +53,10 @@ const SHORT_LABEL: Record<string, string> = {
   'Referral Letter': 'Referral',
   'Insurance & Claims': 'Insurance',
   'Lab / Diagnostic': 'Lab / Diagnostic',
+  'Imaging Report': 'Imaging',
   'Medical Certificate': 'Certificates',
-  'Prescription / Bill': 'Prescription / Bill'
+  'Prescription / Bill': 'Prescription / Bill',
+  'ID Proof': 'ID Proof'
 };
 
 const STATUS_PILL: Record<ClinicalDocument['status'], string> = {
