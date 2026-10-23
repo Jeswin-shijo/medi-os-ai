@@ -1,47 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <title>MediOS AI</title>
-  <defs>
-    <linearGradient id="mo-orb" x1="12" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#38bdf8"/>
-      <stop offset="0.45" stop-color="#2563eb"/>
-      <stop offset="1" stop-color="#7c3aed"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 1024 1024"><title>MediOS</title><defs>
+    <linearGradient id="mo-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4D8DFF"/>
+      <stop offset="0.5" stop-color="#1E62F5"/>
+      <stop offset="1" stop-color="#0B36A8"/>
     </linearGradient>
-    <linearGradient id="mo-ray" x1="6" y1="6" x2="58" y2="58" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7dd3fc"/>
-      <stop offset="0.5" stop-color="#3b82f6"/>
-      <stop offset="1" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <radialGradient id="mo-glow" cx="32" cy="32" r="31" gradientUnits="userSpaceOnUse">
-      <stop offset="0.55" stop-color="#3b82f6" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#3b82f6" stop-opacity="0"/>
+    <radialGradient id="mo-glow" cx="0.25" cy="0.15" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="mo-pin" x1="32" y1="16" x2="32" y2="47" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0f2350"/>
-      <stop offset="1" stop-color="#081530"/>
-    </linearGradient>
-  </defs>
-
-  <!-- soft glow -->
-  <circle cx="32" cy="32" r="31" fill="url(#mo-glow)"/>
-
-  <!-- rays -->
-  <g fill="url(#mo-ray)">
-    <path d="M32 2.5 35 11h-6z"/>
-    <path d="M32 61.5 29 53h6z"/>
-    <path d="M2.5 32 11 29v6z"/>
-    <path d="M61.5 32 53 35v-6z"/>
-    <path d="M11.1 11.1 18.9 15l-3.9 3.9z"/>
-    <path d="M52.9 52.9 45.1 49l3.9-3.9z"/>
-    <path d="M52.9 11.1 49 18.9 45.1 15z"/>
-    <path d="M11.1 52.9 15 45.1l3.9 3.9z"/>
-  </g>
-
-  <!-- orb -->
-  <circle cx="32" cy="32" r="21.5" fill="url(#mo-orb)"/>
-  <circle cx="32" cy="32" r="21.5" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.2"/>
-  <path d="M17.5 24.5a16 16 0 0 1 12-9" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- location pin: the patient at the centre of care -->
-  <path d="M32 47c-1.1-2.9-10.6-9.6-10.6-18.1a10.6 10.6 0 1 1 21.2 0C42.6 37.4 33.1 44.1 32 47z" fill="url(#mo-pin)"/>
-  <circle cx="32" cy="28.6" r="3.6" fill="#ffffff"/>
-</svg>
+    <filter id="mo-shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#041A55" flood-opacity="0.35"/>
+    </filter>
+    <mask id="mo-trace-cut">
+      <rect width="1024" height="1024" fill="#FFFFFF"/>
+      <polyline points="286,554 364,554 428,408 512,536 596,408 660,554 738,554" fill="none" stroke="#000000" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask></defs><rect width="1024" height="1024" rx="225" fill="url(#mo-bg)"/><rect width="1024" height="1024" rx="225" fill="url(#mo-glow)"/><g><path d="M382 292 A80 80 0 0 1 462 212 L562 212 A80 80 0 0 1 642 292 L642 348 A34 34 0 0 0 676 382 L732 382 A80 80 0 0 1 812 462 L812 562 A80 80 0 0 1 732 642 L676 642 A34 34 0 0 0 642 676 L642 732 A80 80 0 0 1 562 812 L462 812 A80 80 0 0 1 382 732 L382 676 A34 34 0 0 0 348 642 L292 642 A80 80 0 0 1 212 562 L212 462 A80 80 0 0 1 292 382 L348 382 A34 34 0 0 0 382 348 Z" fill="#FFFFFF" filter="url(#mo-shadow)"/><polyline points="286,554 364,554 428,408 512,536 596,408 660,554 738,554" fill="none" stroke="#1A56E8" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
