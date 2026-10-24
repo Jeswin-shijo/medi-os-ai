@@ -26,6 +26,8 @@ import {
   RefreshCw,
   type LucideIcon
 } from 'lucide-react';
+import { split, tableMin } from '../../utils/layout';
+import { RollingText } from '../common/RollingText';
 
 const TABS = ['Call Log', 'Automation', 'Agent Scripts'] as const;
 type Tab = (typeof TABS)[number];
@@ -131,7 +133,7 @@ export const CallAgentScreen: React.FC = () => {
     }
   };
 
-  const kpis: { label: string; value: React.ReactNode; sub: string; icon: LucideIcon; tint: keyof typeof TINT }[] = [
+  const kpis: { label: string; value: string | number; sub: string; icon: LucideIcon; tint: keyof typeof TINT }[] = [
     {
       label: 'Calls Today',
       value: stats?.callsToday ?? '—',
@@ -230,7 +232,9 @@ export const CallAgentScreen: React.FC = () => {
               </div>
               <div className="stat-data-box" style={{ minWidth: 0 }}>
                 <span className="stat-label">{k.label}</span>
-                <span className="stat-number">{k.value}</span>
+                <span className="stat-number">
+                  <RollingText value={k.value} />
+                </span>
                 <span className="stat-sub" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={k.sub}>
                   {k.sub}
                 </span>
@@ -249,7 +253,7 @@ export const CallAgentScreen: React.FC = () => {
       </div>
 
       {tab === 'Call Log' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 410px', gap: 12, alignItems: 'start' }}>
+        <div className="split" style={{ ...split('410px'), gap: 12, alignItems: 'start' }}>
           <div className="medios-card" style={{ padding: '12px 12px 6px' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', height: 34, flex: '1 1 200px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 10px', gap: 8 }}>
@@ -280,48 +284,50 @@ export const CallAgentScreen: React.FC = () => {
               </button>
             </div>
 
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Patient</th>
-                  <th>Purpose</th>
-                  <th>Try</th>
-                  <th>Result</th>
-                  <th style={{ textAlign: 'right' }}>Length</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((c) => (
-                  <tr key={c.id} className={c.id === selectedRow?.id ? 'selected' : undefined} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(c.id)}>
-                    <td style={{ whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{callTime(c.status === 'scheduled' ? c.scheduledFor : c.startedAt ?? c.createdAt)}</td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{c.patientName}</div>
-                      <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)' }}>{c.uhid}</div>
-                    </td>
-                    <td>
-                      <PurposeBadge purpose={c.purpose} />
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{c.attempt}</td>
-                    <td>
-                      <CallResultBadge call={c} />
-                    </td>
-                    <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{callDuration(c.durationSec)}</td>
-                  </tr>
-                ))}
-                {!shown.length && (
+            <div className="table-scroll" style={tableMin(480)}>
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={6} style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      {loading && !calls.length
-                        ? 'Loading calls…'
-                        : calls.length
-                          ? 'No calls match the filters.'
-                          : 'No calls yet. Use "Call to confirm" on an appointment, or Book by AI Call.'}
-                    </td>
+                    <th>Time</th>
+                    <th>Patient</th>
+                    <th>Purpose</th>
+                    <th>Try</th>
+                    <th>Result</th>
+                    <th style={{ textAlign: 'right' }}>Length</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {shown.map((c) => (
+                    <tr key={c.id} className={c.id === selectedRow?.id ? 'selected' : undefined} style={{ cursor: 'pointer' }} onClick={() => setSelectedId(c.id)}>
+                      <td style={{ whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>{callTime(c.status === 'scheduled' ? c.scheduledFor : c.startedAt ?? c.createdAt)}</td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{c.patientName}</div>
+                        <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)' }}>{c.uhid}</div>
+                      </td>
+                      <td>
+                        <PurposeBadge purpose={c.purpose} />
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{c.attempt}</td>
+                      <td>
+                        <CallResultBadge call={c} />
+                      </td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-secondary)' }}>{callDuration(c.durationSec)}</td>
+                    </tr>
+                  ))}
+                  {!shown.length && (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        {loading && !calls.length
+                          ? 'Loading calls…'
+                          : calls.length
+                            ? 'No calls match the filters.'
+                            : 'No calls yet. Use "Call to confirm" on an appointment, or Book by AI Call.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <CallDetail
@@ -403,7 +409,7 @@ const CallDetail: React.FC<CallDetailProps> = ({ call, summary, blocked, onCance
         <Avatar name={c.patientName} size={44} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{c.patientName}</div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', alignItems: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>
             <span>{c.uhid}</span>
             <PurposeBadge purpose={c.purpose} />
             <span>Attempt {c.attempt}</span>
@@ -534,7 +540,7 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+    <div className="cols-2" style={{ gap: 12, alignItems: 'start' }}>
       <div className="medios-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Automatic confirmation calls</h3>
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
@@ -549,7 +555,7 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
             </span>
           </span>
         </label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="cols-2" style={{ gap: 14 }}>
           <Field label="Call this many hours before" htmlFor="ca-hours" hint="2 to 72. 24 means the day before.">
             <input id="ca-hours" type="number" min={2} max={72} className="input-field" value={draft.confirmHoursBefore} onChange={(e) => set('confirmHoursBefore', Number(e.target.value))} />
           </Field>
@@ -576,7 +582,7 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
 
       <div className="medios-card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Agent and bookable slots</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div className="cols-2" style={{ gap: 14 }}>
           <Field label="Agent name" htmlFor="ca-name" hint="The agent always says it is an AI assistant.">
             <input id="ca-name" className="input-field" maxLength={24} value={draft.agentName} onChange={(e) => set('agentName', e.target.value)} />
           </Field>
@@ -705,7 +711,7 @@ const ScriptsPanel: React.FC<{ provider?: CallAgentConfig['provider'] }> = ({ pr
           {provider === 'snapserve' ? '.' : ' (once CALL_PROVIDER=snapserve).'}
         </span>
       </AgentNotice>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+      <div className="cols-2" style={{ gap: 12, alignItems: 'start' }}>
         {scripts.map((s) => (
           <div key={s.purpose} className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
@@ -734,7 +740,7 @@ const ScriptsPanel: React.FC<{ provider?: CallAgentConfig['provider'] }> = ({ pr
               </div>
               <pre style={{ ...pre, maxHeight: 300, overflowY: 'auto' }}>{s.instructions}</pre>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="cols-2" style={{ gap: 12 }}>
               <div>
                 <div style={sectionTitle}>Outcomes</div>
                 <ul style={{ margin: 0, paddingLeft: 16, fontSize: 'var(--fs-xs)', lineHeight: 1.7, color: 'var(--text-secondary)' }}>

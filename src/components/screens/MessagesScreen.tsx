@@ -33,6 +33,7 @@ import {
   HouseHeart,
   LucideIcon
 } from 'lucide-react';
+import { ws3 } from '../../utils/layout';
 
 // ---------------------------------------------------------------------------
 // Local icons the design uses that Lucide doesn't ship
@@ -298,9 +299,9 @@ export const MessagesScreen: React.FC = () => {
 
       {/* 3-column layout: thread list | conversation | contact info */}
       <div
+        className="ws-3 msg-ws"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(290px, 371fr) minmax(0, 543fr) minmax(280px, 347fr)',
+          ...ws3('300px', '300px', 'minmax(290px, 371fr) minmax(0, 543fr) minmax(280px, 347fr)'),
           gap: 14,
           flex: 1,
           minHeight: 600,
@@ -406,9 +407,9 @@ export const MessagesScreen: React.FC = () => {
         {/* ===== Center: conversation ===== */}
         <div className="medios-card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
           {/* Conversation header */}
-          <div style={{ padding: '14px 10px 13px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ padding: '14px 10px 13px 14px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
             <ThreadAvatar name={activeThread.contactName} size={54} />
-            <div style={{ flex: 1, minWidth: 0, paddingTop: 1, overflow: 'hidden' }}>
+            <div style={{ flex: '1 1 180px', minWidth: 0, paddingTop: 1, overflow: 'hidden' }}>
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: '22px' }}>{activeThread.contactName}</div>
               <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 7, lineHeight: '20px', whiteSpace: 'nowrap' }}>
                 {isPatient ? (
@@ -443,7 +444,7 @@ export const MessagesScreen: React.FC = () => {
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 3, paddingTop: 4, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, paddingTop: 4, flexShrink: 0, marginLeft: 'auto' }}>
               {activeThread.online && (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 23, padding: '0 9px', borderRadius: 4, backgroundColor: 'var(--green-light)', color: 'var(--green-dark)', fontSize: 12, marginRight: 6, alignSelf: 'flex-start', marginTop: 6 }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: 'var(--green-emerald)' }} />

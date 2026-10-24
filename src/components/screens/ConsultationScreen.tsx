@@ -57,6 +57,7 @@ import {
   Waypoints,
   X
 } from 'lucide-react';
+import { tableMin, ws3 } from '../../utils/layout';
 
 type SoapKey = 'subjective' | 'objective' | 'assessment' | 'plan';
 type AiTab = 'Clinical Suggestions' | 'Report Analysis' | 'Guidelines' | 'Patient Insights';
@@ -570,9 +571,9 @@ export const ConsultationScreen: React.FC = () => {
 
       {/* 3-column consultation layout */}
       <div
+        className="ws-3"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 300fr) minmax(0, 540fr) minmax(0, 440fr)',
+          ...ws3('280px', '420px', 'minmax(0, 300fr) minmax(0, 540fr) minmax(0, 440fr)'),
           gap: 10,
           alignItems: 'stretch'
         }}
@@ -763,7 +764,7 @@ export const ConsultationScreen: React.FC = () => {
 
             <div style={{ padding: '3px 12px 6px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {/* Workspace tabs */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7, marginBottom: 1 }}>
                 {(
                   [
                     { id: 'soap', label: 'SOAP Note' },
@@ -879,7 +880,7 @@ export const ConsultationScreen: React.FC = () => {
 
           {/* Prescription */}
           <div style={{ ...card, padding: '4px 12px 8px', flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 27 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 10px', minHeight: 27 }}>
               <span style={{ ...bandTitle, fontSize: 12, marginRight: 4 }}>
                 <Tablets size={15} strokeWidth={2} />
                 Prescription
@@ -909,113 +910,115 @@ export const ConsultationScreen: React.FC = () => {
               </select>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 2px', marginTop: 2 }}>
-              <thead>
-                <tr>
-                  <th style={{ ...rxHead, width: 26 }}>#</th>
-                  <th style={rxHead}>Medicine</th>
-                  <th style={rxHead}>Dose</th>
-                  <th style={rxHead}>Frequency</th>
-                  <th style={rxHead}>Duration</th>
-                  <th style={rxHead}>Instruction</th>
-                  <th style={{ ...rxHead, width: 30 }} />
-                  <th style={{ ...rxHead, width: 30 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {prescriptions.map((rx, idx) => (
-                  <tr key={rx.id}>
-                    <td style={{ ...rxCell, borderLeft: '1px solid var(--border-color)', borderRadius: '5px 0 0 5px' }}>{idx + 1}</td>
-                    <td style={rxCell}>{rx.medicine}</td>
-                    <td style={rxCell}>{rx.dose}</td>
-                    <td style={rxCell}>{rx.frequency}</td>
-                    <td style={rxCell}>{rx.duration}</td>
-                    <td style={rxCell}>{rx.instruction}</td>
-                    <td style={{ ...rxCell, padding: 0, textAlign: 'center', borderLeft: '1px solid var(--border-subtle)', position: 'relative' }}>
-                      <button aria-label={`${rx.medicine} options`} onClick={() => setRxMenuId(rxMenuId === rx.id ? null : rx.id)} style={{ display: 'flex', margin: '0 auto', color: 'var(--text-primary)' }}>
-                        <EllipsisVertical size={13} />
-                      </button>
-                      {rxMenuId === rx.id && <div style={{ position: 'fixed', inset: 0, zIndex: 4 }} onClick={() => setRxMenuId(null)} />}
-                      {rxMenuId === rx.id && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            right: 0,
-                            top: 22,
-                            zIndex: 5,
-                            background: '#ffffff',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: 6,
-                            boxShadow: 'var(--shadow-md)',
-                            padding: 3,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            minWidth: 96
-                          }}
-                        >
-                          {[
-                            { label: 'Edit', onClick: () => handleEditMedicine(rx) },
-                            { label: 'Duplicate', onClick: () => handleDuplicateMedicine(rx) }
-                          ].map((a) => (
-                            <button key={a.label} onClick={a.onClick} style={{ textAlign: 'left', fontSize: 11, padding: '4px 8px', borderRadius: 4 }}>
-                              {a.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ ...rxCell, padding: 0, textAlign: 'center', borderLeft: '1px solid var(--border-subtle)', borderRight: '1px solid var(--border-color)', borderRadius: '0 5px 5px 0' }}>
-                      <button aria-label={`Remove ${rx.medicine}`} onClick={() => handleDeleteMedicine(rx.id)} style={{ display: 'flex', margin: '0 auto', color: 'var(--red-rose)' }}>
-                        <Trash2 size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-
-                {showAddMedRow && (
+            <div className="table-scroll" style={tableMin(380)}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 2px', marginTop: 2 }}>
+                <thead>
                   <tr>
-                    <td style={{ ...rxCell, borderLeft: '1px solid var(--blue-border)', borderColor: 'var(--blue-border)', borderRadius: '5px 0 0 5px' }}>
-                      <Plus size={11} />
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
-                      <input autoFocus placeholder="Medicine name" value={newMed.medicine} onChange={(e) => setNewMed({ ...newMed, medicine: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleAddMedicine()} style={rxInput} />
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
-                      <input placeholder="Dose" value={newMed.dose} onChange={(e) => setNewMed({ ...newMed, dose: e.target.value })} style={{ ...rxInput, width: 58 }} />
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
-                      <select value={newMed.frequency} onChange={(e) => setNewMed({ ...newMed, frequency: e.target.value })} style={rxInput}>
-                        {FREQUENCIES.map((f) => (
-                          <option key={f}>{f}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
-                      <input placeholder="Duration" value={newMed.duration} onChange={(e) => setNewMed({ ...newMed, duration: e.target.value })} style={{ ...rxInput, width: 62 }} />
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
-                      <select value={newMed.instruction} onChange={(e) => setNewMed({ ...newMed, instruction: e.target.value })} style={rxInput}>
-                        {INSTRUCTIONS.map((f) => (
-                          <option key={f}>{f}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: 0, textAlign: 'center' }}>
-                      <button aria-label="Add medicine" onClick={handleAddMedicine} style={{ display: 'inline-flex', color: 'var(--green-dark)' }}>
-                        <Check size={14} />
-                      </button>
-                    </td>
-                    <td style={{ ...rxCell, borderColor: 'var(--blue-border)', borderRight: '1px solid var(--blue-border)', padding: 0, textAlign: 'center', borderRadius: '0 5px 5px 0' }}>
-                      <button aria-label="Cancel" onClick={() => setShowAddMedRow(false)} style={{ display: 'inline-flex', color: 'var(--text-muted)' }}>
-                        <X size={13} />
-                      </button>
-                    </td>
+                    <th style={{ ...rxHead, width: 26 }}>#</th>
+                    <th style={rxHead}>Medicine</th>
+                    <th style={rxHead}>Dose</th>
+                    <th style={rxHead}>Frequency</th>
+                    <th style={rxHead}>Duration</th>
+                    <th style={rxHead}>Instruction</th>
+                    <th style={{ ...rxHead, width: 30 }} />
+                    <th style={{ ...rxHead, width: 30 }} />
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {prescriptions.map((rx, idx) => (
+                    <tr key={rx.id}>
+                      <td style={{ ...rxCell, borderLeft: '1px solid var(--border-color)', borderRadius: '5px 0 0 5px' }}>{idx + 1}</td>
+                      <td style={rxCell}>{rx.medicine}</td>
+                      <td style={rxCell}>{rx.dose}</td>
+                      <td style={rxCell}>{rx.frequency}</td>
+                      <td style={rxCell}>{rx.duration}</td>
+                      <td style={rxCell}>{rx.instruction}</td>
+                      <td style={{ ...rxCell, padding: 0, textAlign: 'center', borderLeft: '1px solid var(--border-subtle)', position: 'relative' }}>
+                        <button aria-label={`${rx.medicine} options`} onClick={() => setRxMenuId(rxMenuId === rx.id ? null : rx.id)} style={{ display: 'flex', margin: '0 auto', color: 'var(--text-primary)' }}>
+                          <EllipsisVertical size={13} />
+                        </button>
+                        {rxMenuId === rx.id && <div style={{ position: 'fixed', inset: 0, zIndex: 4 }} onClick={() => setRxMenuId(null)} />}
+                        {rxMenuId === rx.id && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 22,
+                              zIndex: 5,
+                              background: '#ffffff',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 6,
+                              boxShadow: 'var(--shadow-md)',
+                              padding: 3,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              minWidth: 96
+                            }}
+                          >
+                            {[
+                              { label: 'Edit', onClick: () => handleEditMedicine(rx) },
+                              { label: 'Duplicate', onClick: () => handleDuplicateMedicine(rx) }
+                            ].map((a) => (
+                              <button key={a.label} onClick={a.onClick} style={{ textAlign: 'left', fontSize: 11, padding: '4px 8px', borderRadius: 4 }}>
+                                {a.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ ...rxCell, padding: 0, textAlign: 'center', borderLeft: '1px solid var(--border-subtle)', borderRight: '1px solid var(--border-color)', borderRadius: '0 5px 5px 0' }}>
+                        <button aria-label={`Remove ${rx.medicine}`} onClick={() => handleDeleteMedicine(rx.id)} style={{ display: 'flex', margin: '0 auto', color: 'var(--red-rose)' }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 'auto', paddingTop: 5 }}>
+                  {showAddMedRow && (
+                    <tr>
+                      <td style={{ ...rxCell, borderLeft: '1px solid var(--blue-border)', borderColor: 'var(--blue-border)', borderRadius: '5px 0 0 5px' }}>
+                        <Plus size={11} />
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
+                        <input autoFocus placeholder="Medicine name" value={newMed.medicine} onChange={(e) => setNewMed({ ...newMed, medicine: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleAddMedicine()} style={rxInput} />
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
+                        <input placeholder="Dose" value={newMed.dose} onChange={(e) => setNewMed({ ...newMed, dose: e.target.value })} style={{ ...rxInput, width: 58 }} />
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
+                        <select value={newMed.frequency} onChange={(e) => setNewMed({ ...newMed, frequency: e.target.value })} style={rxInput}>
+                          {FREQUENCIES.map((f) => (
+                            <option key={f}>{f}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
+                        <input placeholder="Duration" value={newMed.duration} onChange={(e) => setNewMed({ ...newMed, duration: e.target.value })} style={{ ...rxInput, width: 62 }} />
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: '0 4px' }}>
+                        <select value={newMed.instruction} onChange={(e) => setNewMed({ ...newMed, instruction: e.target.value })} style={rxInput}>
+                          {INSTRUCTIONS.map((f) => (
+                            <option key={f}>{f}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', padding: 0, textAlign: 'center' }}>
+                        <button aria-label="Add medicine" onClick={handleAddMedicine} style={{ display: 'inline-flex', color: 'var(--green-dark)' }}>
+                          <Check size={14} />
+                        </button>
+                      </td>
+                      <td style={{ ...rxCell, borderColor: 'var(--blue-border)', borderRight: '1px solid var(--blue-border)', padding: 0, textAlign: 'center', borderRadius: '0 5px 5px 0' }}>
+                        <button aria-label="Cancel" onClick={() => setShowAddMedRow(false)} style={{ display: 'inline-flex', color: 'var(--text-muted)' }}>
+                          <X size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 'auto', paddingTop: 5 }}>
               <button
                 className="btn-outline-blue"
                 style={{ height: 28, padding: '0 7px', fontSize: 10.5, gap: 4, background: '#f3f7fe', flexShrink: 0 }}
@@ -1063,7 +1066,7 @@ export const ConsultationScreen: React.FC = () => {
           </div>
 
           <div style={{ padding: '6px 12px 10px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
-            <div style={{ display: 'flex', gap: 7 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
               {AI_TABS.map((tab) => (
                 <button
                   key={tab}
@@ -1298,7 +1301,7 @@ export const ConsultationScreen: React.FC = () => {
                 </button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 10px' }}>
+              <div className="cols-2" style={{ gap: '8px 10px' }}>
                 {[
                   { label: 'Compare with previous visit', icon: History },
                   { label: 'Explain this lab report', icon: CircleGauge },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { ScreenId, Patient, AuthUser } from '../types';
 import { authService, messageService, patientService, settingsService, taskService } from '../services';
 import { parseSessionTimeout, useIdleSignOut } from '../hooks/useIdleSignOut';
@@ -34,7 +35,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [authStatus]);
   const [idleMinutes, setIdleMinutes] = useState<number | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [activeScreen, setActiveScreen] = useState<ScreenId>('dashboard');
+  const [activeScreen, setActiveScreenState] = useState<ScreenId>('dashboard');
+
+  // Screen changes run as a view transition where the browser supports it (styles in index.css):
+  // the content crossfades and the sidebar highlight glides to the new item. Elsewhere it is instant.
+  const activeScreenRef = useRef(activeScreen);
+  const setActiveScreen = useCallback((screen: ScreenId) => {
+    if (screen === activeScreenRef.current) return;
+    activeScreenRef.current = screen;
+    const swap = () => {
+      setActiveScreenState(screen);
+      document.getElementById('main-content-viewport')?.scrollTo(0, 0);
+    };
+    if (!document.startViewTransition) {
+      swap();
+      return;
+    }
+    const transition = document.startViewTransition(() => flushSync(swap));
+    // A quick second click skips the first transition; that is expected, not an error.
+    transition.ready.catch(() => {});
+    transition.finished.catch(() => {});
+  }, []);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [activePatient, setActivePatientState] = useState<Patient | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -71,7 +92,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(null);
     setPatients([]);
     setActivePatientState(null);
-    setActiveScreen('dashboard');
+    activeScreenRef.current = 'dashboard';
+    setActiveScreenState('dashboard');
     setUnreadMessagesCount(0);
     setOpenAlertCount(0);
     setIdleMinutes(null);

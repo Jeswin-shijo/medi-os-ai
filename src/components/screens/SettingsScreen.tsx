@@ -51,6 +51,7 @@ import {
   SlidersHorizontal,
   LucideIcon
 } from 'lucide-react';
+import { cols } from '../../utils/layout';
 
 type SettingsTab =
   | 'general'
@@ -351,14 +352,14 @@ export const SettingsScreen: React.FC = () => {
       {/* ===================== GENERAL (overview, as in the design) ===================== */}
       {activeTab === 'general' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 428fr) minmax(0, 441fr) minmax(0, 389fr)', gap: 14, marginTop: 2 }}>
+          <div className="cols-3" style={{ ...cols('minmax(0, 428fr) minmax(0, 441fr) minmax(0, 389fr)'), gap: 14, marginTop: 2 }}>
             {/* Profile Settings */}
             <div className="medios-card" style={{ padding: '10px 16px 14px' }}>
               <SectionTitle icon={UserRound} color="var(--blue-text)" fill title="Profile Settings" />
 
               <div style={{ display: 'flex', gap: 4, marginTop: 17, marginBottom: 11 }}>
                 <Avatar name={settings.profile.name || user?.name || ''} src={photoUrl} size={88} />
-                <div style={{ flex: 1, minWidth: 0, paddingTop: 1, marginLeft: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ flex: 1, minWidth: 0, paddingTop: 1, marginLeft: 12, overflowWrap: 'anywhere' }}>
                   <div style={{ fontSize: 19.5, fontWeight: 700, color: 'var(--text-primary)', lineHeight: '26px' }}>{settings.profile.name}</div>
                   <div style={{ fontSize: 12.5, color: 'var(--text-primary)', lineHeight: '18px', marginTop: 1 }}>{settings.profile.designation}</div>
                   <div style={{ fontSize: 12.2, color: 'var(--text-secondary)', lineHeight: '18px' }}>{settings.profile.credentials}</div>
@@ -530,7 +531,7 @@ export const SettingsScreen: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 428fr) minmax(0, 414fr) minmax(0, 415fr)', gap: 14, marginTop: 2 }}>
+          <div className="cols-3" style={{ ...cols('minmax(0, 428fr) minmax(0, 414fr) minmax(0, 415fr)'), gap: 14, marginTop: 2 }}>
             {/* Notification Settings */}
             <div className="medios-card" style={{ padding: '10px 16px 6px 18px' }}>
               <SectionTitle icon={Bell} color="var(--purple-ai)" title="Notification Settings" />

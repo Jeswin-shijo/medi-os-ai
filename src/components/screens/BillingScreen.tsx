@@ -39,6 +39,7 @@ import {
   SquareUserRound,
   FlaskConical
 } from 'lucide-react';
+import { ws3 } from '../../utils/layout';
 
 type BillFilter = 'All Bills' | 'Unpaid' | 'Partially Paid' | 'Paid';
 type AiTab = 'Suggestions' | 'Coding' | 'Insurance' | 'Patient Insights';
@@ -253,7 +254,7 @@ export const BillingScreen: React.FC = () => {
         onTabChange={handleBannerTab}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr) 330px', gap: 12, alignItems: 'stretch' }}>
+      <div className="ws-3" style={{ ...ws3('280px', '330px'), gap: 12, alignItems: 'stretch' }}>
         {/* Left column: bill list */}
         <div className="medios-card" style={{ padding: '10px 8px 10px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <button className="btn-primary" style={{ width: '100%', height: 34, fontSize: 12.5 }} onClick={newBill}>
@@ -378,7 +379,7 @@ export const BillingScreen: React.FC = () => {
                 {openMenu === 'send' && (
                   <>
                     <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setOpenMenu(null)} />
-                    <div style={menuStyle}>
+                    <div className="pop-menu" style={menuStyle}>
                       {[
                         { label: 'WhatsApp', icon: MessageCircle },
                         { label: 'Email', icon: Mail },
@@ -409,7 +410,7 @@ export const BillingScreen: React.FC = () => {
                 {openMenu === 'more' && (
                   <>
                     <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setOpenMenu(null)} />
-                    <div style={menuStyle}>
+                    <div className="pop-menu" style={menuStyle}>
                       <button
                         style={menuItem}
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}

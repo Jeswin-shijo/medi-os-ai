@@ -163,7 +163,7 @@ const LAYOUT_CSS = `
 .dash-flow { grid-column: 1; grid-row: 2; }
 .dash-consult { grid-column: 2; grid-row: 2; }
 @media (max-width: 1500px) { .dash-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1360px) {
+@media (max-width: 1400px) {
   .dash-page { height: auto; min-height: 100%; }
   .dash-main { flex: none; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; }
   .dash-right { grid-column: 1 / -1; grid-row: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -171,6 +171,13 @@ const LAYOUT_CSS = `
   .dash-flow, .dash-consult { grid-column: auto; grid-row: auto; }
 }
 @media (max-width: 1024px) { .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dash-date { text-align: right; padding-top: 6px; font-size: 14px; line-height: 1.45; }
+.dash-kpis .stat-data-box { white-space: nowrap; }
+@media (max-width: 700px) {
+  .dash-main, .dash-right { grid-template-columns: minmax(0, 1fr); }
+  .dash-date { text-align: left; padding-top: 0; }
+  .dash-kpis .stat-data-box { white-space: normal; }
+}
 `;
 
 /** Compact "Today ⌄" period select used in the chart card headers. */
@@ -307,7 +314,7 @@ export const DashboardScreen: React.FC = () => {
           </div>
           <p style={{ marginTop: 0 }}>Here's your hospital overview for today.</p>
         </div>
-        <div style={{ textAlign: 'right', paddingTop: 6, fontSize: 14, lineHeight: 1.45 }}>
+        <div className="dash-date">
           <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
             {now.toLocaleDateString('en-US', { weekday: 'short' })}, {displayDate(now)}
           </div>
@@ -325,7 +332,7 @@ export const DashboardScreen: React.FC = () => {
               <div className="stat-icon-wrapper" style={{ backgroundColor: tint.tile, color: tint.icon }}>
                 <Icon size={27} strokeWidth={2.1} />
               </div>
-              <div className="stat-data-box" style={{ whiteSpace: 'nowrap' }}>
+              <div className="stat-data-box">
                 <span className="stat-label">{kpi.label}</span>
                 <span className="stat-number">{kpi.value}</span>
                 <span className="stat-sub">{kpi.sub}</span>
@@ -420,7 +427,7 @@ export const DashboardScreen: React.FC = () => {
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     {pat.age} y • {pat.gender}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{pat.reason}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pat.reason}</div>
                 </div>
                 <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginRight: 6 }}>{pat.lastVisit}</span>
                 <button
@@ -505,7 +512,7 @@ export const DashboardScreen: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
               {alertChips.map((chip) => {
                 const active = alertsFilter === chip.id;
                 const critical = chip.id === 'critical' && !active;

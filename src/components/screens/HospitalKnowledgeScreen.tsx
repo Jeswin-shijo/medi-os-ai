@@ -33,6 +33,7 @@ import {
   ClipboardList,
   type LucideIcon
 } from 'lucide-react';
+import { tableMin, ws3 } from '../../utils/layout';
 
 const TOPIC_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
   all: { icon: LayoutGrid, color: 'var(--blue-primary)' },
@@ -126,8 +127,8 @@ export const HospitalKnowledgeScreen: React.FC = () => {
       />
 
       {/* Search + AI / Bookmarks row */}
-      <div className="medios-card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ position: 'relative', flex: '0 1 646px', minWidth: 0 }}>
+      <div className="medios-card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ position: 'relative', flex: '1 1 260px', maxWidth: 646, minWidth: 0 }}>
           <Search size={17} className="search-icon-left" />
           <input
             type="text"
@@ -164,7 +165,7 @@ export const HospitalKnowledgeScreen: React.FC = () => {
       </div>
 
       {/* Topic tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr)) minmax(0, 1.42fr)', gap: 16 }}>
+      <div className="topic-tiles" style={{ gap: 16 }}>
         {mockKnowledgeTopics.map(topic => {
           const isSelected = activeTopic === topic.id;
           const { icon: Icon, color } = TOPIC_ICONS[topic.id];
@@ -198,7 +199,7 @@ export const HospitalKnowledgeScreen: React.FC = () => {
       </div>
 
       {/* 3 columns: Categories | Featured + Recent | AI assistant + Quick Links + Recently Viewed */}
-      <div style={{ display: 'grid', gridTemplateColumns: '261px minmax(0, 1fr) 346px', gap: 14, alignItems: 'start' }}>
+      <div className="ws-3" style={{ ...ws3('261px', '346px'), gap: 14, alignItems: 'start' }}>
         {/* Categories */}
         <div className="medios-card" style={{ padding: '14px 6px 12px 10px' }}>
           <h3 className="card-title" style={{ padding: '0 0 8px 4px' }}>Categories</h3>
@@ -245,7 +246,7 @@ export const HospitalKnowledgeScreen: React.FC = () => {
               <button className="text-link" style={{ fontSize: 13 }} onClick={() => showToast('Showing all featured knowledge')}>View All</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+            <div className="cols-2" style={{ gap: '12px 16px' }}>
               {mockFeaturedKnowledge.map((item, idx) => {
                 const { icon: Icon, color, bg } = FEATURED_ICONS[idx % FEATURED_ICONS.length];
                 const isSaved = bookmarked.has(item.id);
@@ -278,7 +279,7 @@ export const HospitalKnowledgeScreen: React.FC = () => {
                         </button>
                       </div>
                       <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', lineHeight: 1.42, marginTop: 3, maxWidth: 184 }}>{item.subtitle}</p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 'auto', paddingTop: 11 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 16px', marginTop: 'auto', paddingTop: 11 }}>
                         <span className={`status-pill ${item.tone}`} style={{ height: 21, padding: '0 9px' }}>{item.tag}</span>
                         <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{item.date}</span>
                       </div>
@@ -296,69 +297,71 @@ export const HospitalKnowledgeScreen: React.FC = () => {
               <button className="text-link" style={{ fontSize: 13 }} onClick={() => showToast('Showing all recent articles')}>View All</button>
             </div>
 
-            <table className="medios-table" style={{ fontSize: 'var(--fs-sm)', tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '34%' }} />
-                <col style={{ width: '16%' }} />
-                <col style={{ width: '16%' }} />
-                <col style={{ width: '20%' }} />
-                <col />
-              </colgroup>
-              <thead>
-                <tr>
-                  {['Title', 'Category', 'Type', 'Last Updated', 'Actions'].map((h, i, arr) => (
-                    <th
-                      key={h}
-                      style={{
-                        background: 'var(--bg-subtle)',
-                        fontSize: 'var(--fs-sm)',
-                        padding: '6px 8px',
-                        borderBottom: 'none',
-                        borderRadius: i === 0 ? '6px 0 0 6px' : i === arr.length - 1 ? '0 6px 6px 0' : undefined
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentArticles.length === 0 ? (
+            <div className="table-scroll" style={tableMin(520)}>
+              <table className="medios-table" style={{ fontSize: 'var(--fs-sm)', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '34%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '20%' }} />
+                  <col />
+                </colgroup>
+                <thead>
                   <tr>
-                    <td colSpan={5} style={{ padding: '18px 8px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No articles match the current filter
-                    </td>
+                    {['Title', 'Category', 'Type', 'Last Updated', 'Actions'].map((h, i, arr) => (
+                      <th
+                        key={h}
+                        style={{
+                          background: 'var(--bg-subtle)',
+                          fontSize: 'var(--fs-sm)',
+                          padding: '6px 8px',
+                          borderBottom: 'none',
+                          borderRadius: i === 0 ? '6px 0 0 6px' : i === arr.length - 1 ? '0 6px 6px 0' : undefined
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ) : recentArticles.map((art, i) => (
-                  <tr key={art.id} onClick={() => showToast(`Opened article: ${art.title}`)} style={{ cursor: 'pointer' }}>
-                    <td style={{ padding: '4px 8px', height: 40, lineHeight: 1.4, borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>{art.title}</td>
-                    <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>{art.category}</td>
-                    <td style={{ padding: '4px 8px', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>
-                      <span className={`status-pill ${TYPE_PILL[art.type]}`} style={{ height: 21 }}>{art.type}</span>
-                    </td>
-                    <td style={{ padding: '4px 8px', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>{art.lastUpdated}</td>
-                    <td style={{ padding: '4px 8px', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 30, paddingLeft: 8, color: 'var(--blue-text)' }}>
-                        <button
-                          aria-label="Bookmark article"
-                          onClick={(e) => { e.stopPropagation(); toggleBookmark(art.id, art.title); }}
-                          style={{ display: 'flex', color: 'inherit' }}
-                        >
-                          <Bookmark size={18} strokeWidth={2.2} fill={bookmarked.has(art.id) ? 'currentColor' : 'none'} />
-                        </button>
-                        <button
-                          aria-label="More actions"
-                          onClick={(e) => { e.stopPropagation(); showToast(`Options for "${art.title}"`, 'info'); }}
-                          style={{ display: 'flex', color: 'inherit' }}
-                        >
-                          <EllipsisVertical size={17} strokeWidth={2.2} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentArticles.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '18px 8px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No articles match the current filter
+                      </td>
+                    </tr>
+                  ) : recentArticles.map((art, i) => (
+                    <tr key={art.id} onClick={() => showToast(`Opened article: ${art.title}`)} style={{ cursor: 'pointer' }}>
+                      <td style={{ padding: '4px 8px', height: 40, lineHeight: 1.4, borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>{art.title}</td>
+                      <td style={{ padding: '4px 8px', color: 'var(--text-secondary)', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>{art.category}</td>
+                      <td style={{ padding: '4px 8px', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>
+                        <span className={`status-pill ${TYPE_PILL[art.type]}`} style={{ height: 21 }}>{art.type}</span>
+                      </td>
+                      <td style={{ padding: '4px 8px', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>{art.lastUpdated}</td>
+                      <td style={{ padding: '4px 8px', borderBottom: i === recentArticles.length - 1 ? 'none' : undefined }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 30, paddingLeft: 8, color: 'var(--blue-text)' }}>
+                          <button
+                            aria-label="Bookmark article"
+                            onClick={(e) => { e.stopPropagation(); toggleBookmark(art.id, art.title); }}
+                            style={{ display: 'flex', color: 'inherit' }}
+                          >
+                            <Bookmark size={18} strokeWidth={2.2} fill={bookmarked.has(art.id) ? 'currentColor' : 'none'} />
+                          </button>
+                          <button
+                            aria-label="More actions"
+                            onClick={(e) => { e.stopPropagation(); showToast(`Options for "${art.title}"`, 'info'); }}
+                            style={{ display: 'flex', color: 'inherit' }}
+                          >
+                            <EllipsisVertical size={17} strokeWidth={2.2} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -427,7 +430,7 @@ export const HospitalKnowledgeScreen: React.FC = () => {
           {/* Quick Links */}
           <div className="medios-card" style={{ padding: '9px 12px 10px' }}>
             <h4 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700, marginBottom: 7 }}>Quick Links</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
+            <div className="cols-2" style={{ gap: '12px 16px' }}>
               {QUICK_LINKS.map(link => (
                 <button
                   key={link.label}

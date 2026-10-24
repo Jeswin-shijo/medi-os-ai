@@ -22,6 +22,7 @@ import {
   PenLine,
   X
 } from 'lucide-react';
+import { split } from '../../utils/layout';
 
 type Category = ClinicalDocument['category'];
 type Tone = 'blue' | 'green' | 'orange' | 'purple';
@@ -215,7 +216,7 @@ export const DocumentsScreen: React.FC = () => {
 
       <PatientBanner activeTab="documents" />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) clamp(300px, 26vw, 372px)', gap: 'var(--gap)', alignItems: 'start' }}>
+      <div className="split split-late" style={{ ...split('clamp(300px, 26vw, 372px)'), gap: 'var(--gap)', alignItems: 'start' }}>
         {/* Document list */}
         <div className="medios-card" style={{ minWidth: 0 }}>
           <div className="card-header-row" style={{ marginBottom: '10px' }}>

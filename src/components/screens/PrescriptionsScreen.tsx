@@ -36,6 +36,7 @@ import {
   HousePlus,
   Phone
 } from 'lucide-react';
+import { tableMin, ws3 } from '../../utils/layout';
 
 /* Tab strip from the Prescription design; module tabs navigate, Patient Education is local. */
 const RX_TABS: BannerTab[] = [
@@ -327,7 +328,7 @@ export const PrescriptionsScreen: React.FC = () => {
         onTabChange={id => id === 'patient-education' && showToast('Patient education leaflets: Hypertension, Diabetes diet', 'info')}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '308px minmax(0, 1fr) 366px', gap: 10, alignItems: 'stretch' }}>
+      <div className="ws-3" style={{ ...ws3('308px', '366px'), gap: 10, alignItems: 'stretch' }}>
         {/* ===== Left column ===== */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
           {/* Diagnosis / Problems */}
@@ -458,9 +459,9 @@ export const PrescriptionsScreen: React.FC = () => {
 
         {/* ===== Center: New Prescription ===== */}
         <div className="medios-card" style={{ padding: '10px 12px 12px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <h3 style={{ fontSize: 'var(--fs-h2)', fontWeight: 700 }}>New Prescription</h3>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               <button className="btn-outline-blue" style={{ fontSize: 'var(--fs-sm)' }} onClick={() => showToast('Saved as template')}>
                 <SquarePlus size={16} />
                 <span>Save as Template</span>
@@ -472,87 +473,89 @@ export const PrescriptionsScreen: React.FC = () => {
             </div>
           </div>
 
-          <table className="medios-table" style={{ marginTop: 14, tableLayout: 'fixed', fontSize: 11.5 }}>
-            <colgroup>
-              <col style={{ width: 24 }} />
-              <col />
-              <col style={{ width: 78 }} />
-              <col style={{ width: 72 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 46 }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th style={{ ...th, borderRadius: '6px 0 0 6px', paddingLeft: 8 }}>#</th>
-                <th style={th}>Medicine / Brand</th>
-                <th style={th}>Dose</th>
-                <th style={th}>Frequency</th>
-                <th style={th}>Duration</th>
-                <th style={th}>Instructions</th>
-                <th style={{ ...th, borderRadius: '0 6px 6px 0', textAlign: 'right', paddingRight: 8 }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, idx) => (
-                <tr key={item.id}>
-                  <td style={{ ...td, paddingLeft: 8, fontWeight: 600 }}>{idx + 1}</td>
-                  <td style={{ ...td, lineHeight: 1.4 }}>
-                    <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.medicine}</div>
-                    <div style={{ color: 'var(--text-secondary)', marginTop: 1 }}>{genericName(item)}</div>
-                  </td>
-                  <td style={td}>
-                    <CellSelect label="Dose" value={item.dose} options={DOSE_OPTIONS} onChange={v => updateItem(item.id, { dose: v })} />
-                  </td>
-                  <td style={td}>
-                    <CellSelect label="Frequency" value={item.frequency} options={FREQ_OPTIONS} onChange={v => updateItem(item.id, { frequency: v as PrescriptionItem['frequency'] })} />
-                  </td>
-                  <td style={td}>
-                    <CellSelect label="Duration" value={item.duration} options={DURATION_OPTIONS} onChange={v => updateItem(item.id, { duration: v })} />
-                  </td>
-                  <td style={td}>
-                    <CellSelect label="Instructions" value={item.instructions ?? ''} options={INSTRUCTION_OPTIONS} onChange={v => updateItem(item.id, { instructions: (v || undefined) as PrescriptionItem['instructions'] })} />
-                  </td>
-                  <td style={{ ...td, textAlign: 'right', paddingRight: 10 }}>
-                    <button aria-label={`Remove ${item.medicine}`} onClick={() => handleDeleteItem(item.id)} style={{ color: 'var(--red-rose)', display: 'inline-flex' }}>
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-
-              {showAddRow && (
+          <div className="table-scroll" style={tableMin(600)}>
+            <table className="medios-table" style={{ marginTop: 14, tableLayout: 'fixed', fontSize: 11.5 }}>
+              <colgroup>
+                <col style={{ width: 24 }} />
+                <col />
+                <col style={{ width: 78 }} />
+                <col style={{ width: 72 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 46 }} />
+              </colgroup>
+              <thead>
                 <tr>
-                  <td style={{ ...td, paddingLeft: 8 }}>+</td>
-                  <td style={td} colSpan={3}>
-                    <input
-                      type="text"
-                      className="input-field"
-                      autoFocus
-                      placeholder="e.g. Tab Pantocid 40 mg"
-                      value={newMedName}
-                      onChange={e => setNewMedName(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddItem()}
-                      style={{ height: 30, fontSize: 11.5 }}
-                    />
-                  </td>
-                  <td style={td} colSpan={2}>
-                    <button className="btn-primary btn-sm" onClick={handleAddItem}>
-                      Confirm Add
-                    </button>
-                  </td>
-                  <td style={{ ...td, textAlign: 'right', paddingRight: 10 }}>
-                    <button aria-label="Cancel" onClick={() => setShowAddRow(false)} style={{ display: 'inline-flex' }}>
-                      <X size={16} />
-                    </button>
-                  </td>
+                  <th style={{ ...th, borderRadius: '6px 0 0 6px', paddingLeft: 8 }}>#</th>
+                  <th style={th}>Medicine / Brand</th>
+                  <th style={th}>Dose</th>
+                  <th style={th}>Frequency</th>
+                  <th style={th}>Duration</th>
+                  <th style={th}>Instructions</th>
+                  <th style={{ ...th, borderRadius: '0 6px 6px 0', textAlign: 'right', paddingRight: 8 }}>Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item, idx) => (
+                  <tr key={item.id}>
+                    <td style={{ ...td, paddingLeft: 8, fontWeight: 600 }}>{idx + 1}</td>
+                    <td style={{ ...td, lineHeight: 1.4 }}>
+                      <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.medicine}</div>
+                      <div style={{ color: 'var(--text-secondary)', marginTop: 1 }}>{genericName(item)}</div>
+                    </td>
+                    <td style={td}>
+                      <CellSelect label="Dose" value={item.dose} options={DOSE_OPTIONS} onChange={v => updateItem(item.id, { dose: v })} />
+                    </td>
+                    <td style={td}>
+                      <CellSelect label="Frequency" value={item.frequency} options={FREQ_OPTIONS} onChange={v => updateItem(item.id, { frequency: v as PrescriptionItem['frequency'] })} />
+                    </td>
+                    <td style={td}>
+                      <CellSelect label="Duration" value={item.duration} options={DURATION_OPTIONS} onChange={v => updateItem(item.id, { duration: v })} />
+                    </td>
+                    <td style={td}>
+                      <CellSelect label="Instructions" value={item.instructions ?? ''} options={INSTRUCTION_OPTIONS} onChange={v => updateItem(item.id, { instructions: (v || undefined) as PrescriptionItem['instructions'] })} />
+                    </td>
+                    <td style={{ ...td, textAlign: 'right', paddingRight: 10 }}>
+                      <button aria-label={`Remove ${item.medicine}`} onClick={() => handleDeleteItem(item.id)} style={{ color: 'var(--red-rose)', display: 'inline-flex' }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {showAddRow && (
+                  <tr>
+                    <td style={{ ...td, paddingLeft: 8 }}>+</td>
+                    <td style={td} colSpan={3}>
+                      <input
+                        type="text"
+                        className="input-field"
+                        autoFocus
+                        placeholder="e.g. Tab Pantocid 40 mg"
+                        value={newMedName}
+                        onChange={e => setNewMedName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddItem()}
+                        style={{ height: 30, fontSize: 11.5 }}
+                      />
+                    </td>
+                    <td style={td} colSpan={2}>
+                      <button className="btn-primary btn-sm" onClick={handleAddItem}>
+                        Confirm Add
+                      </button>
+                    </td>
+                    <td style={{ ...td, textAlign: 'right', paddingRight: 10 }}>
+                      <button aria-label="Cancel" onClick={() => setShowAddRow(false)} style={{ display: 'inline-flex' }}>
+                        <X size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Actions under the table */}
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
             {[
               { label: 'Add Medicine', onClick: () => setShowAddRow(true) },
               { label: 'Add from Search', onClick: () => setShowAddRow(true) },
@@ -606,7 +609,7 @@ export const PrescriptionsScreen: React.FC = () => {
           </div>
 
           {/* Print options */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 12, fontSize: 'var(--fs-xs)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px 14px', marginTop: 12, fontSize: 'var(--fs-xs)' }}>
             {optionLabels.map(o => (
               <label key={o.key} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 <input
@@ -621,7 +624,7 @@ export const PrescriptionsScreen: React.FC = () => {
           </div>
 
           {/* Bottom action bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto', paddingTop: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 'auto', paddingTop: 16 }}>
             <button className="btn-outline-blue" style={{ ...barBtn, padding: '0 13px' }} onClick={() => showToast('Prescription preview window')}>
               <Eye size={15} />
               <span>Preview</span>

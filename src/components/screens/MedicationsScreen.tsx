@@ -38,6 +38,7 @@ import {
   Check,
   type LucideIcon
 } from 'lucide-react';
+import { tableMin, ws3 } from '../../utils/layout';
 
 /** Two crossed capsules — the "Medications" tab icon in the design. */
 const CapsuleCross = createLucideIcon('capsule-cross', [
@@ -280,7 +281,7 @@ export const MedicationsScreen: React.FC = () => {
 
       <PatientBanner tabs={MED_TABS} activeTab={bannerTab} onTabChange={handleBannerTab} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '252px minmax(0, 1fr) 354px', gap: 12, alignItems: 'stretch' }}>
+      <div className="ws-3" style={{ ...ws3('252px', '354px'), gap: 12, alignItems: 'stretch' }}>
         {/* Left column: summary, indications, filters */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
           <div className="medios-card" style={{ padding: '14px 12px 12px' }}>
@@ -406,7 +407,7 @@ export const MedicationsScreen: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               {(['Active', 'Paused', 'Stopped', 'Completed'] as const).map((tab) => (
                 <button
                   key={tab}
@@ -419,7 +420,8 @@ export const MedicationsScreen: React.FC = () => {
               ))}
             </div>
 
-            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'visible' }}>
+            {/* Scrolls sideways only on narrow screens, so row menus are not clipped on desktop. */}
+            <div className="table-scroll-narrow" style={{ ...tableMin(560), border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
               <table className="medios-table">
                 <thead>
                   <tr>
@@ -463,6 +465,7 @@ export const MedicationsScreen: React.FC = () => {
                           <>
                             <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setMenuFor(null)} />
                             <div
+                              className="pop-menu"
                               style={{
                                 position: 'absolute',
                                 right: 6,
@@ -514,7 +517,7 @@ export const MedicationsScreen: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, flex: 1 }}>
+          <div className="cols-2" style={{ gap: 12, flex: 1 }}>
             <div ref={adherenceRef} className="medios-card" style={{ padding: '10px 12px 14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 30 }}>
                 <span style={{ ...cardTitle, fontSize: 14.5 }}>Medication Adherence</span>

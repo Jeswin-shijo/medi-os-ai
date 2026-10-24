@@ -36,6 +36,9 @@ import {
   Nfc,
   type LucideIcon
 } from 'lucide-react';
+import { split, tableMin } from '../../utils/layout';
+import { RollingText } from '../common/RollingText';
+import { useChangeCount } from '../../hooks/useChangeCount';
 
 const TABS = ['Queue', 'Displays & Settings'] as const;
 type Tab = (typeof TABS)[number];
@@ -183,7 +186,7 @@ export const QueueScreen: React.FC = () => {
       if (r.called) showToast(`Token ${r.called.label} called to ${room}`, 'success');
     });
 
-  const kpis: { label: string; value: React.ReactNode; sub: string; icon: LucideIcon; tint: keyof typeof TINT }[] = [
+  const kpis: { label: string; value: string | number; sub: string; icon: LucideIcon; tint: keyof typeof TINT }[] = [
     { label: 'Waiting', value: board?.stats.waiting ?? '—', sub: waiting.some((t) => t.priority) ? `${waiting.filter((t) => t.priority).length} priority` : 'in line now', icon: Hourglass, tint: 'orange' },
     { label: 'With Doctor', value: board?.stats.called ?? '—', sub: `${rooms.length} room${rooms.length === 1 ? '' : 's'}`, icon: DoorOpen, tint: 'blue' },
     { label: 'Seen Today', value: board?.stats.completed ?? '—', sub: board ? `${board.stats.issued} tokens issued` : '', icon: CircleCheck, tint: 'green' },
@@ -226,7 +229,7 @@ export const QueueScreen: React.FC = () => {
         </AgentNotice>
       )}
 
-      <div className="stat-cards-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+      <div className="stat-cards-grid kpi-5">
         {kpis.map((k) => {
           const Icon = k.icon;
           return (
@@ -236,7 +239,9 @@ export const QueueScreen: React.FC = () => {
               </div>
               <div className="stat-data-box" style={{ minWidth: 0 }}>
                 <span className="stat-label">{k.label}</span>
-                <span className="stat-number">{k.value}</span>
+                <span className="stat-number">
+                  <RollingText value={k.value} />
+                </span>
                 <span className="stat-sub" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={k.sub}>
                   {k.sub}
                 </span>
@@ -257,7 +262,7 @@ export const QueueScreen: React.FC = () => {
       )}
 
       {tab === 'Queue' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 380px', gap: 12, alignItems: 'start' }}>
+        <div className="split" style={{ ...split('380px'), gap: 12, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
             <NowServing
               room={room}
@@ -278,71 +283,73 @@ export const QueueScreen: React.FC = () => {
                 <h3 style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>Waiting ({waiting.length})</h3>
                 <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>Priority tokens first, then by number</span>
               </div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 40 }}>#</th>
-                    <th style={{ width: 70 }}>Token</th>
-                    <th>Patient</th>
-                    <th>Visit</th>
-                    <th>Arrived</th>
-                    {canOperate && <th style={{ textAlign: 'right' }}>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {waiting.map((t) => (
-                    <tr key={t.id}>
-                      <td style={{ color: 'var(--text-muted)' }}>{t.position}</td>
-                      <td>
-                        <TokenLabel token={t} />
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{t.patientName}</div>
-                        <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)' }}>
-                          {t.uhid}
-                          {t.note ? ` · ${t.note}` : ''}
-                        </div>
-                      </td>
-                      <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t.appointmentTime ? `Appt ${t.appointmentTime}` : 'Walk-in'}</td>
-                      <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                        {clockOf(t.createdAt)}
-                        {minutesSince(t.createdAt, now) && <span style={{ color: 'var(--text-muted)' }}> · {minutesSince(t.createdAt, now)}</span>}
-                      </td>
-                      {canOperate && (
-                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <button
-                            className="btn-outline-blue btn-sm"
-                            style={{ borderColor: 'var(--border-strong)' }}
-                            disabled={!!busy || !room}
-                            onClick={() => callOutOfTurn(t)}
-                            title={current ? `Finishes ${current.label} and calls ${t.label} to ${room}` : `Calls ${t.label} to ${room}`}
-                          >
-                            <Megaphone size={13} />
-                            Call now
-                          </button>
-                          <button
-                            className="icon-btn"
-                            style={{ width: 30, height: 30, marginLeft: 6, display: 'inline-flex' }}
-                            disabled={!!busy}
-                            onClick={() => act(`cancel-${t.id}`, () => queueService.cancel(t.id), () => showToast(`Token ${t.label} cancelled`, 'info'))}
-                            title="Cancel token"
-                            aria-label={`Cancel token ${t.label}`}
-                          >
-                            <X size={14} color="var(--red-dark)" />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                  {!waiting.length && (
+              <div className="table-scroll" style={tableMin(520)}>
+                <table className="data-table">
+                  <thead>
                     <tr>
-                      <td colSpan={canOperate ? 6 : 5} style={{ padding: '28px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        {board ? 'No one is waiting. Check patients in from the panel on the right.' : 'Loading the queue…'}
-                      </td>
+                      <th style={{ width: 40 }}>#</th>
+                      <th style={{ width: 70 }}>Token</th>
+                      <th>Patient</th>
+                      <th>Visit</th>
+                      <th>Arrived</th>
+                      {canOperate && <th style={{ textAlign: 'right' }}>Actions</th>}
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {waiting.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ color: 'var(--text-muted)' }}>{t.position}</td>
+                        <td>
+                          <TokenLabel token={t} />
+                        </td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{t.patientName}</div>
+                          <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)' }}>
+                            {t.uhid}
+                            {t.note ? ` · ${t.note}` : ''}
+                          </div>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t.appointmentTime ? `Appt ${t.appointmentTime}` : 'Walk-in'}</td>
+                        <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                          {clockOf(t.createdAt)}
+                          {minutesSince(t.createdAt, now) && <span style={{ color: 'var(--text-muted)' }}> · {minutesSince(t.createdAt, now)}</span>}
+                        </td>
+                        {canOperate && (
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button
+                              className="btn-outline-blue btn-sm"
+                              style={{ borderColor: 'var(--border-strong)' }}
+                              disabled={!!busy || !room}
+                              onClick={() => callOutOfTurn(t)}
+                              title={current ? `Finishes ${current.label} and calls ${t.label} to ${room}` : `Calls ${t.label} to ${room}`}
+                            >
+                              <Megaphone size={13} />
+                              Call now
+                            </button>
+                            <button
+                              className="icon-btn"
+                              style={{ width: 30, height: 30, marginLeft: 6, display: 'inline-flex' }}
+                              disabled={!!busy}
+                              onClick={() => act(`cancel-${t.id}`, () => queueService.cancel(t.id), () => showToast(`Token ${t.label} cancelled`, 'info'))}
+                              title="Cancel token"
+                              aria-label={`Cancel token ${t.label}`}
+                            >
+                              <X size={14} color="var(--red-dark)" />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                    {!waiting.length && (
+                      <tr>
+                        <td colSpan={canOperate ? 6 : 5} style={{ padding: '28px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          {board ? 'No one is waiting. Check patients in from the panel on the right.' : 'Loading the queue…'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {skipped.length > 0 && (
@@ -378,20 +385,22 @@ export const QueueScreen: React.FC = () => {
             {seen.length > 0 && (
               <details className="medios-card" style={{ padding: 12 }}>
                 <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Seen today ({seen.length})</summary>
-                <table className="data-table" style={{ marginTop: 8 }}>
-                  <tbody>
-                    {seen.map((t) => (
-                      <tr key={t.id}>
-                        <td style={{ width: 70 }}>
-                          <TokenLabel token={t} />
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{t.patientName}</td>
-                        <td style={{ color: 'var(--text-secondary)' }}>{t.counter}</td>
-                        <td style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>done {clockOf(t.completedAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll" style={tableMin(520)}>
+                  <table className="data-table" style={{ marginTop: 8 }}>
+                    <tbody>
+                      {seen.map((t) => (
+                        <tr key={t.id}>
+                          <td style={{ width: 70 }}>
+                            <TokenLabel token={t} />
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{t.patientName}</td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{t.counter}</td>
+                          <td style={{ color: 'var(--text-secondary)', textAlign: 'right' }}>done {clockOf(t.completedAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </details>
             )}
           </div>
@@ -416,7 +425,7 @@ export const QueueScreen: React.FC = () => {
       )}
 
       {tab === 'Displays & Settings' && canManage && settings && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+        <div className="cols-2" style={{ gap: 12, alignItems: 'start' }}>
           <QueueSettingsPanel
             key={JSON.stringify(settings)}
             settings={settings}
@@ -473,101 +482,109 @@ interface NowServingProps {
   onDone: (token: QueueToken) => void;
 }
 
-const NowServing: React.FC<NowServingProps> = ({ room, current, next, otherRooms, canOperate, busy, now, onNext, onRecall, onSkip, onDone }) => (
-  <div className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <h3 style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>Now serving · {room || 'no room set up'}</h3>
-      {otherRooms.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {otherRooms.map((t) => (
-            <span key={t.id} className="badge-pill" style={{ backgroundColor: 'var(--bg-tab)', color: 'var(--text-secondary)' }} title={t.patientName}>
-              {t.counter}: <strong style={{ fontFamily: 'var(--font-mono)' }}>{t.label}</strong>
-            </span>
-          ))}
+const NowServing: React.FC<NowServingProps> = ({ room, current, next, otherRooms, canOperate, busy, now, onNext, onRecall, onSkip, onDone }) => {
+  // Each call or re-announcement replays the ring on the token tile.
+  const callCount = useChangeCount(current ? `${current.id}:${current.calledAt ?? ''}:${current.recalls}` : null);
+  return (
+    <div className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <h3 style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>Now serving · {room || 'no room set up'}</h3>
+        {otherRooms.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {otherRooms.map((t) => (
+              <span key={t.id} className="badge-pill" style={{ backgroundColor: 'var(--bg-tab)', color: 'var(--text-secondary)' }} title={t.patientName}>
+                {t.counter}: <strong style={{ fontFamily: 'var(--font-mono)' }}>{t.label}</strong>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {current ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <div
+            style={{
+              position: 'relative',
+              minWidth: 116,
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--blue-light)',
+              border: '1px solid var(--blue-border)',
+              textAlign: 'center'
+            }}
+          >
+            {callCount > 0 && <span key={callCount} className="token-called-ring" aria-hidden="true" />}
+            <div style={{ fontSize: 'var(--fs-2xs)', fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--blue-text)' }}>Token</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 44, fontWeight: 600, lineHeight: 1.1, color: 'var(--blue-text)' }}>
+              <RollingText value={current.label} />
+            </div>
+          </div>
+          <Avatar name={current.patientName} size={48} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>{current.patientName}</span>
+              {current.priority && (
+                <span className="badge-pill" style={{ backgroundColor: 'var(--orange-light)', color: 'var(--orange-dark)' }}>
+                  Priority
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: 2 }}>
+              {current.uhid} · {current.appointmentTime ? `Appointment ${current.appointmentTime}` : 'Walk-in'}
+              {current.note ? ` · ${current.note}` : ''}
+            </div>
+            <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginTop: 2 }}>
+              Called {clockOf(current.calledAt)}
+              {minutesSince(current.calledAt, now) ? ` (${minutesSince(current.calledAt, now)} ago)` : ''}
+              {current.recalls > 0 ? ` · announced again ${current.recalls}×` : ''}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 2px', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>
+          <UserRoundCheck size={22} color="var(--text-muted)" />
+          <span>
+            {room ? `${room} is free.` : 'Add a room in Displays & Settings.'}{' '}
+            {next ? (
+              <>
+                Next in line: <strong style={{ fontFamily: 'var(--font-mono)' }}>{next.label}</strong> {next.patientName}
+              </>
+            ) : (
+              'No one is waiting.'
+            )}
+          </span>
+        </div>
+      )}
+
+      {canOperate && room && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn-primary" style={{ padding: '0 18px' }} disabled={!!busy || (!current && !next)} onClick={onNext}>
+            <Megaphone size={15} />
+            <span>{current ? (next ? 'Done, call next' : 'Done') : 'Call next'}</span>
+          </button>
+          {current && (
+            <>
+              <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 14px' }} disabled={!!busy} onClick={() => onRecall(current)}>
+                <RotateCcw size={14} />
+                <span>Announce again</span>
+              </button>
+              <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 14px' }} disabled={!!busy} onClick={() => onSkip(current)}>
+                <SkipForward size={14} />
+                <span>Did not come</span>
+              </button>
+              {next && (
+                <button className="btn-secondary" style={{ padding: '0 14px' }} disabled={!!busy} onClick={() => onDone(current)} title="Finish without calling anyone">
+                  <Check size={14} />
+                  <span>Done only</span>
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
-
-    {current ? (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <div
-          style={{
-            minWidth: 116,
-            padding: '10px 14px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--blue-light)',
-            border: '1px solid var(--blue-border)',
-            textAlign: 'center'
-          }}
-        >
-          <div style={{ fontSize: 'var(--fs-2xs)', fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--blue-text)' }}>Token</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 44, fontWeight: 600, lineHeight: 1.1, color: 'var(--blue-text)' }}>{current.label}</div>
-        </div>
-        <Avatar name={current.patientName} size={48} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>{current.patientName}</span>
-            {current.priority && (
-              <span className="badge-pill" style={{ backgroundColor: 'var(--orange-light)', color: 'var(--orange-dark)' }}>
-                Priority
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: 2 }}>
-            {current.uhid} · {current.appointmentTime ? `Appointment ${current.appointmentTime}` : 'Walk-in'}
-            {current.note ? ` · ${current.note}` : ''}
-          </div>
-          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginTop: 2 }}>
-            Called {clockOf(current.calledAt)}
-            {minutesSince(current.calledAt, now) ? ` (${minutesSince(current.calledAt, now)} ago)` : ''}
-            {current.recalls > 0 ? ` · announced again ${current.recalls}×` : ''}
-          </div>
-        </div>
-      </div>
-    ) : (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 2px', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>
-        <UserRoundCheck size={22} color="var(--text-muted)" />
-        <span>
-          {room ? `${room} is free.` : 'Add a room in Displays & Settings.'}{' '}
-          {next ? (
-            <>
-              Next in line: <strong style={{ fontFamily: 'var(--font-mono)' }}>{next.label}</strong> {next.patientName}
-            </>
-          ) : (
-            'No one is waiting.'
-          )}
-        </span>
-      </div>
-    )}
-
-    {canOperate && room && (
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn-primary" style={{ padding: '0 18px' }} disabled={!!busy || (!current && !next)} onClick={onNext}>
-          <Megaphone size={15} />
-          <span>{current ? (next ? 'Done, call next' : 'Done') : 'Call next'}</span>
-        </button>
-        {current && (
-          <>
-            <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 14px' }} disabled={!!busy} onClick={() => onRecall(current)}>
-              <RotateCcw size={14} />
-              <span>Announce again</span>
-            </button>
-            <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 14px' }} disabled={!!busy} onClick={() => onSkip(current)}>
-              <SkipForward size={14} />
-              <span>Did not come</span>
-            </button>
-            {next && (
-              <button className="btn-secondary" style={{ padding: '0 14px' }} disabled={!!busy} onClick={() => onDone(current)} title="Finish without calling anyone">
-                <Check size={14} />
-                <span>Done only</span>
-              </button>
-            )}
-          </>
-        )}
-      </div>
-    )}
-  </div>
-);
+  );
+};
 
 interface CheckInPanelProps {
   appointments: Appointment[];
@@ -800,7 +817,7 @@ const QueueSettingsPanel: React.FC<{ settings: QueueSettings; occupiedRooms: str
           </button>
         </div>
       </Field>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+      <div className="cols-2" style={{ gap: 14 }}>
         <Field label="Token prefix" htmlFor="q-prefix" hint='Up to 4 letters or digits: "A" gives A1, A2…'>
           <input id="q-prefix" className="input-field" maxLength={4} value={draft.tokenPrefix} onChange={(e) => set('tokenPrefix', e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))} />
         </Field>

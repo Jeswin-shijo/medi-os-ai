@@ -47,6 +47,7 @@ import {
   ClipboardPlus,
   ClipboardList
 } from 'lucide-react';
+import { cols, ws3 } from '../../utils/layout';
 
 type NoteType = 'SOAP' | 'Structured Form' | 'Free Text';
 type SoapKey = 'subjective' | 'objective' | 'assessment' | 'plan';
@@ -432,7 +433,7 @@ export const ClinicalNotesScreen: React.FC = () => {
       />
 
       {/* Main 3-column EMR layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 244fr) minmax(0, 643fr) minmax(0, 394fr)', gap: 10, alignItems: 'stretch' }}>
+      <div className="ws-3" style={{ ...ws3('250px', '380px', 'minmax(0, 244fr) minmax(0, 643fr) minmax(0, 394fr)'), gap: 10, alignItems: 'stretch' }}>
         {/* Left: Visits timeline */}
         <div style={{ ...card, padding: '8px 9px 9px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
@@ -655,7 +656,7 @@ export const ClinicalNotesScreen: React.FC = () => {
           {/* Additional details + actions */}
           <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '4px 8px 6px', marginTop: 'auto' }}>
             <div style={{ fontSize: 10.5, fontWeight: 600, lineHeight: '14px', marginBottom: 2 }}>Additional Details</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1.18fr 0.97fr', gap: 8 }}>
+            <div className="cols-3" style={{ ...cols('minmax(0, 1.6fr) minmax(0, 1.18fr) minmax(0, 0.97fr)'), gap: 8 }}>
               <div>
                 <label style={fieldLabel}>Diagnosis (ICD-10)</label>
                 <div style={{ display: 'flex', alignItems: 'center', height: 26, border: '1px solid var(--border-color)', borderRadius: 5, padding: '0 8px', gap: 12, background: '#ffffff' }}>
@@ -684,7 +685,7 @@ export const ClinicalNotesScreen: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 0.8fr 1.3fr 1fr', alignItems: 'center', gap: 8, marginTop: 5 }}>
+            <div className="cols-4" style={{ ...cols('minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1.3fr) minmax(0, 1fr)'), alignItems: 'center', gap: 8, marginTop: 5 }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 10.5, cursor: 'pointer', paddingLeft: 4 }}>
                 <input type="checkbox" checked={isFinal} onChange={(e) => setIsFinal(e.target.checked)} style={{ width: 13, height: 13, accentColor: 'var(--blue-primary)' }} />
                 <span>Mark as Final</span>
@@ -898,7 +899,7 @@ export const ClinicalNotesScreen: React.FC = () => {
       </div>
 
       {/* Bottom context row: Vitals / Current Medications / Recent Lab Reports / Recent Imaging */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 384fr) minmax(0, 329fr) minmax(0, 340fr) minmax(0, 218fr)', gap: 10 }}>
+      <div className="cols-4" style={{ ...cols('minmax(0, 384fr) minmax(0, 329fr) minmax(0, 340fr) minmax(0, 218fr)'), gap: 10 }}>
         <div style={{ ...card, padding: '6px 10px 8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <span style={miniTitle}>
@@ -911,7 +912,7 @@ export const ClinicalNotesScreen: React.FC = () => {
               Add Vitals
             </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr 1fr 0.85fr 0.95fr 1.4fr', gap: 5 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(54px, 1fr))', gap: 5 }}>
             {vitalCells.map((c) => (
               <div key={c.label} style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 4px 5px 8px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span style={{ fontSize: 10.5, lineHeight: '15px' }}>{c.label}</span>

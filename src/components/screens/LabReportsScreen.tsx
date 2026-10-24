@@ -32,6 +32,7 @@ import {
   SquareCheckBig,
   type LucideIcon
 } from 'lucide-react';
+import { tableMin, ws3 } from '../../utils/layout';
 
 /* Screen-internal tab strip (Lab Reports design). Documents opens the Documents module. */
 const LAB_TABS: BannerTab[] = [
@@ -236,7 +237,7 @@ export const LabReportsScreen: React.FC = () => {
       />
 
       {/* 3-column layout: reports list / report detail / AI summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: '320px minmax(0, 1fr) 376px', gap: 10, alignItems: 'stretch', flex: '1 0 auto' }}>
+      <div className="ws-3" style={{ ...ws3('320px', '376px'), gap: 10, alignItems: 'stretch', flex: '1 0 auto' }}>
         {/* Left: Reports & Investigations */}
         <div className="medios-card" style={{ padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 0 0 0' }}>
@@ -344,7 +345,7 @@ export const LabReportsScreen: React.FC = () => {
         </div>
 
         {!currentReport ? (
-          <div className="medios-card" style={{ gridColumn: '2 / span 2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="medios-card ws-span-rest" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <p className="data-empty">{loading ? 'Loading lab reports…' : 'Select a report to view its results.'}</p>
           </div>
         ) : (
@@ -391,74 +392,76 @@ export const LabReportsScreen: React.FC = () => {
           </div>
 
           {subTab === 'Results' && (
-            <table className="medios-table" style={{ marginTop: 14, fontSize: 11.5, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col style={{ width: '23%' }} />
-                <col style={{ width: '10.5%' }} />
-                <col style={{ width: '17.5%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '5%' }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  {['Test Name', 'Result', 'Reference Range', 'Unit', 'Status'].map(h => (
-                    <th key={h} style={{ fontSize: 11, padding: '6px 6px 7px', borderBottom: '1px solid var(--border-color)' }}>{h}</th>
-                  ))}
-                  <th colSpan={2} style={{ padding: 0, borderLeft: '1px solid var(--border-color)' }} aria-label="Range" />
-                </tr>
-              </thead>
-              <tbody>
-                {currentReport.groups.map((group, gi) => (
-                  <React.Fragment key={group.category}>
-                    {gi > 0 && (
-                      <tr aria-hidden="true">
-                        <td colSpan={7} style={{ height: 9, padding: 0, border: 'none' }} />
+            <div className="table-scroll" style={tableMin(560)}>
+              <table className="medios-table" style={{ marginTop: 14, fontSize: 11.5, tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '23%' }} />
+                  <col style={{ width: '10.5%' }} />
+                  <col style={{ width: '17.5%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '5%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    {['Test Name', 'Result', 'Reference Range', 'Unit', 'Status'].map(h => (
+                      <th key={h} style={{ fontSize: 11, padding: '6px 6px 7px', borderBottom: '1px solid var(--border-color)' }}>{h}</th>
+                    ))}
+                    <th colSpan={2} style={{ padding: 0, borderLeft: '1px solid var(--border-color)' }} aria-label="Range" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentReport.groups.map((group, gi) => (
+                    <React.Fragment key={group.category}>
+                      {gi > 0 && (
+                        <tr aria-hidden="true">
+                          <td colSpan={7} style={{ height: 9, padding: 0, border: 'none' }} />
+                        </tr>
+                      )}
+                      <tr
+                        onClick={() => setCollapsed(c => ({ ...c, [group.category]: !c[group.category] }))}
+                        style={{ cursor: 'pointer', background: 'var(--bg-tab)' }}
+                      >
+                        <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 600, fontSize: 11.5, border: 'none' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <ChevronDown size={13} strokeWidth={2.4} style={{ transform: collapsed[group.category] ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />
+                            {group.category}
+                          </span>
+                        </td>
                       </tr>
-                    )}
-                    <tr
-                      onClick={() => setCollapsed(c => ({ ...c, [group.category]: !c[group.category] }))}
-                      style={{ cursor: 'pointer', background: 'var(--bg-tab)' }}
-                    >
-                      <td colSpan={7} style={{ padding: '5px 6px', fontWeight: 600, fontSize: 11.5, border: 'none' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <ChevronDown size={13} strokeWidth={2.4} style={{ transform: collapsed[group.category] ? 'rotate(-90deg)' : 'none', transition: 'transform 0.15s' }} />
-                          {group.category}
-                        </span>
-                      </td>
-                    </tr>
-                    {!collapsed[group.category] &&
-                      group.parameters.map(param => {
-                        const abnormal = isAbnormal(param);
-                        return (
-                          <tr
-                            key={param.name}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => showToast(`${param.name}: ${param.result} ${param.unit} (ref ${param.referenceRange})`, 'info')}
-                          >
-                            <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{param.name}</td>
-                            <td style={{ padding: '3px 6px', fontWeight: 700, color: abnormal ? 'var(--red-rose)' : 'var(--green-dark)' }}>{param.result}</td>
-                            <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{param.referenceRange}</td>
-                            <td style={{ padding: '3px 6px', whiteSpace: 'nowrap' }}>{param.unit}</td>
-                            <td style={{ padding: '3px 6px' }}>
-                              <span className={`status-pill ${abnormal ? 'red' : 'green'}`} style={{ height: 19, padding: '0 7px', fontSize: 11 }}>
-                                {param.status}
-                              </span>
-                            </td>
-                            <td style={{ padding: '3px 6px 3px 10px' }}>
-                              <RangeGauge param={param} />
-                            </td>
-                            <td style={{ padding: '3px 4px', textAlign: 'right' }}>
-                              <ChevronRight size={14} strokeWidth={2} />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                      {!collapsed[group.category] &&
+                        group.parameters.map(param => {
+                          const abnormal = isAbnormal(param);
+                          return (
+                            <tr
+                              key={param.name}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => showToast(`${param.name}: ${param.result} ${param.unit} (ref ${param.referenceRange})`, 'info')}
+                            >
+                              <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{param.name}</td>
+                              <td style={{ padding: '3px 6px', fontWeight: 700, color: abnormal ? 'var(--red-rose)' : 'var(--green-dark)' }}>{param.result}</td>
+                              <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{param.referenceRange}</td>
+                              <td style={{ padding: '3px 6px', whiteSpace: 'nowrap' }}>{param.unit}</td>
+                              <td style={{ padding: '3px 6px' }}>
+                                <span className={`status-pill ${abnormal ? 'red' : 'green'}`} style={{ height: 19, padding: '0 7px', fontSize: 11 }}>
+                                  {param.status}
+                                </span>
+                              </td>
+                              <td style={{ padding: '3px 6px 3px 10px' }}>
+                                <RangeGauge param={param} />
+                              </td>
+                              <td style={{ padding: '3px 4px', textAlign: 'right' }}>
+                                <ChevronRight size={14} strokeWidth={2} />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {subTab === 'Trends' && (

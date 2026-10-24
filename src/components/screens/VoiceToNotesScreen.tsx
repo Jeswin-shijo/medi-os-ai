@@ -34,6 +34,7 @@ import {
   Stethoscope,
   type LucideIcon
 } from 'lucide-react';
+import { ws3 } from '../../utils/layout';
 
 type SoapKey = 'subjective' | 'objective' | 'assessment' | 'plan';
 type CenterTab = 'Transcription' | 'AI Clinical Note' | 'Summary' | 'Action Items';
@@ -199,6 +200,7 @@ export const VoiceToNotesScreen: React.FC = () => {
               {showModeMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 19 }} onClick={() => setShowModeMenu(false)} />}
               {showModeMenu && (
                 <div
+                  className="pop-menu"
                   style={{
                     position: 'absolute',
                     top: 46,
@@ -247,7 +249,7 @@ export const VoiceToNotesScreen: React.FC = () => {
       <PatientBanner showSubtabs={false} />
 
       {/* 3 columns: Record console | Live transcription | Generated SOAP note */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 320fr) minmax(0, 487fr) minmax(0, 451fr)', gap: 14, alignItems: 'stretch' }}>
+      <div className="ws-3" style={{ ...ws3('300px', '440px', 'minmax(0, 320fr) minmax(0, 487fr) minmax(0, 451fr)'), gap: 14, alignItems: 'stretch' }}>
         {/* Left: recording console */}
         <div style={{ ...cardStyle, padding: '12px 14px 12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -371,7 +373,7 @@ export const VoiceToNotesScreen: React.FC = () => {
 
         {/* Center: live transcription */}
         <div style={{ ...cardStyle, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', gap: 4, padding: '4px 6px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', gap: 4, padding: '4px 6px 0', borderBottom: '1px solid var(--border-subtle)', overflowX: 'auto', scrollbarWidth: 'none' }}>
             {CENTER_TABS.map(({ id, icon: Icon }) => (
               <button
                 key={id}
@@ -502,8 +504,7 @@ export const VoiceToNotesScreen: React.FC = () => {
                 background: 'var(--bg-subtle)',
                 border: '1px solid var(--border-subtle)',
                 fontSize: 10.3,
-                color: 'var(--text-secondary)',
-                whiteSpace: 'nowrap'
+                color: 'var(--text-secondary)'
               }}
             >
               <MicVocal size={16} color="var(--blue-text)" style={{ flexShrink: 0 }} />
@@ -574,7 +575,7 @@ export const VoiceToNotesScreen: React.FC = () => {
             })}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 5, marginTop: 'auto', paddingTop: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 5, marginTop: 'auto', paddingTop: 10 }}>
             <button className="btn-secondary" style={{ height: 30, padding: '0 9px', fontSize: 11, gap: 5, color: 'var(--blue-text)', borderColor: 'var(--blue-border)' }} onClick={handleCopy}>
               <Copy size={13} />
               <span>Copy</span>
@@ -602,7 +603,7 @@ export const VoiceToNotesScreen: React.FC = () => {
       {/* Quick templates */}
       <div>
         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Quick Templates</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 158px))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 158px))', gap: 10 }}>
           {mockQuickTemplates.map((tpl) => {
             const Icon = TEMPLATE_ICONS[tpl.id] ?? FileText;
             const active = activeTemplate === tpl.id;
@@ -625,7 +626,7 @@ export const VoiceToNotesScreen: React.FC = () => {
               >
                 <Icon size={21} color={active ? 'var(--blue-text)' : 'var(--text-primary)'} strokeWidth={1.8} style={{ flexShrink: 0 }} />
                 <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ fontSize: 11.5, fontWeight: 500, color: active ? 'var(--blue-text)' : 'var(--text-primary)', whiteSpace: 'nowrap' }}>{tpl.title}</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 500, color: active ? 'var(--blue-text)' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{tpl.title}</span>
                   <span style={{ fontSize: 10.5, color: active ? 'var(--blue-text)' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tpl.subtitle}</span>
                 </span>
               </button>

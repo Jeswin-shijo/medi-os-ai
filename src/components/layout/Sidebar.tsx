@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { ScreenId } from '../../types';
 import {
@@ -33,9 +33,24 @@ interface NavItem {
   dot?: boolean;
 }
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  /** Phones only: the sidebar is a drawer, open while this is true. */
+  open: boolean;
+  onClose: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const { activeScreen, setActiveScreen, unreadMessagesCount, user, signOut } = useApp();
   const name = user?.name ?? '';
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    navRef.current?.querySelector<HTMLButtonElement>('.nav-item-btn.active, .nav-item-btn')?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
@@ -60,7 +75,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="app-sidebar">
+    <aside className={`app-sidebar${open ? ' is-open' : ''}`} aria-label="Main navigation">
       {/* Brand Header */}
       <div className="sidebar-header">
         <div className="brand-icon-box">
@@ -73,7 +88,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Navigation List */}
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" ref={navRef}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeScreen === item.id;
@@ -81,13 +96,19 @@ export const Sidebar: React.FC = () => {
             <button
               key={item.id}
               className={`nav-item-btn ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveScreen(item.id)}
+              aria-label={item.badge ? `${item.label}, ${item.badge} unread` : item.label}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => {
+                setActiveScreen(item.id);
+                onClose();
+              }}
             >
+              {isActive && <span className="nav-active-bg" aria-hidden="true" />}
               <span className="nav-item-icon">
                 <Icon size={22} strokeWidth={1.75} />
                 {item.dot && <span className="nav-item-dot" />}
               </span>
-              <span>{item.label}</span>
+              <span className="nav-item-label">{item.label}</span>
               {item.badge && item.badge > 0 ? (
                 <span className="nav-badge-pill">{item.badge}</span>
               ) : null}
@@ -108,6 +129,7 @@ export const Sidebar: React.FC = () => {
 
         <button
           className="logout-btn"
+          aria-label="Logout"
           onClick={signOut}
         >
           <LogOut size={20} strokeWidth={1.75} />

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { AppProvider } from './context/AppContext';
 import { useApp } from './context/appContextCore';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { ToastContainer } from './components/layout/ToastContainer';
 import { CommandPaletteModal } from './components/layout/CommandPaletteModal';
+import { TooltipLayer } from './components/common/TooltipLayer';
 
 // 17 Hospital SaaS Modules (Pixel-perfect to screenshots)
 import { DashboardScreen } from './components/screens/DashboardScreen';
@@ -33,6 +34,8 @@ import { LoginScreen } from './components/screens/LoginScreen';
 
 const MainLayout: React.FC = () => {
   const { activeScreen } = useApp();
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = useCallback(() => setNavOpen(false), []);
 
   const renderActiveScreen = () => {
     switch (activeScreen) {
@@ -87,13 +90,14 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="app-container">
-      {/* 17-Module Sidebar Navigation */}
-      <Sidebar />
+      {/* 17-Module Sidebar Navigation (a slide-in drawer on phones) */}
+      <Sidebar open={navOpen} onClose={closeNav} />
+      {navOpen && <div className="sidebar-scrim" onClick={closeNav} aria-hidden="true" />}
 
       {/* Main Workstation Area */}
       <div className="app-main">
         {/* Top Header with ⌘K Search, Notifications & Doctor Profile */}
-        <Header />
+        <Header onOpenNav={() => setNavOpen(true)} />
 
         {/* Scrollable Viewport for Active Screen */}
         <main
@@ -112,6 +116,7 @@ const MainLayout: React.FC = () => {
       {/* Global Modals & Overlays */}
       <CommandPaletteModal />
       <ToastContainer />
+      <TooltipLayer />
     </div>
   );
 };

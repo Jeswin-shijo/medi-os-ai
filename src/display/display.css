@@ -165,6 +165,22 @@
   100% { box-shadow: 0 0 0 2.2vw rgba(77, 141, 255, 0); }
 }
 
+/* A fresh call's number slides down out of a slot, the same motion as the kiosk's token. */
+.qd-card.fresh .qd-card-token {
+  animation: qdTokenIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes qdTokenIn {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-30%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+}
+
 .qd-empty {
   flex: 1;
   display: flex;
@@ -293,7 +309,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .qd-card.fresh {
+  .qd-card.fresh,
+  .qd-card.fresh .qd-card-token {
     animation: none;
   }
 }

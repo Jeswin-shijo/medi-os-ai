@@ -31,6 +31,7 @@ import {
   X,
   type LucideIcon
 } from 'lucide-react';
+import { split } from '../../utils/layout';
 
 type Category = TimelineEvent['category'];
 type Tone = 'blue' | 'orange' | 'purple' | 'cyan' | 'green' | 'red' | 'gray';
@@ -215,7 +216,7 @@ export const TimelineScreen: React.FC = () => {
 
       <PatientBanner activeTab="timeline" />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) clamp(300px, 26vw, 372px)', gap: 'var(--gap)', alignItems: 'start' }}>
+      <div className="split split-late" style={{ ...split('clamp(300px, 26vw, 372px)'), gap: 'var(--gap)', alignItems: 'start' }}>
         {/* Timeline */}
         <div className="medios-card">
           <div className="card-header-row" style={{ marginBottom: '10px' }}>

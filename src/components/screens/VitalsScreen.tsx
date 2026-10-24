@@ -28,6 +28,7 @@ import {
   X,
   type LucideIcon
 } from 'lucide-react';
+import { split } from '../../utils/layout';
 
 type ChartTab = 'BP' | 'Glucose' | 'Pulse' | 'BMI';
 type Range = '1M' | '3M' | '6M' | '1Y' | 'All';
@@ -293,7 +294,7 @@ export const VitalsScreen: React.FC = () => {
               <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{activePatient.uhid}</strong>. Leave a field empty if it was not measured.
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '12px' }}>
+            <div className="cols-3" style={{ gap: '12px' }}>
               {numberField('vit-sys', 'Systolic BP (mmHg) *', newSys, setNewSys, { required: true })}
               {numberField('vit-dia', 'Diastolic BP (mmHg) *', newDia, setNewDia, { required: true })}
               {numberField('vit-pulse', 'Heart Rate (bpm) *', newPulse, setNewPulse, { required: true })}
@@ -574,7 +575,7 @@ export const VitalsScreen: React.FC = () => {
       </div>
 
       {/* Trends + AI */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) clamp(300px, 26vw, 372px)', gap: 'var(--gap)', alignItems: 'stretch' }}>
+      <div className="split split-late" style={{ ...split('clamp(300px, 26vw, 372px)'), gap: 'var(--gap)', alignItems: 'stretch' }}>
         <div className="medios-card" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div className="card-header-row" style={{ marginBottom: '8px' }}>
             <h3 className="card-title">Vitals Trends</h3>

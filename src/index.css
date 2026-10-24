@@ -107,6 +107,10 @@
   --header-height: 56px;
   --page-gutter: 18px;
   --gap: 14px;
+
+  /* Motion: confident arrivals, quick exits */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
 
 * {
@@ -282,11 +286,23 @@ a {
 }
 
 .nav-item-btn.active {
-  background: var(--bg-sidebar-active);
-  border-color: rgba(120, 165, 255, 0.35);
   color: #ffffff;
   font-weight: 500;
+}
+
+/* The active highlight is its own layer so it can glide between items when the screen changes. */
+.nav-active-bg {
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(120, 165, 255, 0.35);
+  background: var(--bg-sidebar-active);
   box-shadow: 0 4px 14px rgba(19, 74, 190, 0.35);
+  view-transition-name: nav-active;
+}
+
+.nav-item-btn > :not(.nav-active-bg) {
+  position: relative;
 }
 
 .nav-item-icon {
@@ -393,8 +409,15 @@ a {
   padding: 0 24px 0 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   z-index: 40;
+}
+
+/* Phone-only header buttons: the drawer menu and a search icon in place of the search field. */
+.header-icon-btn.header-menu-btn,
+.header-icon-btn.header-search-btn {
+  display: none;
+  flex-shrink: 0;
 }
 
 .global-search-container {
@@ -453,6 +476,7 @@ a {
   display: flex;
   align-items: center;
   gap: 0;
+  margin-left: auto;
 }
 
 .header-divider {
@@ -502,6 +526,12 @@ a {
   padding: 2px 4px;
   border-radius: var(--radius-md);
   cursor: pointer;
+  text-align: left;
+}
+
+.header-doctor-text {
+  display: flex;
+  flex-direction: column;
 }
 
 .header-doctor-pill:hover {
@@ -549,7 +579,13 @@ a {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.screen-title-area {
+  flex: 1 1 260px;
+  min-width: 0;
 }
 
 .screen-title-area h1 {
@@ -569,8 +605,8 @@ a {
 .screen-header-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  flex-shrink: 0;
   padding-top: 4px;
 }
 
@@ -1401,6 +1437,7 @@ textarea.input-field {
   inset: 0;
   background-color: rgba(15, 26, 61, 0.55);
   backdrop-filter: blur(3px);
+  animation: fadeIn 0.18s ease-out;
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -1418,7 +1455,7 @@ textarea.input-field {
   max-height: 90vh;
   overflow-y: auto;
   border: 1px solid var(--border-color);
-  animation: modalFadeIn 0.2s ease-out;
+  animation: modalFadeIn 0.24s var(--ease-out);
 }
 
 @keyframes modalFadeIn {
@@ -1507,7 +1544,16 @@ textarea.input-field {
   gap: 10px;
   font-size: var(--fs-body);
   font-weight: 500;
-  animation: toastSlideUp 0.25s ease-out;
+  animation:
+    toastSlideUp 0.28s var(--ease-out),
+    toastOut 0.2s var(--ease-in) 3.3s forwards;
+}
+
+@keyframes toastOut {
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
 }
 
 @keyframes toastSlideUp {
@@ -1616,13 +1662,545 @@ textarea.input-field {
   background-color: var(--border-subtle);
 }
 
+/* ===== Motion =====
+   Motion here confirms an action, explains a state change or keeps your place; routine changes stay under
+   300 ms. The one authored moment is a token rising through a slot (kiosk, Token Queue, waiting-room display). */
+
+/* Screen changes (view transitions started in AppContext): the content fades through, the rest of the
+   frame stays put, and the sidebar highlight glides to the new item. */
+#main-content-viewport {
+  view-transition-name: screen;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(screen) {
+  animation: fadeOut 0.09s var(--ease-in) both;
+}
+
+/* Starts as the old screen finishes leaving, so two dense screens never show through each other. */
+::view-transition-new(screen) {
+  animation: screenIn 0.24s var(--ease-out) 0.08s both;
+}
+
+::view-transition-group(nav-active) {
+  animation-duration: 0.3s;
+  animation-timing-function: var(--ease-out);
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; }
+}
+
+/* Press feedback on controls. */
+.btn-primary,
+.btn-secondary,
+.btn-outline-blue,
+.btn-whatsapp,
+.btn-danger-soft,
+.btn-ai,
+.icon-btn,
+.chip-btn,
+.page-tab-btn,
+.subtab-pill-btn,
+.card-tab-btn,
+.header-icon-btn,
+.nav-item-btn {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, scale 0.12s var(--ease-out);
+}
+
+:is(.btn-primary, .btn-secondary, .btn-outline-blue, .btn-whatsapp, .btn-danger-soft, .btn-ai, .icon-btn, .chip-btn, .page-tab-btn, .subtab-pill-btn, .card-tab-btn, .header-icon-btn):active:not(:disabled) {
+  scale: 0.97;
+}
+
+.nav-item-btn:active {
+  scale: 0.985;
+}
+
+/* KPI tiles that act as filters lift slightly to show they are clickable. */
+button.stat-card-item {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, scale 0.12s var(--ease-out);
+}
+
+button.stat-card-item:hover {
+  box-shadow: 0 10px 20px -12px rgba(15, 26, 61, 0.3);
+}
+
+button.stat-card-item:active {
+  scale: 0.99;
+}
+
+/* Cards that appear (a tab switch, a new selection, data arriving) fade in instead of snapping into place.
+   Opacity only, so it reads the same with reduced motion. */
+.medios-card,
+.ai-assistant-card {
+  transition: opacity 0.2s ease-out;
+}
+
+@starting-style {
+  .medios-card,
+  .ai-assistant-card {
+    opacity: 0;
+  }
+}
+
+/* A detail panel showing a different patient or appointment fades its new content in. */
+.swap-in {
+  animation: swapIn 0.22s var(--ease-out);
+}
+
+@keyframes swapIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Dropdown menus grow from the button that opened them. */
+.pop-menu {
+  transform-origin: top right;
+  animation: popIn 0.14s var(--ease-out);
+}
+
+.pop-menu.pop-left {
+  transform-origin: top left;
+}
+
+.pop-menu.pop-up {
+  transform-origin: bottom right;
+  animation-name: popInUp;
+}
+
+.pop-menu.pop-up.pop-left {
+  transform-origin: bottom left;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
+@keyframes popInUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+}
+
+/* Live values (RollingText): the old value leaves upward, the new one rises in. */
+.roll {
+  display: inline-grid;
+  justify-items: start;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.roll > * {
+  grid-area: 1 / 1;
+}
+
+.header-bell-badge.roll {
+  justify-items: center;
+  align-items: center;
+}
+
+.roll-in {
+  animation: rollIn 0.34s var(--ease-out);
+}
+
+.roll-out {
+  animation: rollOut 0.2s var(--ease-in) forwards;
+}
+
+@keyframes rollIn {
+  from {
+    opacity: 0;
+    transform: translateY(60%);
+  }
+}
+
+@keyframes rollOut {
+  to {
+    opacity: 0;
+    transform: translateY(-60%);
+  }
+}
+
+/* Token Queue: one soft ring each time a token is called or announced again. */
+.token-called-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: tokenRing 0.9s var(--ease-out) both;
+}
+
+@keyframes tokenRing {
+  from { box-shadow: 0 0 0 0 rgba(11, 91, 246, 0.45); }
+  to { box-shadow: 0 0 0 14px rgba(11, 91, 246, 0); }
+}
+
+/* Phones: modals rise as a sheet from the bottom edge. */
+@media (max-width: 640px) {
+  .modal-content-box,
+  .modal-card {
+    animation-name: sheetUp;
+    animation-duration: 0.3s;
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+}
+
+/* Reduced motion: no movement, but changes still fade so they stay noticeable. RollingText relies on
+   animationend, so its animations become short fades instead of none. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(screen) {
+    animation: fadeIn 0.16s ease-out both;
+  }
+
+  ::view-transition-group(nav-active) {
+    animation-duration: 0s;
+  }
+
+  .roll-in {
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  .roll-out {
+    animation: fadeOut 0.1s linear forwards;
+  }
+
+  .swap-in,
+  .pop-menu,
+  .pop-menu.pop-up,
+  .modal-content-box,
+  .modal-card {
+    animation-name: fadeIn;
+  }
+
+  .toast-item {
+    animation:
+      fadeIn 0.15s ease-out,
+      fadeOut 0.2s linear 3.3s forwards;
+  }
+
+  .token-called-ring {
+    animation: tokenRingStill 0.9s ease-out both;
+  }
+
+  :is(.btn-primary, .btn-secondary, .btn-outline-blue, .btn-whatsapp, .btn-danger-soft, .btn-ai, .icon-btn, .chip-btn, .page-tab-btn, .subtab-pill-btn, .card-tab-btn, .header-icon-btn, .nav-item-btn, button.stat-card-item):active {
+    scale: none;
+  }
+}
+
+@keyframes tokenRingStill {
+  from { box-shadow: 0 0 0 4px rgba(11, 91, 246, 0.4); }
+  to { box-shadow: 0 0 0 4px rgba(11, 91, 246, 0); }
+}
+
+/* ===== Responsive workspaces ===== */
+/* Three panes (rail | main | side). Screens set --ws-l and --ws-r, plus --ws-cols when the wide layout
+   uses proportional columns. Laptops fold one pane under the other two; narrow screens stack all three. */
+.ws-3 {
+  display: grid;
+  grid-template-columns: var(--ws-cols, var(--ws-l) minmax(0, 1fr) var(--ws-r));
+}
+
+.ws-3 > *,
+.split > * {
+  min-width: 0;
+}
+
+/* Main pane beside a side panel. Stacks when the main pane would get too narrow:
+   at 1100px by default, earlier (.split-early) for wide tables, later (.split-late) for light content. */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--split-side);
+}
+
+/* Panes placed by role inside .ws-3: one spanning the main and side columns, one that goes last when folded. */
+.ws-3 > .ws-span-rest {
+  grid-column: 2 / -1;
+}
+
+/* Column sets that fold: four and three go to two at tablet width, everything goes to one on phones.
+   --cols keeps a design's uneven wide columns. */
+.cols-2,
+.cols-3,
+.cols-4 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cols-3 {
+  grid-template-columns: var(--cols, repeat(3, minmax(0, 1fr)));
+}
+
+.cols-4 {
+  grid-template-columns: var(--cols, repeat(4, minmax(0, 1fr)));
+}
+
+.cols-2 > *,
+.cols-3 > *,
+.cols-4 > * {
+  min-width: 0;
+}
+
+/* Five KPI tiles (Token Queue). */
+.stat-cards-grid.kpi-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* Hospital Knowledge topic tiles: six, then a wider seventh. */
+.topic-tiles {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(0, 1.42fr);
+}
+
+/* Wide tables scroll sideways inside their card instead of spilling over the next pane. */
+.table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.table-scroll > table {
+  min-width: var(--table-min, 640px);
+}
+
+@media (max-width: 900px) {
+  .table-scroll-narrow {
+    overflow-x: auto;
+  }
+
+  .table-scroll-narrow > table {
+    min-width: var(--table-min, 640px);
+  }
+}
+
+/* ===== Appointments: daily list ===== */
+.apt-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.apt-list {
+  container-type: inline-size;
+}
+
+.apt-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  align-self: stretch;
+  padding-left: 12px;
+}
+
+.apt-row-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.apt-row-status {
+  width: 88px;
+  flex-shrink: 0;
+  display: flex;
+}
+
+.apt-row-more {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: 5px;
+}
+
+.apt-row-actions {
+  width: 124px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Narrow list: the name gets the first line, status and actions move to a second. */
+@container (max-width: 600px) {
+  .apt-row-body {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 10px 0 10px 10px;
+  }
+
+  /* Line 1: avatar, name, menu. Line 2: status and actions. */
+  .apt-row-who {
+    flex-basis: calc(100% - 100px);
+  }
+
+  .apt-row-more {
+    order: 1;
+    margin-left: 0;
+  }
+
+  .apt-row-status {
+    width: auto;
+    order: 2;
+  }
+
+  .apt-row-actions {
+    width: auto;
+    flex: 1;
+    order: 3;
+  }
+}
+
+/* ===== Tooltip (TooltipLayer) ===== */
+.app-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  max-width: 280px;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  background-color: var(--text-primary);
+  color: #ffffff;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  box-shadow: 0 6px 16px -4px rgba(15, 26, 61, 0.35);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.app-tooltip.is-placed {
+  opacity: 1;
+  animation: tipIn 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-tooltip.is-placed.is-below {
+  animation-name: tipInBelow;
+}
+
+@keyframes tipIn {
+  from { opacity: 0; transform: translateY(3px); }
+}
+
+@keyframes tipInBelow {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+
+/* ===== Browser surfaces ===== */
+:focus-visible {
+  outline: 2px solid var(--blue-primary);
+  outline-offset: 2px;
+}
+
+.app-sidebar :focus-visible {
+  outline-color: #9cc1ff;
+}
+
+::selection {
+  background-color: #cfe0ff;
+  color: var(--text-primary);
+}
+
+/* Drawer backdrop, phones only. */
+.sidebar-scrim {
+  display: none;
+}
+
 /* ===== Responsive ===== */
+@media (max-width: 1366px) {
+  /* The side pane moves under the other two, full width... */
+  .ws-3 {
+    grid-template-columns: var(--ws-l) minmax(0, 1fr);
+  }
+
+  .ws-3 > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  /* ...or, for .ws-fold-left, the rail does instead. */
+  .ws-3.ws-fold-left {
+    grid-template-columns: minmax(0, 1fr) var(--ws-r);
+  }
+
+  .ws-3.ws-fold-left > :nth-child(3) {
+    grid-column: auto;
+  }
+
+  .ws-3.ws-fold-left > :first-child {
+    grid-column: 1 / -1;
+    order: 1;
+  }
+
+  .apt-rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    align-items: start;
+  }
+
+  .split.split-early {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ws-3 > .ws-last {
+    order: 1;
+  }
+
+  .topic-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  /* Messages: list and chat keep a full-height row; patient details go underneath. */
+  .msg-ws {
+    grid-template-rows: minmax(520px, calc(100dvh - 240px)) auto;
+  }
+}
+
 @media (max-width: 1280px) {
   :root {
     --sidebar-width: 200px;
   }
 
   .stat-cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .split:not(.split-late) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-cards-grid.kpi-5 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
@@ -1658,7 +2236,7 @@ textarea.input-field {
     width: 320px;
   }
 
-  .header-doctor-pill > div,
+  .header-doctor-text,
   .header-doctor-chevron {
     display: none;
   }
@@ -1666,6 +2244,194 @@ textarea.input-field {
   .stat-cards-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+@media (max-width: 900px) {
+  .ws-3,
+  .ws-3.ws-fold-left,
+  .split.split-late {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ws-3 > .ws-span-rest {
+    grid-column: auto;
+  }
+
+  .msg-ws {
+    grid-template-rows: 340px minmax(460px, calc(100dvh - 140px)) auto;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 264px;
+    --page-gutter: 14px;
+  }
+
+  /* The sidebar becomes a drawer over the page. */
+  .app-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 900;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.26s;
+  }
+
+  .app-sidebar.is-open {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 24px 48px -12px rgba(5, 12, 30, 0.55);
+  }
+
+  .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 899;
+    background-color: rgba(15, 26, 61, 0.45);
+    animation: scrimIn 0.2s ease-out;
+  }
+
+  /* Inside the drawer the labels come back. */
+  .sidebar-header {
+    justify-content: flex-start;
+    padding: 0 14px 0 16px;
+  }
+
+  .brand-text-box,
+  .nav-item-btn > span:not(.nav-item-icon),
+  .doctor-profile-info,
+  .logout-btn span {
+    display: revert;
+  }
+
+  .nav-item-btn {
+    justify-content: flex-start;
+    padding: 0 12px 0 14px;
+  }
+
+  .sidebar-footer {
+    align-items: stretch;
+    padding: 16px 16px 14px;
+  }
+
+  .header-icon-btn.header-menu-btn {
+    display: flex;
+  }
+
+  .app-header {
+    padding: 0 10px 0 6px;
+  }
+
+  .global-search-container {
+    flex: 1;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .search-shortcut-badge {
+    display: none;
+  }
+
+  .global-search-input {
+    padding-right: 12px;
+  }
+
+  .header-divider {
+    margin: 0 6px;
+  }
+
+  .stat-icon-wrapper {
+    width: 42px;
+    height: 42px;
+  }
+
+  .stat-card-item {
+    padding: 12px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --fs-page-title: 23px;
+  }
+
+  .cols-2,
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-cards-grid.kpi-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .global-search-container,
+  .header-divider {
+    display: none;
+  }
+
+  .header-icon-btn.header-search-btn {
+    display: flex;
+  }
+
+  .screen-header-actions .btn-primary,
+  .screen-header-actions .btn-secondary,
+  .screen-header-actions .btn-outline-blue {
+    height: 40px;
+    padding: 0 14px;
+  }
+
+  .modal-overlay,
+  .modal-backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .modal-content-box,
+  .modal-card {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .toast-container {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+}
+
+/* Touch screens: every button and link gets an invisible margin a finger can hit, so small icon buttons,
+   text links and chips reach about 30px without changing how they look. :where() keeps this at zero
+   specificity, so anything that positions its own buttons still wins. */
+@media (pointer: coarse) {
+  :where(button, a[href], [role='button'], summary) {
+    position: relative;
+  }
+
+  :where(button, a[href], [role='button'], summary)::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+
+  /* Stacked full-size rows are already big enough; growing them would steal taps from their neighbours. */
+  .nav-item-btn::after {
+    inset: 0;
+  }
+
+  /* Checkboxes are drawn larger, which also enlarges what a finger can hit. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    scale: 1.35;
+  }
+}
+
+@keyframes scrimIn {
+  from { opacity: 0; }
 }
 
 /* ===== Sign-in ===== */
@@ -1803,4 +2569,8 @@ textarea.input-field {
 
 @media (prefers-reduced-motion: reduce) {
   .call-pulse { animation: none; }
+  .app-tooltip.is-placed,
+  .sidebar-scrim { animation: none; }
+  .app-sidebar,
+  .app-sidebar.is-open { transition: none; }
 }

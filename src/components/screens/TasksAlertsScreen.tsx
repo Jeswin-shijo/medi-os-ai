@@ -38,6 +38,7 @@ import {
   CircleCheck,
   type LucideIcon
 } from 'lucide-react';
+import { tableMin } from '../../utils/layout';
 
 /** Lungs glyph for the chest X-ray alert (not in Lucide). */
 const Lungs = createLucideIcon('lungs', [
@@ -136,6 +137,9 @@ const LAYOUT_CSS = `
   .ta-right { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 1024px) { .ta-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .ta-right { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) { .ta-kpis .stat-icon-wrapper { display: none; } }
+.ta-kpis > * { min-width: 0; }
 `;
 
 const cell: React.CSSProperties = { padding: '0 4px', borderBottom: '1px solid var(--border-subtle)', verticalAlign: 'middle' };
@@ -305,8 +309,8 @@ export const TasksAlertsScreen: React.FC = () => {
       />
 
       {/* Tabs + view controls */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: -6, borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.45)', borderRadius: '8px 8px 0 0' }}>
-        <div style={{ display: 'flex', alignItems: 'stretch', overflowX: 'auto', scrollbarWidth: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px 12px', marginTop: -6, borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.45)', borderRadius: '8px 8px 0 0' }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', overflowX: 'auto', scrollbarWidth: 'none', flex: '1 1 340px', minWidth: 0 }}>
           {TABS.map((tab) => {
             const active = activeTab === tab;
             return (
@@ -331,7 +335,7 @@ export const TasksAlertsScreen: React.FC = () => {
             );
           })}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, flexShrink: 0, paddingRight: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 11, padding: '0 6px 6px', marginLeft: 'auto' }}>
           <button
             className="btn-outline-blue"
             style={{ ...ctrlBtn, width: 90, backgroundColor: showFilters ? 'var(--blue-light)' : undefined }}
@@ -455,89 +459,91 @@ export const TasksAlertsScreen: React.FC = () => {
           )}
 
           {view === 'list' ? (
-            <table className="medios-table" style={{ tableLayout: 'fixed' }}>
-              <colgroup>
-                {COL_WIDTHS.map((w, i) => (
-                  <col key={i} style={{ width: `${((w / 857) * 100).toFixed(2)}%` }} />
-                ))}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th style={{ ...headCell, paddingLeft: 8, borderRadius: '6px 0 0 6px' }}>
-                    <input type="checkbox" style={checkbox} checked={allPageDone} onChange={toggleAllOnPage} aria-label="Toggle all on page" />
-                  </th>
-                  <th style={headCell} />
-                  <th style={headCell}>Task / Alert</th>
-                  <th style={headCell}>Patient</th>
-                  <th style={headCell}>Type</th>
-                  <th style={headCell}>Priority</th>
-                  <th style={headCell}>Due Date / Time</th>
-                  <th style={headCell}>Status</th>
-                  <th style={{ ...headCell, borderRadius: '0 6px 6px 0' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageTasks.map((task) => {
-                  const isDone = task.status === 'Completed';
-                  const meta = TYPE_ICON[task.type];
-                  const TypeIcon = meta.icon;
-                  return (
-                    <tr key={task.id} style={{ height: 54, opacity: isDone ? 0.6 : 1 }}>
-                      <td style={{ ...cell, paddingLeft: 8 }}>
-                        <input type="checkbox" style={checkbox} checked={isDone} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />
-                      </td>
-                      <td style={{ ...cell, paddingLeft: 8 }}>
-                        <TypeIcon size={19} color={meta.color} style={{ display: 'block' }} />
-                      </td>
-                      <td style={cell}>
-                        <div style={{ ...line1, textDecoration: isDone ? 'line-through' : 'none' }}>{task.title}</div>
-                        {task.subtitle && <div style={{ ...line2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.subtitle}</div>}
-                      </td>
-                      <td style={cell}>
-                        <div style={line1}>{task.patientName}</div>
-                        <div style={line2}>{task.uhid}</div>
-                      </td>
-                      <td style={cell}>
-                        <span
-                          className={`status-pill ${TYPE_PILL[task.type]}`}
-                          style={task.type.length > 16 ? { ...pill, fontSize: 10.5, padding: '0 5px', letterSpacing: '-0.2px' } : pill}
-                        >
-                          {task.type}
-                        </span>
-                      </td>
-                      <td style={cell}>
-                        <span className={`status-pill ${PRIORITY_PILL[task.priority]}`} style={pill}>
-                          {task.priority}
-                        </span>
-                      </td>
-                      <td style={cell}>{renderDue(task.dueDateTime)}</td>
-                      <td style={cell}>
-                        <span className={`status-pill ${STATUS_PILL[task.status]}`} style={pill}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td style={cell}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 22, paddingLeft: 6 }}>
-                          {rowAction(task)}
-                          <button style={{ color: 'var(--text-primary)', display: 'inline-flex', padding: 2 }} aria-label="More actions" onClick={() => showToast(`More actions for "${task.title}"`, 'info')}>
-                            <EllipsisVertical size={16} />
-                          </button>
-                        </div>
+            <div className="table-scroll" style={tableMin(760)}>
+              <table className="medios-table" style={{ tableLayout: 'fixed' }}>
+                <colgroup>
+                  {COL_WIDTHS.map((w, i) => (
+                    <col key={i} style={{ width: `${((w / 857) * 100).toFixed(2)}%` }} />
+                  ))}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={{ ...headCell, paddingLeft: 8, borderRadius: '6px 0 0 6px' }}>
+                      <input type="checkbox" style={checkbox} checked={allPageDone} onChange={toggleAllOnPage} aria-label="Toggle all on page" />
+                    </th>
+                    <th style={headCell} />
+                    <th style={headCell}>Task / Alert</th>
+                    <th style={headCell}>Patient</th>
+                    <th style={headCell}>Type</th>
+                    <th style={headCell}>Priority</th>
+                    <th style={headCell}>Due Date / Time</th>
+                    <th style={headCell}>Status</th>
+                    <th style={{ ...headCell, borderRadius: '0 6px 6px 0' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageTasks.map((task) => {
+                    const isDone = task.status === 'Completed';
+                    const meta = TYPE_ICON[task.type];
+                    const TypeIcon = meta.icon;
+                    return (
+                      <tr key={task.id} style={{ height: 54, opacity: isDone ? 0.6 : 1 }}>
+                        <td style={{ ...cell, paddingLeft: 8 }}>
+                          <input type="checkbox" style={checkbox} checked={isDone} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />
+                        </td>
+                        <td style={{ ...cell, paddingLeft: 8 }}>
+                          <TypeIcon size={19} color={meta.color} style={{ display: 'block' }} />
+                        </td>
+                        <td style={cell}>
+                          <div style={{ ...line1, textDecoration: isDone ? 'line-through' : 'none' }}>{task.title}</div>
+                          {task.subtitle && <div style={{ ...line2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.subtitle}</div>}
+                        </td>
+                        <td style={cell}>
+                          <div style={line1}>{task.patientName}</div>
+                          <div style={line2}>{task.uhid}</div>
+                        </td>
+                        <td style={cell}>
+                          <span
+                            className={`status-pill ${TYPE_PILL[task.type]}`}
+                            style={task.type.length > 16 ? { ...pill, fontSize: 10.5, padding: '0 5px', letterSpacing: '-0.2px' } : pill}
+                          >
+                            {task.type}
+                          </span>
+                        </td>
+                        <td style={cell}>
+                          <span className={`status-pill ${PRIORITY_PILL[task.priority]}`} style={pill}>
+                            {task.priority}
+                          </span>
+                        </td>
+                        <td style={cell}>{renderDue(task.dueDateTime)}</td>
+                        <td style={cell}>
+                          <span className={`status-pill ${STATUS_PILL[task.status]}`} style={pill}>
+                            {task.status}
+                          </span>
+                        </td>
+                        <td style={cell}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 22, paddingLeft: 6 }}>
+                            {rowAction(task)}
+                            <button style={{ color: 'var(--text-primary)', display: 'inline-flex', padding: 2 }} aria-label="More actions" onClick={() => showToast(`More actions for "${task.title}"`, 'info')}>
+                              <EllipsisVertical size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {pageTasks.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ ...cell, height: 80, textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No tasks match the current filters
                       </td>
                     </tr>
-                  );
-                })}
-                {pageTasks.length === 0 && (
-                  <tr>
-                    <td colSpan={9} style={{ ...cell, height: 80, textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No tasks match the current filters
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, flex: 1, minHeight: 0 }}>
+            <div className="cols-4" style={{ gap: 10, flex: 1, minHeight: 0 }}>
               {(['Pending', 'Scheduled', 'In Progress', 'Completed'] as const).map((status) => {
                 const col = pageTasks.filter((t) => t.status === status);
                 return (
@@ -579,7 +585,7 @@ export const TasksAlertsScreen: React.FC = () => {
           )}
 
           {/* Pagination */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', padding: '14px 2px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 'auto', padding: '14px 2px 0' }}>
             <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
               Showing {filteredTasks.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredTasks.length)} of {filteredTasks.length} tasks
             </span>
@@ -705,7 +711,7 @@ export const TasksAlertsScreen: React.FC = () => {
                       <Icon size={15} color={meta.color} />
                     </span>
                     <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.task}</span>
-                    <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{r.patient}</span>
+                    <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.patient}</span>
                   </div>
                 );
               })}
@@ -715,7 +721,7 @@ export const TasksAlertsScreen: React.FC = () => {
           {/* Quick Actions */}
           <div className="medios-card" style={{ padding: '9px 10px 8px 10px', flex: 1 }}>
             <h3 className="card-title" style={{ fontSize: 15, marginBottom: 8 }}>Quick Actions</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+            <div className="cols-2" style={{ gap: 7 }}>
               {(
                 [
                   { label: 'Create Task', icon: CirclePlus, msg: 'Task creation form is not built yet' },

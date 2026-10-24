@@ -38,6 +38,7 @@ import {
   PhoneForwarded,
   CircleX
 } from 'lucide-react';
+import { split, tableMin } from '../../utils/layout';
 
 type FuStatus = FollowUpItem['status'];
 type DetailTab = 'Previous Visits' | 'Diagnosis' | 'Medications' | 'Lab Reports';
@@ -265,9 +266,9 @@ export const FollowUpsScreen: React.FC = () => {
         onTabChange={handleTab}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 408px', columnGap: 12, rowGap: 14 }}>
+      <div className="split split-early" style={{ ...split('408px'), columnGap: 12, rowGap: 14 }}>
         {/* Filter row */}
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center', minWidth: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, alignItems: 'center', minWidth: 0 }}>
           <button
             className="input-field"
             style={{ height: 34, width: 222, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12.5, padding: '0 12px' }}
@@ -299,137 +300,140 @@ export const FollowUpsScreen: React.FC = () => {
         {/* Left column: table + calendar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
           <div className="medios-card" style={{ padding: '0 0 7px' }}>
-            <table className="medios-table">
-              <thead>
-                <tr>
-                  <th style={{ ...th, width: 44, textAlign: 'center' }}>#</th>
-                  <th style={th}>Patient</th>
-                  <th style={{ ...th, borderLeft: '1px solid var(--border-subtle)' }}>Last Visit</th>
-                  <th style={{ ...th, borderLeft: '1px solid var(--border-subtle)' }}>Follow-up Date</th>
-                  <th style={th}>Follow-up Type</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Assigned To</th>
-                  <th style={{ ...th, width: 98, textAlign: 'center', borderLeft: '1px solid var(--border-subtle)' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((item, idx) => {
-                  const isSelected = selectedId === item.id;
-                  return (
-                    <tr key={item.id} onClick={() => setSelectedId(item.id)} className={isSelected ? 'selected' : ''} style={{ cursor: 'pointer' }}>
-                      <td style={{ ...td, textAlign: 'center', fontWeight: 500 }}>{idx + 1}</td>
-                      <td style={td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                          <Avatar name={item.patientName} size={36} />
-                          <div style={{ lineHeight: 1.3, whiteSpace: 'nowrap' }}>
-                            <div style={{ fontWeight: 600 }}>{item.patientName}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.uhid}</div>
-                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                              <span>{item.age} yrs</span>
-                              <span style={{ width: 1, height: 10, background: 'var(--border-strong)' }} />
-                              <span>{item.gender}</span>
+            <div className="table-scroll" style={tableMin(720)}>
+              <table className="medios-table">
+                <thead>
+                  <tr>
+                    <th style={{ ...th, width: 44, textAlign: 'center' }}>#</th>
+                    <th style={th}>Patient</th>
+                    <th style={{ ...th, borderLeft: '1px solid var(--border-subtle)' }}>Last Visit</th>
+                    <th style={{ ...th, borderLeft: '1px solid var(--border-subtle)' }}>Follow-up Date</th>
+                    <th style={th}>Follow-up Type</th>
+                    <th style={th}>Status</th>
+                    <th style={th}>Assigned To</th>
+                    <th style={{ ...th, width: 98, textAlign: 'center', borderLeft: '1px solid var(--border-subtle)' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item, idx) => {
+                    const isSelected = selectedId === item.id;
+                    return (
+                      <tr key={item.id} onClick={() => setSelectedId(item.id)} className={isSelected ? 'selected' : ''} style={{ cursor: 'pointer' }}>
+                        <td style={{ ...td, textAlign: 'center', fontWeight: 500 }}>{idx + 1}</td>
+                        <td style={td}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                            <Avatar name={item.patientName} size={36} />
+                            <div style={{ lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+                              <div style={{ fontWeight: 600 }}>{item.patientName}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.uhid}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span>{item.age} yrs</span>
+                                <span style={{ width: 1, height: 10, background: 'var(--border-strong)' }} />
+                                <span>{item.gender}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{item.lastVisit}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 600 }}>{item.followUpDate}</div>
-                        <div style={{ marginTop: 2 }}>{item.followUpTime}</div>
-                      </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{item.followUpType}</td>
-                      <td style={td}>
-                        <span className={`status-pill ${STATUS_PILL[item.status]}`} style={{ height: 24, minWidth: 66, padding: '0 11px' }}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{item.assignedTo}</td>
-                      <td style={{ ...td, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 26 }}>
-                          <button aria-label="Reschedule" style={{ color: 'var(--blue-text)', display: 'flex' }} onClick={() => showToast(`Reschedule ${item.patientName}'s follow-up`, 'info')}>
-                            <CalendarDays size={18} />
-                          </button>
-                          <button aria-label="More actions" style={{ display: 'flex' }} onClick={() => setMenuFor(menuFor === item.id ? null : item.id)}>
-                            <EllipsisVertical size={16} />
-                          </button>
-                        </div>
-                        {menuFor === item.id && (
-                          <>
-                            <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setMenuFor(null)} />
-                            <div
-                              style={{
-                                position: 'absolute',
-                                right: 10,
-                                top: 'calc(100% - 8px)',
-                                zIndex: 21,
-                                background: '#ffffff',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: 8,
-                                boxShadow: 'var(--shadow-md)',
-                                padding: 4,
-                                minWidth: 160
-                              }}
-                            >
-                              {[
-                                { label: 'Mark Completed', icon: Check, status: 'Completed' as const },
-                                { label: 'Mark Missed', icon: CircleX, status: 'Missed' as const },
-                                { label: 'Set Scheduled', icon: CalendarCheck, status: 'Scheduled' as const }
-                              ]
-                                .filter((a) => a.status !== item.status)
-                                .map((a) => (
-                                  <button
-                                    key={a.label}
-                                    onClick={() => updateStatus(item.id, a.status)}
-                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                                  >
-                                    <a.icon size={13} />
-                                    <span>{a.label}</span>
-                                  </button>
-                                ))}
-                              <button
-                                onClick={() => sendReminder(item)}
-                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                              >
-                                <Send size={13} />
-                                <span>Send Reminder</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setMenuFor(null);
-                                  setBookingFor(item);
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>{item.lastVisit}</td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          <div style={{ fontWeight: 600 }}>{item.followUpDate}</div>
+                          <div style={{ marginTop: 2 }}>{item.followUpTime}</div>
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>{item.followUpType}</td>
+                        <td style={td}>
+                          <span className={`status-pill ${STATUS_PILL[item.status]}`} style={{ height: 24, minWidth: 66, padding: '0 11px' }}>
+                            {item.status}
+                          </span>
+                        </td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>{item.assignedTo}</td>
+                        <td style={{ ...td, position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 26 }}>
+                            <button aria-label="Reschedule" style={{ color: 'var(--blue-text)', display: 'flex' }} onClick={() => showToast(`Reschedule ${item.patientName}'s follow-up`, 'info')}>
+                              <CalendarDays size={18} />
+                            </button>
+                            <button aria-label="More actions" style={{ display: 'flex' }} onClick={() => setMenuFor(menuFor === item.id ? null : item.id)}>
+                              <EllipsisVertical size={16} />
+                            </button>
+                          </div>
+                          {menuFor === item.id && (
+                            <>
+                              <div style={{ position: 'fixed', inset: 0, zIndex: 20 }} onClick={() => setMenuFor(null)} />
+                              <div
+                                className="pop-menu"
+                                style={{
+                                  position: 'absolute',
+                                  right: 10,
+                                  top: 'calc(100% - 8px)',
+                                  zIndex: 21,
+                                  background: '#ffffff',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: 8,
+                                  boxShadow: 'var(--shadow-md)',
+                                  padding: 4,
+                                  minWidth: 160
                                 }}
-                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                               >
-                                <PhoneForwarded size={13} />
-                                <span>Book by AI Call</span>
-                              </button>
-                            </div>
-                          </>
-                        )}
+                                {[
+                                  { label: 'Mark Completed', icon: Check, status: 'Completed' as const },
+                                  { label: 'Mark Missed', icon: CircleX, status: 'Missed' as const },
+                                  { label: 'Set Scheduled', icon: CalendarCheck, status: 'Scheduled' as const }
+                                ]
+                                  .filter((a) => a.status !== item.status)
+                                  .map((a) => (
+                                    <button
+                                      key={a.label}
+                                      onClick={() => updateStatus(item.id, a.status)}
+                                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                    >
+                                      <a.icon size={13} />
+                                      <span>{a.label}</span>
+                                    </button>
+                                  ))}
+                                <button
+                                  onClick={() => sendReminder(item)}
+                                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                  <Send size={13} />
+                                  <span>Send Reminder</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setMenuFor(null);
+                                    setBookingFor(item);
+                                  }}
+                                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                  <PhoneForwarded size={13} />
+                                  <span>Book by AI Call</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ ...td, textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
+                        No follow-ups match the current filters.
                       </td>
                     </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={8} style={{ ...td, textAlign: 'center', padding: '30px 10px', color: 'var(--text-muted)' }}>
-                      No follow-ups match the current filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             {/* Pagination */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, padding: '6px 12px 0' }}>
               <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Showing {filtered.length ? 1 : 0}–{filtered.length} of {filtered.length === followUps.length ? 42 : filtered.length} follow-ups</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ display: 'flex', gap: 7 }}>
                   <button className="icon-btn" style={{ width: 24, height: 24, color: 'var(--text-muted)' }} aria-label="Previous page" onClick={() => setPage((p) => Math.max(1, p - 1))}>
                     <ChevronLeft size={13} />
@@ -491,7 +495,7 @@ export const FollowUpsScreen: React.FC = () => {
                 return (
                   <div key={d.day} style={{ borderLeft: i === 0 ? 'none' : '1px solid var(--border-subtle)', minWidth: 0 }}>
                     <div style={{ fontSize: 10, textAlign: 'center', padding: '3px 0', borderBottom: '1px solid var(--border-subtle)' }}>{d.day}</div>
-                    <div style={{ padding: '5px 7px', height: 61 }}>
+                    <div style={{ padding: '5px 7px', height: 61, overflow: 'hidden' }}>
                       {d.event && tone && (
                         <button
                           onClick={() => d.event && setSelectedId(d.event.id)}
@@ -511,11 +515,11 @@ export const FollowUpsScreen: React.FC = () => {
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: tone.fg }}>
                             <Clock size={10} strokeWidth={2.5} />
-                            <span>{d.event.time}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.event.time}</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text-primary)', fontSize: 10.5 }}>
                             <CircleDot size={10} strokeWidth={2.5} color={tone.fg} />
-                            <span>{d.event.name}</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.event.name}</span>
                           </div>
                           <div style={{ color: 'var(--text-secondary)', fontSize: 9.5, paddingLeft: 15, overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.event.type}</div>
                         </button>

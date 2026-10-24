@@ -43,6 +43,7 @@ import {
   FileCheck2,
   type LucideIcon
 } from 'lucide-react';
+import { split, ws3 } from '../../utils/layout';
 
 const CATEGORY_TABS: { id: string; label: string; icon?: LucideIcon }[] = [
   { id: 'all', label: 'All Guidelines (1,245)' },
@@ -101,7 +102,7 @@ const FilterBox: React.FC<{
     style={{
       position: 'relative',
       flex: `${grow} 1 0`,
-      minWidth: 0,
+      minWidth: 140,
       height: 43,
       display: 'flex',
       alignItems: 'center',
@@ -308,14 +309,14 @@ export const ClinicalGuidelinesScreen: React.FC = () => {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <FilterBox icon={ShieldPlus} label="Specialty" value={filters.specialty} grow={167} options={mockGuidelinesSpecialties.map(s => s.name)} onChange={(v) => setFilter('specialty', v)} />
           <FilterBox icon={HeartPulse} label="Condition" value={filters.condition} grow={167} options={Object.keys(CONDITIONS)} onChange={(v) => setFilter('condition', v)} />
           <FilterBox icon={Hospital} label="Department" value={filters.department} grow={171} options={Object.keys(DEPARTMENTS)} onChange={(v) => setFilter('department', v)} />
           <FilterBox icon={Star} label="Evidence Level" value={filters.evidence} grow={184} options={Object.keys(EVIDENCE)} onChange={(v) => setFilter('evidence', v)} />
           <FilterBox icon={MessageSquareText} label="Source" value={filters.source} grow={185} options={sourceOptions} onChange={(v) => setFilter('source', v)} />
           <FilterBox icon={Calendar} label="Last Updated" value={filters.updated} grow={188} options={Object.keys(LAST_UPDATED)} onChange={(v) => setFilter('updated', v)} />
-          <button className="btn-outline-blue" style={{ flex: '143 1 0', minWidth: 0, height: 39, marginTop: 2, fontSize: 12.5, borderColor: 'var(--border-color)' }} onClick={resetFilters}>
+          <button className="btn-outline-blue" style={{ flex: '143 1 0', minWidth: 96, maxWidth: 160, height: 39, marginTop: 2, fontSize: 12.5, borderColor: 'var(--border-color)' }} onClick={resetFilters}>
             <RefreshCw size={14} strokeWidth={2.4} />
             <span>Reset</span>
           </button>
@@ -341,7 +342,7 @@ export const ClinicalGuidelinesScreen: React.FC = () => {
       </div>
 
       {/* 3 columns: Specialties | Guidelines + detail | AI assistant */}
-      <div style={{ display: 'grid', gridTemplateColumns: '246px minmax(0, 1fr) 362px', gap: 11, alignItems: 'stretch' }}>
+      <div className="ws-3" style={{ ...ws3('246px', '362px'), gap: 11, alignItems: 'stretch' }}>
         {/* Specialties */}
         <div className="medios-card" style={{ padding: '12px 8px 8px 8px', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: 15, fontWeight: 700, padding: '0 4px' }}>Specialties</h3>
@@ -397,8 +398,8 @@ export const ClinicalGuidelinesScreen: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
           {/* Guidelines list */}
           <div className="medios-card" style={{ padding: '9px 7px 6px 7px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 3px 0 4px', marginBottom: 7 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, flex: 1 }}>Guidelines (1,245)</h3>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '0 3px 0 4px', marginBottom: 7 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, flex: '1 1 140px' }}>Guidelines (1,245)</h3>
               <span style={{ fontSize: 11, color: 'var(--text-primary)' }}>Sort by:</span>
               <label style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 20, height: 28, padding: '0 10px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontSize: 11, fontWeight: 500, cursor: 'pointer', marginRight: 10 }}>
                 <span style={{ minWidth: 74 }}>{sortBy}</span>
@@ -513,7 +514,7 @@ export const ClinicalGuidelinesScreen: React.FC = () => {
                 <selectedGuideline.icon size={29} color={selectedGuideline.iconColor} strokeWidth={2.1} style={{ flexShrink: 0, marginTop: 5 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h3 style={{ fontSize: 14.6, fontWeight: 700, lineHeight: 1.3, letterSpacing: '-0.01em' }}>{selectedGuideline.title}</h3>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', lineHeight: 1.45, whiteSpace: 'nowrap' }}>{selectedGuideline.sourceFull}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', lineHeight: 1.45, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedGuideline.sourceFull}</div>
                   {selectedGuideline.isOfficial && (
                     <span className="status-pill green" style={{ height: 17, padding: '0 7px', fontSize: 10, gap: 4, marginTop: 2 }}>
                       <FileCheck2 size={10} strokeWidth={2.4} />
@@ -521,7 +522,7 @@ export const ClinicalGuidelinesScreen: React.FC = () => {
                     </span>
                   )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 1 }}>
                   <button className="btn-outline-blue" style={{ height: 24, padding: '0 6px', fontSize: 9.3, borderColor: 'var(--border-color)' }} onClick={() => showToast(`Downloaded official ${selectedGuideline.source} guideline PDF`)}>
                     View PDF
                   </button>
@@ -569,7 +570,7 @@ export const ClinicalGuidelinesScreen: React.FC = () => {
               </div>
 
               {/* Body: text + applicability */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 248px', gap: 22, marginTop: 10 }}>
+              <div className="split split-late" style={{ ...split('248px'), gap: 22, marginTop: 10 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <Section title="Background">
                     <p style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.45 }}>{selectedGuideline.background}</p>

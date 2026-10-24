@@ -42,6 +42,7 @@ import {
   Printer,
   type LucideIcon
 } from 'lucide-react';
+import { split, tableMin } from '../../utils/layout';
 
 const PAGE_TABS = [
   'All Patients',
@@ -85,6 +86,7 @@ interface MenuItem {
 }
 const PopMenu: React.FC<{ items: MenuItem[]; align?: 'left' | 'right'; up?: boolean; onClose: () => void }> = ({ items, align = 'right', up, onClose }) => (
   <div
+    className={`pop-menu${up ? ' pop-up' : ''}${align === 'left' ? ' pop-left' : ''}`}
     onClick={(e) => e.stopPropagation()}
     style={{
       position: 'absolute',
@@ -136,19 +138,20 @@ const FilterBox: React.FC<{ label: string; value: string; options: string[]; onC
     }}
   >
     <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-primary)', lineHeight: '15px' }}>{label}</span>
+    {/* The select covers the whole box, so a tap anywhere on it opens the list. */}
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
       style={{
+        position: 'absolute',
+        inset: 0,
         appearance: 'none',
         border: 'none',
         outline: 'none',
         background: 'transparent',
         fontSize: 11.5,
         color: 'var(--text-secondary)',
-        padding: '0 16px 0 0',
-        height: 20,
-        width: '100%',
+        padding: '20px 24px 0 10px',
         cursor: 'pointer'
       }}
     >
@@ -412,10 +415,10 @@ export const PatientsScreen: React.FC = () => {
       </div>
 
       {/* Table column + patient panel */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 480px', gap: 12, alignItems: 'stretch', marginTop: -10 }}>
+      <div className="split split-early" style={{ ...split('clamp(380px, 27vw, 480px)'), gap: 12, alignItems: 'stretch', marginTop: -10 }}>
         <div className="medios-card" style={{ padding: '14px 10px 10px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Filter row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 0 0 2px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '0 0 0 2px' }}>
             <div style={{ position: 'relative', width: 222, flexShrink: 0, height: 40, display: 'flex', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: '#ffffff' }}>
               <input
                 type="text"
@@ -458,124 +461,126 @@ export const PatientsScreen: React.FC = () => {
           </div>
 
           {/* Patients table */}
-          <table className="medios-table" style={{ tableLayout: 'fixed', marginTop: 18 }}>
-            <colgroup>
-              <col style={{ width: 32 }} />
-              <col style={{ width: 30 }} />
-              <col />
-              <col style={{ width: 95 }} />
-              <col style={{ width: 119 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 93 }} />
-              <col style={{ width: 90 }} />
-              <col style={{ width: 66 }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th style={thStyle}>
-                  <input type="checkbox" checked={allVisibleChecked} onChange={toggleAllVisible} aria-label="Select all patients on this page" />
-                </th>
-                <th style={thStyle}>#</th>
-                <th style={{ ...thStyle, paddingLeft: 12 }}>Patient</th>
-                <th style={thStyle}>Age / Gender</th>
-                <th style={thStyle}>UHID / IP No</th>
-                <th style={thStyle}>Visit Type</th>
-                <th style={thStyle}>Last Visit</th>
-                <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => setSortByStatus((s) => !s)} title="Sort by status">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                    Status
-                    <ChevronsUpDown size={11} color={sortByStatus ? 'var(--blue-text)' : 'var(--border-strong)'} />
-                  </span>
-                </th>
-                <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageRows.length === 0 && (
+          <div className="table-scroll" style={tableMin(740)}>
+            <table className="medios-table" style={{ tableLayout: 'fixed', marginTop: 18 }}>
+              <colgroup>
+                <col style={{ width: 32 }} />
+                <col style={{ width: 30 }} />
+                <col />
+                <col style={{ width: 95 }} />
+                <col style={{ width: 119 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 93 }} />
+                <col style={{ width: 90 }} />
+                <col style={{ width: 66 }} />
+              </colgroup>
+              <thead>
                 <tr>
-                  <td colSpan={9} style={{ padding: '40px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>No patients match “{activeTab}” with the current filters</div>
-                    <button className="btn-secondary btn-sm" onClick={resetFilters}>
-                      Reset filters
-                    </button>
-                  </td>
+                  <th style={thStyle}>
+                    <input type="checkbox" checked={allVisibleChecked} onChange={toggleAllVisible} aria-label="Select all patients on this page" />
+                  </th>
+                  <th style={thStyle}>#</th>
+                  <th style={{ ...thStyle, paddingLeft: 12 }}>Patient</th>
+                  <th style={thStyle}>Age / Gender</th>
+                  <th style={thStyle}>UHID / IP No</th>
+                  <th style={thStyle}>Visit Type</th>
+                  <th style={thStyle}>Last Visit</th>
+                  <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => setSortByStatus((s) => !s)} title="Sort by status">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      Status
+                      <ChevronsUpDown size={11} color={sortByStatus ? 'var(--blue-text)' : 'var(--border-strong)'} />
+                    </span>
+                  </th>
+                  <th style={{ ...thStyle, textAlign: 'center' }}>Actions</th>
                 </tr>
-              )}
-              {pageRows.map((pat, index) => {
-                const isSelected = selectedPatient?.id === pat.id;
-                const visit = splitVisit(VISIT_OVERRIDE[pat.uhid] || pat.lastVisit);
-                return (
-                  <tr key={pat.id} className={isSelected ? 'selected' : ''} onClick={() => handleSelectPatient(pat)} style={{ cursor: 'pointer', height: 59 }}>
-                    <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
-                      <input type="checkbox" checked={checkedIds.has(pat.id)} onChange={() => toggleChecked(pat.id)} aria-label={`Select ${pat.name}`} />
-                    </td>
-                    <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{firstRow + index}</td>
-                    <td style={{ ...tdStyle, paddingLeft: 2, paddingRight: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Avatar name={pat.name} size={40} />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, lineHeight: '16px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pat.name}</span>
-                            {ABHA_LINKED.has(pat.uhid) && (
-                              <span title="ABHA ID linked" style={{ display: 'inline-flex' }}>
-                                <BadgeCheck size={11} color="var(--blue-text)" />
-                              </span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)', lineHeight: '13px', whiteSpace: 'nowrap' }}>{pat.phone}</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 2 }}>
-                            {pat.conditions.map((c) => {
-                              const { tone, icon: Icon } = conditionStyle(c);
-                              return (
-                                <span
-                                  key={c}
-                                  title={c}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: 3, height: 17, maxWidth: '100%', padding: '0 4px', borderRadius: 'var(--radius-xs)', fontSize: 10, lineHeight: 1, background: CONDITION_TONES[tone].bg, color: CONDITION_TONES[tone].fg, whiteSpace: 'nowrap' }}
-                                >
-                                  <Icon size={9} strokeWidth={2.6} style={{ flexShrink: 0 }} />
-                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c}</span>
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={cellLine}>{pat.age} Yrs</div>
-                      <div style={cellLine}>{pat.gender}</div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ ...cellLine, fontSize: 'var(--fs-sm)' }}>{pat.uhid}</div>
-                      {IP_NUMBERS[pat.uhid] && <div style={{ ...cellLine, fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{IP_NUMBERS[pat.uhid]}</div>}
-                    </td>
-                    <td style={tdStyle}>
-                      <span className={`status-pill ${pat.visitType === 'OPD' ? 'green' : 'red'}`} style={{ minWidth: 50, height: 26, fontSize: 'var(--fs-sm)', fontWeight: 500 }}>
-                        {pat.visitType}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ ...cellLine, fontSize: 'var(--fs-sm)' }}>{visit.date}</div>
-                      {visit.time && <div style={{ ...cellLine, fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>{visit.time}</div>}
-                    </td>
-                    <td style={tdStyle}>
-                      <span className={`status-pill ${statusClass(pat.status)}`} style={{ height: 24, padding: '0 11px', fontSize: 'var(--fs-sm)' }}>
-                        {pat.status}
-                      </span>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <button className="icon-btn" style={{ width: 40, height: 30 }} onClick={toggleMenu(`row-${pat.id}`)} aria-label={`Actions for ${pat.name}`}>
-                          <MoreHorizontal size={16} color="var(--blue-text)" />
-                        </button>
-                        {openMenu === `row-${pat.id}` && <PopMenu items={rowMenuItems(pat)} onClose={() => setOpenMenu(null)} up={index >= pageRows.length - 3 && index > 2} />}
-                      </div>
+              </thead>
+              <tbody>
+                {pageRows.length === 0 && (
+                  <tr>
+                    <td colSpan={9} style={{ padding: '40px 12px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>No patients match “{activeTab}” with the current filters</div>
+                      <button className="btn-secondary btn-sm" onClick={resetFilters}>
+                        Reset filters
+                      </button>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                )}
+                {pageRows.map((pat, index) => {
+                  const isSelected = selectedPatient?.id === pat.id;
+                  const visit = splitVisit(VISIT_OVERRIDE[pat.uhid] || pat.lastVisit);
+                  return (
+                    <tr key={pat.id} className={isSelected ? 'selected' : ''} onClick={() => handleSelectPatient(pat)} style={{ cursor: 'pointer', height: 59 }}>
+                      <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={checkedIds.has(pat.id)} onChange={() => toggleChecked(pat.id)} aria-label={`Select ${pat.name}`} />
+                      </td>
+                      <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{firstRow + index}</td>
+                      <td style={{ ...tdStyle, paddingLeft: 2, paddingRight: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Avatar name={pat.name} size={40} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, lineHeight: '16px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pat.name}</span>
+                              {ABHA_LINKED.has(pat.uhid) && (
+                                <span title="ABHA ID linked" style={{ display: 'inline-flex' }}>
+                                  <BadgeCheck size={11} color="var(--blue-text)" />
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 'var(--fs-2xs)', color: 'var(--text-muted)', lineHeight: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pat.phone}</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginTop: 2 }}>
+                              {pat.conditions.map((c) => {
+                                const { tone, icon: Icon } = conditionStyle(c);
+                                return (
+                                  <span
+                                    key={c}
+                                    title={c}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, height: 17, maxWidth: '100%', padding: '0 4px', borderRadius: 'var(--radius-xs)', fontSize: 10, lineHeight: 1, background: CONDITION_TONES[tone].bg, color: CONDITION_TONES[tone].fg, whiteSpace: 'nowrap' }}
+                                  >
+                                    <Icon size={9} strokeWidth={2.6} style={{ flexShrink: 0 }} />
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c}</span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={cellLine}>{pat.age} Yrs</div>
+                        <div style={cellLine}>{pat.gender}</div>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ ...cellLine, fontSize: 'var(--fs-sm)' }}>{pat.uhid}</div>
+                        {IP_NUMBERS[pat.uhid] && <div style={{ ...cellLine, fontSize: 'var(--fs-sm)', color: 'var(--text-muted)' }}>{IP_NUMBERS[pat.uhid]}</div>}
+                      </td>
+                      <td style={tdStyle}>
+                        <span className={`status-pill ${pat.visitType === 'OPD' ? 'green' : 'red'}`} style={{ minWidth: 50, height: 26, fontSize: 'var(--fs-sm)', fontWeight: 500 }}>
+                          {pat.visitType}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ ...cellLine, fontSize: 'var(--fs-sm)' }}>{visit.date}</div>
+                        {visit.time && <div style={{ ...cellLine, fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>{visit.time}</div>}
+                      </td>
+                      <td style={tdStyle}>
+                        <span className={`status-pill ${statusClass(pat.status)}`} style={{ height: 24, padding: '0 11px', fontSize: 'var(--fs-sm)' }}>
+                          {pat.status}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          <button className="icon-btn" style={{ width: 40, height: 30 }} onClick={toggleMenu(`row-${pat.id}`)} aria-label={`Actions for ${pat.name}`}>
+                            <MoreHorizontal size={16} color="var(--blue-text)" />
+                          </button>
+                          {openMenu === `row-${pat.id}` && <PopMenu items={rowMenuItems(pat)} onClose={() => setOpenMenu(null)} up={index >= pageRows.length - 3 && index > 2} />}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
           {/* Pagination */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 4px 2px', marginTop: 'auto', fontSize: 'var(--fs-sm)', color: 'var(--text-primary)' }}>
@@ -635,7 +640,7 @@ export const PatientsScreen: React.FC = () => {
 
         {/* Right patient profile panel */}
         {selectedPatient && (
-          <div className="medios-card" style={{ padding: '14px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <div key={selectedPatient.id} className="medios-card swap-in" style={{ padding: '14px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
             {/* Header info */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
               <Avatar name={selectedPatient.name} size={76} />
@@ -644,7 +649,7 @@ export const PatientsScreen: React.FC = () => {
                   {selectedPatient.name}
                   {selectedPatient.gender === 'Female' ? <Venus size={15} color="var(--blue-text)" strokeWidth={2.4} /> : <Mars size={15} color="var(--blue-text)" strokeWidth={2.4} />}
                 </h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: 'var(--text-primary)', marginTop: 5, whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 9px', fontSize: 12.5, color: 'var(--text-primary)', marginTop: 5, whiteSpace: 'nowrap' }}>
                   <span>{selectedPatient.age} years</span>
                   <span className="patient-meta-sep" />
                   <span>{selectedPatient.gender}</span>
@@ -685,7 +690,7 @@ export const PatientsScreen: React.FC = () => {
             </div>
 
             {/* Drawer tabs */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
               {DRAWER_TABS.map((t) => (
                 <button
                   key={t}
@@ -956,7 +961,7 @@ export const PatientsScreen: React.FC = () => {
             )}
 
             {/* Bottom action bar */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 'auto', paddingTop: 4 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 'auto', paddingTop: 4 }}>
               <button className="btn-primary" style={{ flex: '1.35 1 0', height: 38, fontSize: 'var(--fs-sm)', padding: '0 10px' }} onClick={() => openFor(selectedPatient, 'consultation')}>
                 <Stethoscope size={16} />
                 <span>Start Consultation</span>

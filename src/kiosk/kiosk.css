@@ -271,9 +271,64 @@
   color: var(--kq-muted);
 }
 
+/* The token "prints": after a tap the greeting settles in, then the number slides down out of a slot
+   under the label, like a slip leaving the printer, and the queue details follow. */
+.kq-result > * {
+  animation: kqRise 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.kq-result .kq-label {
+  animation-delay: 0.08s;
+}
+
+.kq-result .kq-token {
+  animation: kqPrint 0.8s cubic-bezier(0.25, 1, 0.5, 1) 0.18s both;
+}
+
+.kq-result .kq-line {
+  animation-delay: 0.62s;
+}
+
+.kq-result .kq-detail {
+  animation-delay: 0.7s;
+}
+
+.kq-result .kq-print,
+.kq-result .kq-small {
+  animation-delay: 0.78s;
+}
+
+@keyframes kqRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes kqPrint {
+  from {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-38%);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    transform: none;
+  }
+}
+
+@keyframes kqFade {
+  from { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kq-ring,
   .kq-spinner {
     animation: none;
+  }
+
+  .kq-result > *,
+  .kq-result .kq-token {
+    animation-name: kqFade;
+    animation-duration: 0.3s;
   }
 }

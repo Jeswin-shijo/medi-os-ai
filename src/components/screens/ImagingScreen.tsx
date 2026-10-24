@@ -38,6 +38,7 @@ import {
   Smile,
   type LucideIcon
 } from 'lucide-react';
+import { ws3 } from '../../utils/layout';
 
 /* Modality tabs under the banner — they filter the studies list. */
 const MODALITY_TABS: BannerTab[] = [
@@ -231,9 +232,9 @@ export const ImagingScreen: React.FC = () => {
       {header}
 
       <div
+        className="ws-3"
         style={{
-          display: 'grid',
-          gridTemplateColumns: '352px minmax(0, 1fr) 312px',
+          ...ws3('352px', '312px'),
           gridTemplateRows: 'auto auto',
           gap: 8
         }}
@@ -544,8 +545,8 @@ export const ImagingScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: AI analysis + radiologist report */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+        {/* Right: AI analysis + radiologist report (moves to the end on laptops) */}
+        <div className="ws-last" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <div className="ai-assistant-card" style={{ padding: '12px 10px 10px', gap: 10 }}>
             <div className="ai-header-bar" style={{ justifyContent: 'flex-start' }}>
               <div className="ai-title-row" style={{ fontSize: 13.5, gap: 8, whiteSpace: 'nowrap' }}>
@@ -622,7 +623,7 @@ export const ImagingScreen: React.FC = () => {
         </div>
 
         {/* Bottom strip: related images + compare */}
-        <div className="medios-card" style={{ gridColumn: '2 / span 2', padding: '10px 12px 10px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <div className="medios-card ws-span-rest" style={{ padding: '10px 12px 10px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <span style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>Related Images / Previous Studies</span>
           <div style={{ display: 'flex', gap: 14, marginTop: 8, alignItems: 'stretch' }}>
             <div style={{ display: 'flex', gap: 14, overflowX: 'auto', minWidth: 0 }}>

@@ -12,6 +12,7 @@ import { AllergyIcon, DiabetesDots, HypertensionIcon } from '../common/icons';
 import { BookByCallDialog } from '../common/BookByCallDialog';
 import { CallResultBadge, ConfirmationChip } from '../common/callAgentUi';
 import { callTime, isLive } from '../../utils/callAgent';
+import { ws3 } from '../../utils/layout';
 import {
   CalendarDays,
   CalendarClock,
@@ -48,6 +49,7 @@ import {
   PhoneForwarded,
   type LucideIcon
 } from 'lucide-react';
+import { RollingText } from '../common/RollingText';
 
 const VIEW_TABS = ['Daily View', 'Calendar View', 'List View', 'Follow-ups', 'Waiting List', 'Canceled / No Show', 'Teleconsultation'] as const;
 type ViewTab = (typeof VIEW_TABS)[number];
@@ -130,6 +132,7 @@ interface MenuItem {
 }
 const PopMenu: React.FC<{ items: MenuItem[]; up?: boolean; onClose: () => void }> = ({ items, up, onClose }) => (
   <div
+    className={`pop-menu${up ? ' pop-up' : ''}`}
     onClick={(e) => e.stopPropagation()}
     style={{
       position: 'absolute',
@@ -489,8 +492,8 @@ export const AppointmentsScreen: React.FC = () => {
       />
 
       {/* View tabs + date navigator */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 8 }}>
-        <div className="page-tabs">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
+        <div className="page-tabs" style={{ flex: '1 1 380px', minWidth: 0 }}>
           {VIEW_TABS.map((tab) => (
             <button
               key={tab}
@@ -506,7 +509,7 @@ export const AppointmentsScreen: React.FC = () => {
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginLeft: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', height: 40, border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: '#ffffff' }}>
             <button onClick={() => selectDate(shiftIso(selectedDate, -1))} style={{ width: 32, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Previous day">
               <ChevronLeft size={15} />
@@ -525,9 +528,9 @@ export const AppointmentsScreen: React.FC = () => {
       </div>
 
       {/* 3-column layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '258px minmax(0, 1fr) 375px', gap: 12, alignItems: 'stretch' }}>
-        {/* Left column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+      <div className="ws-3 ws-fold-left" style={{ ...ws3('258px', '375px'), gap: 12, alignItems: 'stretch' }}>
+        {/* Left column (moves under the list on laptops) */}
+        <div className="apt-rail">
           {/* Mini calendar */}
           <div className="medios-card" style={{ padding: '20px 12px 14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 0 10px', marginBottom: 12 }}>
@@ -645,8 +648,8 @@ export const AppointmentsScreen: React.FC = () => {
         </div>
 
         {/* Center: timeline list */}
-        <div className="medios-card" style={{ padding: '12px 12px 10px 6px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '0 0 10px 6px', borderBottom: '1px solid var(--border-subtle)', marginLeft: 6 }}>
+        <div className="medios-card apt-list" style={{ padding: '12px 12px 10px 6px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, padding: '0 0 10px 6px', borderBottom: '1px solid var(--border-subtle)', marginLeft: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
               <h3 style={{ fontSize: 17.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
                 {isToday ? 'Today' : WEEKDAYS[parseIso(selectedDate).getDay()]}, {fmtDate(selectedDate)}
@@ -655,7 +658,7 @@ export const AppointmentsScreen: React.FC = () => {
                 {dayAppointments.length} Appointments
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {kpis.map((k) => (
                 <button
                   key={k.label}
@@ -678,7 +681,7 @@ export const AppointmentsScreen: React.FC = () => {
                     color: k.color
                   }}
                 >
-                  <span style={{ fontSize: 17, fontWeight: 700, lineHeight: '20px' }}>{k.value}</span>
+                  <RollingText value={k.value} style={{ fontSize: 17, fontWeight: 700, lineHeight: '20px' }} />
                   <span style={{ fontSize: 10, lineHeight: '13px', whiteSpace: 'nowrap' }}>{k.label}</span>
                 </button>
               ))}
@@ -727,9 +730,9 @@ export const AppointmentsScreen: React.FC = () => {
                     </div>
                     <span style={{ width: 63, paddingLeft: 7, fontSize: 12, color: 'var(--text-primary)', flexShrink: 0, whiteSpace: 'nowrap' }}>{apt.time}</span>
 
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 14, alignSelf: 'stretch', borderBottom: i < pageRows.length - 1 ? '1px solid var(--border-subtle)' : 'none', paddingLeft: 12 }}>
+                    <div className="apt-row-body" style={{ borderBottom: i < pageRows.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                       <Avatar name={apt.patientName} size={44} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="apt-row-who">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, lineHeight: '17px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                           <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{apt.patientName}</span>
                           {apt.status === 'Scheduled' && (
@@ -753,13 +756,13 @@ export const AppointmentsScreen: React.FC = () => {
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: '17px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{apt.condition}</div>
                       </div>
 
-                      <span style={{ width: 88, flexShrink: 0, display: 'flex' }}>
+                      <span className="apt-row-status">
                         <span className={`status-pill ${meta.pill}`} style={{ height: 26, minWidth: 78, padding: '0 8px', fontSize: 11.5, borderColor: apt.status === 'In Consultation' ? 'var(--blue-border)' : 'transparent' }}>
                           {apt.status}
                         </span>
                       </span>
 
-                      <div style={{ width: 124, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: apt.status === 'In Consultation' ? 'space-between' : 'flex-start', gap: 8 }} onClick={(e) => e.stopPropagation()}>
+                      <div className="apt-row-actions" style={{ justifyContent: apt.status === 'In Consultation' ? 'space-between' : 'flex-start' }} onClick={(e) => e.stopPropagation()}>
                         {apt.status === 'Checked In' && (
                           <button className="btn-primary" style={{ width: 118, height: 34, fontSize: 11.5, padding: 0 }} onClick={() => openPatientScreen(apt, 'consultation')}>
                             Start Consultation
@@ -803,7 +806,7 @@ export const AppointmentsScreen: React.FC = () => {
                           </button>
                         )}
                       </div>
-                      <div style={{ position: 'relative', flexShrink: 0, marginLeft: 5 }} onClick={(e) => e.stopPropagation()}>
+                      <div className="apt-row-more" onClick={(e) => e.stopPropagation()}>
                         <button className="icon-btn" style={{ width: 36, height: 34, borderColor: 'var(--border-strong)' }} onClick={toggleMenu(`row-${apt.id}`)} aria-label={`More actions for ${apt.patientName}`}>
                           <MoreHorizontal size={16} color="var(--blue-text)" />
                         </button>
@@ -817,7 +820,7 @@ export const AppointmentsScreen: React.FC = () => {
           </div>
 
           {/* Pagination */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 4px 8px', fontSize: 12.5, color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px 16px', padding: '14px 0 4px 8px', fontSize: 12.5, color: 'var(--text-primary)' }}>
             <span>
               Showing {firstRow} to {lastRow} of {displayedAppointments.length} appointments
             </span>
@@ -867,7 +870,7 @@ export const AppointmentsScreen: React.FC = () => {
 
         {/* Right: selected appointment */}
         {selectedApt && (
-          <div className="medios-card" style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <div key={selectedApt.id} className="medios-card swap-in" style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
               <Avatar name={selectedApt.patientName} size={68} />
               <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
