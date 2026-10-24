@@ -1,0 +1,279 @@
+/* Check-in kiosk (/kiosk). Sized from the viewport: a monitor beside the card
+   reader, read from a step or two away. */
+
+.kq-root {
+  --kq-bg: #f3f7ff;
+  --kq-ink: #0f1a3d;
+  --kq-muted: #4a5577;
+  --kq-brand: #1e62f5;
+  --kq-brand-deep: #0b36a8;
+  --kq-green: #0f7b53;
+  --kq-green-bg: #ddf5ec;
+  --kq-amber: #b4540a;
+  --kq-amber-bg: #fdf0db;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(120% 80% at 50% 0%, #ffffff 0%, var(--kq-bg) 60%, #e6eefc 100%);
+  color: var(--kq-ink);
+  font-family: var(--font-family);
+  overflow: hidden;
+  user-select: none;
+}
+
+.kq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2.4vh 3vw;
+}
+
+.kq-brand {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  min-width: 0;
+  font-size: clamp(18px, 2.2vw, 40px);
+  font-weight: 600;
+}
+
+.kq-brand img {
+  width: clamp(36px, 3.8vw, 72px);
+  height: auto;
+  flex-shrink: 0;
+}
+
+.kq-brand span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kq-clock {
+  font-family: var(--font-mono);
+  font-size: clamp(20px, 2.4vw, 44px);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  margin-left: 2vw;
+}
+
+.kq-clock small {
+  font-size: 0.5em;
+  color: var(--kq-muted);
+}
+
+.kq-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2vh 6vw;
+  text-align: center;
+}
+
+.kq-main h1 {
+  font-size: clamp(28px, 4.4vw, 84px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.kq-main p {
+  margin-top: 1.6vh;
+  font-size: clamp(16px, 2vw, 38px);
+  color: var(--kq-muted);
+  line-height: 1.4;
+}
+
+.kq-main .kq-small {
+  margin-top: 2.4vh;
+  font-size: clamp(13px, 1.4vw, 26px);
+}
+
+.kq-idle,
+.kq-notice,
+.kq-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 1100px;
+}
+
+/* The reader target: an NFC mark inside rings that pulse outwards. */
+.kq-reader {
+  position: relative;
+  width: clamp(140px, 22vh, 260px);
+  height: clamp(140px, 22vh, 260px);
+  margin-bottom: 4vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(160deg, #3b82ff 0%, var(--kq-brand) 55%, var(--kq-brand-deep) 100%);
+  box-shadow: 0 18px 40px -12px rgba(30, 98, 245, 0.55);
+}
+
+.kq-reader-icon {
+  width: 52%;
+  height: 52%;
+  color: #ffffff;
+}
+
+.kq-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(30, 98, 245, 0.45);
+  animation: kqRing 2.4s ease-out infinite;
+}
+
+.kq-ring-2 {
+  animation-delay: 1.2s;
+}
+
+@keyframes kqRing {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+.kq-spinner {
+  width: clamp(80px, 12vh, 140px);
+  height: clamp(80px, 12vh, 140px);
+  margin-bottom: 4vh;
+  border-radius: 50%;
+  border: 8px solid rgba(30, 98, 245, 0.18);
+  border-top-color: var(--kq-brand);
+  animation: kqSpin 0.9s linear infinite;
+}
+
+@keyframes kqSpin {
+  to { transform: rotate(360deg); }
+}
+
+.kq-result .kq-welcome {
+  margin-top: 0;
+  font-size: clamp(22px, 3vw, 56px);
+  font-weight: 600;
+  color: var(--kq-ink);
+}
+
+.kq-result .kq-label {
+  margin-top: 3vh;
+  font-size: clamp(14px, 1.5vw, 28px);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kq-result .kq-token {
+  margin-top: 0.5vh;
+  font-family: var(--font-mono);
+  font-size: clamp(96px, 22vh, 260px);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--kq-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+.kq-result .kq-line {
+  margin-top: 2vh;
+  padding: 1vh 2vw;
+  border-radius: 999px;
+  background: var(--kq-green-bg);
+  color: var(--kq-green);
+  font-weight: 600;
+}
+
+.kq-result .kq-line-called {
+  background: var(--kq-amber-bg);
+  color: var(--kq-amber);
+}
+
+.kq-result .kq-detail {
+  margin-top: 1.6vh;
+  font-size: clamp(14px, 1.6vw, 30px);
+}
+
+.kq-result .kq-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6vw;
+  color: var(--kq-ink);
+  font-weight: 600;
+}
+
+.kq-inline-icon {
+  vertical-align: -2px;
+  color: var(--kq-brand);
+}
+
+.kq-notice-icon {
+  width: clamp(80px, 12vh, 140px);
+  height: clamp(80px, 12vh, 140px);
+  margin-bottom: 3vh;
+  color: var(--kq-amber);
+}
+
+.kq-footer {
+  display: flex;
+  align-items: center;
+  gap: 2vw;
+  padding: 1.6vh 3vw;
+  font-size: clamp(12px, 1.2vw, 22px);
+  color: var(--kq-muted);
+}
+
+.kq-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5vw;
+  margin-left: auto;
+  padding: 0.6vh 1.2vw;
+  border-radius: 999px;
+  background: var(--kq-amber-bg);
+  color: var(--kq-amber);
+  font-weight: 600;
+}
+
+.kq-test {
+  margin-left: auto;
+}
+
+.kq-test input {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px dashed var(--kq-muted);
+  border-radius: 8px;
+  background: transparent;
+  font-family: var(--font-mono);
+}
+
+.kq-message-screen {
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+  padding: 6vw;
+  text-align: center;
+}
+
+.kq-message-screen h1 {
+  font-size: clamp(22px, 3vw, 56px);
+  font-weight: 600;
+}
+
+.kq-message-screen p {
+  max-width: 60ch;
+  font-size: clamp(14px, 1.5vw, 28px);
+  line-height: 1.5;
+  color: var(--kq-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kq-ring,
+  .kq-spinner {
+    animation: none;
+  }
+}

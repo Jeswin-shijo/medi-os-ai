@@ -26,3 +26,12 @@ export const displayTime = (d: Date = clinicNow()) =>
 
 /** "26 Sep 2026, 09:30 AM" */
 export const displayDateTime = (d: Date = clinicNow()) => `${displayDate(d)}, ${displayTime(d)}`;
+
+/** Minutes since midnight for "09:30 AM", for sorting by the clock; 0 when unparseable. */
+export const clockMinutes = (time: string) => {
+  const m = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!m) return 0;
+  let h = Number(m[1]) % 12;
+  if (m[3].toUpperCase() === 'PM') h += 12;
+  return h * 60 + Number(m[2]);
+};

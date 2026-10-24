@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/appContextCore';
-import { AgentCall, Appointment, SoapNote } from '../../types';
-import { appointmentService, callAgentService, consultationService } from '../../services';
+import { AgentCall, Appointment, QueueToken, SoapNote } from '../../types';
+import { appointmentService, callAgentService, consultationService, queueService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
 import { useCallRunner } from '../../hooks/useCallRunner';
-import { displayDate, isoDay } from '../../utils/clinicDate';
+import { clockMinutes, displayDate, isoDay } from '../../utils/clinicDate';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { AllergyIcon, DiabetesDots, HypertensionIcon } from '../common/icons';
@@ -71,13 +71,6 @@ const shiftIso = (iso: string, days: number) => {
   const d = parseIso(iso);
   d.setDate(d.getDate() + days);
   return toIso(d.getFullYear(), d.getMonth(), d.getDate());
-};
-const toMinutes = (time: string) => {
-  const m = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!m) return 0;
-  let h = Number(m[1]) % 12;
-  if (m[3].toUpperCase() === 'PM') h += 12;
-  return h * 60 + Number(m[2]);
 };
 
 // Doctor schedule sessions — unchecking one hides the appointments in that block.
@@ -229,6 +222,13 @@ export const AppointmentsScreen: React.FC = () => {
   const [condition, setCondition] = useState('');
 
   const { reload: reloadAppointments } = useLoader(() => appointmentService.getAppointments(), setAppointments, []);
+  // Today's queue tokens, by appointment: checking in issues one.
+  const [tokenByAppointment, setTokenByAppointment] = useState<Map<string, QueueToken>>(new Map());
+  const { reload: reloadTokens } = useLoader(
+    () => queueService.getBoard(),
+    (board) => setTokenByAppointment(new Map(board.tokens.filter((t) => t.appointmentId && t.status !== 'cancelled').map((t) => [t.appointmentId!, t]))),
+    []
+  );
   // AI calls change appointments (confirmed, moved, cancelled, booked): reload when one ends.
   const runCall = useCallRunner(() => {
     reloadAppointments();
@@ -254,7 +254,7 @@ export const AppointmentsScreen: React.FC = () => {
     setPage(1);
   };
 
-  const dayAppointments = appointments.filter((a) => a.date === selectedDate).sort((a, b) => toMinutes(a.time) - toMinutes(b.time));
+  const dayAppointments = appointments.filter((a) => a.date === selectedDate).sort((a, b) => clockMinutes(a.time) - clockMinutes(b.time));
   const q = search.trim().toLowerCase();
 
   const displayedAppointments = dayAppointments.filter((apt) => {
@@ -262,7 +262,7 @@ export const AppointmentsScreen: React.FC = () => {
     if (viewTab === 'Waiting List' && apt.status !== 'Waiting') return false;
     if (viewTab === 'Canceled / No Show' && apt.status !== 'Canceled' && apt.status !== 'No Show') return false;
     if (viewTab === 'Teleconsultation' && !(apt.type === 'Teleconsultation' || apt.notes?.toLowerCase().includes('tele'))) return false;
-    const mins = toMinutes(apt.time);
+    const mins = clockMinutes(apt.time);
     const session = SESSIONS.find((s) => mins >= s.from && mins < s.to);
     if (session && !sessionsOn[session.id]) return false;
     if (typeFilter === 'OPD Consultation' && apt.type.toLowerCase().includes('follow-up')) return false;
@@ -309,7 +309,7 @@ export const AppointmentsScreen: React.FC = () => {
     .slice(0, 4);
   const upcomingAppointments = appointments
     .filter((a) => a.uhid === selectedUhid && a.date > selectedDate && a.status !== 'Canceled')
-    .sort((a, b) => a.date.localeCompare(b.date) || toMinutes(a.time) - toMinutes(b.time))
+    .sort((a, b) => a.date.localeCompare(b.date) || clockMinutes(a.time) - clockMinutes(b.time))
     .slice(0, 2);
 
   const count = (s: Appointment['status']) => dayAppointments.filter((a) => a.status === s).length;
@@ -330,6 +330,18 @@ export const AppointmentsScreen: React.FC = () => {
     } catch (err) {
       showToast(`Status not updated: ${errorMessage(err)}`, 'error');
     }
+  };
+
+  /** Check-in gives the patient today's queue token; the API marks the appointment Checked In. */
+  const handleCheckIn = async (apt: Appointment) => {
+    try {
+      const { token, existing } = await queueService.issue({ appointmentId: apt.id });
+      showToast(existing ? `${apt.patientName} already holds token ${token.label}` : `${apt.patientName} checked in with token ${token.label}`, existing ? 'info' : 'success');
+    } catch (err) {
+      showToast(`Not checked in: ${errorMessage(err)}`, 'error');
+    }
+    reloadAppointments();
+    reloadTokens();
   };
 
   const saveNote = async (id: string, notes: string) => {
@@ -725,6 +737,11 @@ export const AppointmentsScreen: React.FC = () => {
                               <ConfirmationChip value={apt.confirmation} compact />
                             </span>
                           )}
+                          {tokenByAppointment.has(apt.id) && (
+                            <span className="badge-pill" style={{ flexShrink: 0, height: 18, padding: '0 6px', fontSize: 10.5, backgroundColor: 'var(--bg-tab)', color: 'var(--text-secondary)' }} title="Queue token">
+                              Token {tokenByAppointment.get(apt.id)!.label}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-secondary)', lineHeight: '16px', whiteSpace: 'nowrap', overflow: 'hidden' }}>
                           <span>{apt.age} Yrs</span>
@@ -749,8 +766,8 @@ export const AppointmentsScreen: React.FC = () => {
                           </button>
                         )}
                         {apt.status === 'Waiting' && (
-                          <button className="btn-outline-blue" style={{ ...outlineBtn, width: 118, fontSize: 11.5 }} onClick={() => showToast(`Calling patient: ${apt.patientName}`)}>
-                            Call Patient
+                          <button className="btn-outline-blue" style={{ ...outlineBtn, width: 118, fontSize: 11.5 }} onClick={() => setActiveScreen('queue')}>
+                            Open Queue
                           </button>
                         )}
                         {apt.status === 'In Consultation' && (
@@ -765,7 +782,13 @@ export const AppointmentsScreen: React.FC = () => {
                           </>
                         )}
                         {apt.status === 'Scheduled' && (
-                          <button className="btn-outline-blue" style={{ ...outlineBtn, width: 76, padding: 0, fontSize: 11.5 }} onClick={() => handleUpdateStatus(apt.id, 'Checked In')}>
+                          <button
+                            className="btn-outline-blue"
+                            style={{ ...outlineBtn, width: 76, padding: 0, fontSize: 11.5 }}
+                            disabled={apt.date !== isoDay()}
+                            title={apt.date === isoDay() ? 'Check in and give a queue token' : 'Check-in opens on the day of the appointment'}
+                            onClick={() => handleCheckIn(apt)}
+                          >
                             Check In
                           </button>
                         )}

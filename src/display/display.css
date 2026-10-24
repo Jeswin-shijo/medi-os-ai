@@ -1,0 +1,299 @@
+/* Waiting-room display (/display). Sized from the viewport so one layout reads on a
+   laptop and across a room on a 55" TV. */
+
+.qd-root {
+  --qd-bg: #06162f;
+  --qd-panel: rgba(255, 255, 255, 0.06);
+  --qd-line: rgba(255, 255, 255, 0.12);
+  --qd-text: #ffffff;
+  --qd-muted: #a9b8d6;
+  --qd-brand: #1e62f5;
+  --qd-brand-bright: #4d8dff;
+  --qd-amber: #fbbf24;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(120% 90% at 0% 0%, #0f2a5c 0%, var(--qd-bg) 55%, #040f22 100%);
+  color: var(--qd-text);
+  font-family: var(--font-family);
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+}
+
+.qd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2.2vh 3vw;
+  border-bottom: 1px solid var(--qd-line);
+}
+
+.qd-brand {
+  display: flex;
+  align-items: center;
+  gap: 1.2vw;
+  font-size: clamp(18px, 2.4vw, 46px);
+  font-weight: 600;
+  min-width: 0;
+}
+
+.qd-brand img {
+  width: clamp(36px, 4.2vw, 80px);
+  height: auto;
+  flex-shrink: 0;
+}
+
+.qd-brand span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qd-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  margin-left: 2vw;
+}
+
+.qd-time {
+  font-family: var(--font-mono);
+  font-size: clamp(22px, 3vw, 58px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.qd-time small {
+  font-size: 0.45em;
+  margin-left: 0.35em;
+  color: var(--qd-muted);
+}
+
+.qd-date {
+  margin-top: 0.6vh;
+  font-size: clamp(12px, 1.25vw, 24px);
+  color: var(--qd-muted);
+}
+
+.qd-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
+  gap: 2.4vw;
+  padding: 3vh 3vw;
+}
+
+.qd-main h2 {
+  font-size: clamp(14px, 1.6vw, 32px);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--qd-muted);
+  margin-bottom: 2.2vh;
+}
+
+.qd-serving {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.qd-cards {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22vw), 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 1.6vw;
+}
+
+.qd-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1vh;
+  padding: 2vh 1.5vw;
+  border-radius: clamp(10px, 1.2vw, 24px);
+  background: linear-gradient(160deg, #164bc4 0%, #0b36a8 100%);
+  box-shadow: 0 0 0 1px rgba(77, 141, 255, 0.35) inset;
+  min-height: 0;
+  text-align: center;
+}
+
+.qd-card-token {
+  font-family: var(--font-mono);
+  font-size: clamp(56px, 10vw, 220px);
+  font-weight: 600;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums;
+}
+
+.qd-cards.many .qd-card-token {
+  font-size: clamp(44px, 6.4vw, 150px);
+}
+
+.qd-card-room {
+  font-size: clamp(18px, 2.4vw, 48px);
+  font-weight: 600;
+}
+
+.qd-card-room::before {
+  content: '→ ';
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.qd-card-name {
+  font-size: clamp(14px, 1.6vw, 32px);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* A call in the last few seconds: brighter, with a ring that pulses three times. */
+.qd-card.fresh {
+  background: linear-gradient(160deg, #3b82ff 0%, #1e62f5 100%);
+  animation: qdCalled 1.4s ease-out 3;
+}
+
+@keyframes qdCalled {
+  0% { box-shadow: 0 0 0 0 rgba(77, 141, 255, 0.85); }
+  100% { box-shadow: 0 0 0 2.2vw rgba(77, 141, 255, 0); }
+}
+
+.qd-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 4vw;
+  border: 1px dashed var(--qd-line);
+  border-radius: clamp(10px, 1.2vw, 24px);
+  font-size: clamp(18px, 2.2vw, 44px);
+  line-height: 1.35;
+  color: var(--qd-muted);
+}
+
+.qd-next {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 2.6vh 2vw;
+  border-radius: clamp(10px, 1.2vw, 24px);
+  background: var(--qd-panel);
+  border: 1px solid var(--qd-line);
+}
+
+.qd-next ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.qd-next li {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  padding: 1.3vh 0;
+  border-bottom: 1px solid var(--qd-line);
+}
+
+.qd-next li:last-child {
+  border-bottom: none;
+}
+
+.qd-next-token {
+  font-family: var(--font-mono);
+  font-size: clamp(26px, 3.6vw, 76px);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+}
+
+.qd-star {
+  color: var(--qd-amber);
+  fill: var(--qd-amber);
+  flex-shrink: 0;
+}
+
+.qd-next-name {
+  font-size: clamp(14px, 1.6vw, 32px);
+  color: var(--qd-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qd-waiting {
+  margin-top: 1.6vh;
+  font-size: clamp(14px, 1.5vw, 30px);
+  color: var(--qd-muted);
+}
+
+.qd-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+  padding: 1.8vh 3vw;
+  border-top: 1px solid var(--qd-line);
+  font-size: clamp(13px, 1.35vw, 28px);
+  color: var(--qd-muted);
+}
+
+.qd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6vw;
+  flex-shrink: 0;
+  color: var(--qd-amber);
+}
+
+.qd-hint {
+  padding: 0.5vh 1vw;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.14);
+}
+
+.qd-message {
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+  padding: 6vw;
+  text-align: center;
+}
+
+.qd-message h1 {
+  font-size: clamp(22px, 3vw, 56px);
+  font-weight: 600;
+}
+
+.qd-message p {
+  max-width: 60ch;
+  font-size: clamp(14px, 1.5vw, 28px);
+  line-height: 1.5;
+  color: var(--qd-muted);
+}
+
+/* Portrait screens (a tablet or a monitor on its side): stack the panels. */
+@media (orientation: portrait) {
+  .qd-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qd-card.fresh {
+    animation: none;
+  }
+}

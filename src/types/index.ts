@@ -2,6 +2,7 @@ export type ScreenId =
   | 'dashboard'
   | 'patients'
   | 'appointments'
+  | 'queue'
   | 'call-agent'
   | 'consultation'
   | 'emr'
@@ -482,6 +483,108 @@ export interface SettingsState {
     compactMode: boolean;
   };
   callAgent: CallAgentSettings;
+  queue: QueueSettings;
+}
+
+// ---------------------------------------------------------------- token queue
+
+export interface QueueSettings {
+  /** Rooms or counters tokens are called to. */
+  counters: string[];
+  tokenPrefix: string;
+  showNamesOnDisplay: boolean;
+  announce: boolean;
+  upcomingOnDisplay: number;
+}
+
+/** waiting → called → completed; a called patient who does not come is skipped. */
+export type TokenStatus = 'waiting' | 'called' | 'skipped' | 'completed' | 'cancelled';
+
+export interface QueueToken {
+  id: string;
+  date: string;
+  number: number;
+  label: string;
+  status: TokenStatus;
+  uhid: string;
+  patientName: string;
+  appointmentId?: string;
+  appointmentTime: string;
+  priority: boolean;
+  note: string;
+  source: 'front-desk' | 'kiosk';
+  issuedBy: string;
+  counter?: string;
+  calledAt?: string;
+  firstCalledAt?: string;
+  calledBy: string;
+  recalls: number;
+  completedAt?: string;
+  createdAt: string;
+  /** Place in line while waiting, else null. */
+  position: number | null;
+}
+
+export interface QueueBoard {
+  date: string;
+  settings: QueueSettings;
+  tokens: QueueToken[];
+  stats: { issued: number; waiting: number; called: number; skipped: number; completed: number; cancelled: number; averageWaitMinutes: number | null };
+}
+
+/** A display shows the queue; a kiosk lets patients tap a card to take a token. */
+export type QueueDeviceKind = 'display' | 'kiosk';
+
+/** A device allowed to use the queue without a sign-in (its key is shown once, when added). */
+export interface QueueDisplayDevice {
+  id: string;
+  name: string;
+  /** Missing on displays added before kiosks existed. */
+  kind?: QueueDeviceKind;
+  /** Kiosks: print a token slip after each tap. */
+  printSlips?: boolean;
+  keyHint: string;
+  createdBy: string;
+  lastSeenAt?: string;
+  createdAt: string;
+}
+
+/** A hospital card linked to a patient: its serial number as the USB reader types it. */
+export interface PatientCard {
+  id: string;
+  cardId: string;
+  uhid: string;
+  linkedBy: string;
+  lastUsedAt?: string;
+  createdAt: string;
+}
+
+/** What a check-in kiosk shows after a tap: no UHID or full name. */
+export interface KioskTapResult {
+  label: string;
+  /** "Priya S." */
+  name: string;
+  status: TokenStatus;
+  existing: boolean;
+  /** People ahead in line (0 when already called). */
+  ahead: number;
+  /** Set when the patient has already been called. */
+  counter?: string;
+  appointmentTime: string;
+  issuedAt: string;
+  /** Whether this kiosk prints slips now (an administrator can switch it at any time). */
+  printSlips: boolean;
+}
+
+/** What the waiting-room display receives: token numbers, rooms and (if allowed) short names. */
+export interface QueueDisplaySnapshot {
+  hospitalName: string;
+  date: string;
+  announce: boolean;
+  nowServing: { label: string; counter: string; calledAt: string; recalls: number; name?: string }[];
+  upcoming: { label: string; priority: boolean; name?: string }[];
+  waitingCount: number;
+  serverTime: string;
 }
 
 // ---------------------------------------------------------------- AI call agent

@@ -19,6 +19,7 @@ import {
   Settings,
   LogOut,
   PhoneCall,
+  Ticket,
   type LucideIcon
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
@@ -40,6 +41,7 @@ export const Sidebar: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
     { id: 'patients', label: 'Patients', icon: UsersRound },
     { id: 'appointments', label: 'Appointments', icon: CalendarCheck },
+    { id: 'queue', label: 'Token Queue', icon: Ticket },
     { id: 'call-agent', label: 'AI Call Agent', icon: PhoneCall },
     { id: 'consultation', label: 'Consultation', icon: UserRoundSearch },
     { id: 'emr', label: 'EMR / Clinical Notes', icon: FileAxis3d },

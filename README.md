@@ -42,6 +42,8 @@ src/
 ├── hooks/usePatientChart.ts  a patient's meds, labs, imaging, timeline and visits for summary panels
 ├── utils/clinicDate.ts    the clinic's "today" and the record date formats
 ├── hooks/useCallRunner.ts  start an AI call and report its outcome
+├── display/               the waiting-room display (/display): live feed, announcer, full-screen layout
+├── kiosk/                 the card check-in kiosk (/kiosk): taps, result screen, slip printing
 ├── components/screens/    one screen per sidebar item (+ Login, Timeline, Vitals, Documents)
 └── mock/                  reference content only: templates, guideline/knowledge library, demo AI text
 ```
@@ -64,6 +66,28 @@ AI Call Agent:
   - **Book by AI Call** in the header.
 - **Follow-ups**: **Book by AI Call** in a row's menu. A booked slot updates the follow-up.
 - `hooks/useCallRunner.ts` starts a call and follows it to the end with toasts. With the backend's simulated provider no phone rings; the screen says so and lets you pick how the pretend patient answers.
+
+Token queue:
+- **Token Queue** screen (sidebar):
+  - check patients in: today's expected appointments, or search any registered patient for a walk-in, with priority and a note;
+  - the room's current token with **Done, call next**, **Announce again**, **Did not come** and **Done only**;
+  - the waiting line, skipped tokens and today's completed ones. Token slips can be printed.
+  - Admins and doctors also get **Displays & Settings**: rooms, token prefix, announcements, names on the display, and display links.
+- **Appointments**: **Check In** issues the token, and today's rows show their token number.
+- **Card taps at the front desk.** A USB NFC reader on the reception computer works on the Token Queue screen:
+  - a linked card checks its patient in;
+  - an unknown card opens **New card**: pick the patient, link the card, and they are checked in.
+
+  The card icon on a search result lists a patient's cards and links a new one: the reader types into the focused field. `hooks/useCardReader.ts` tells a reader's burst of keystrokes from typing by its speed. It ignores keys typed into text boxes.
+- **Check-in kiosk** at `/kiosk#key=…`, on the computer the reader is plugged into:
+  - The patient taps their card. The kiosk shows "Welcome, David R.", their token and how many are ahead, then resets after 10 s.
+  - If the kiosk is set to print, it prints an 80 mm slip. For printing without a dialog, start Chrome with `--kiosk --kiosk-printing` and make the receipt printer the default.
+  - An unknown card is sent to the front desk. A double tap shows the same token and does not reprint.
+  - Add `&test=1` to the link for a box to type a card number in, for trying it without a reader.
+  - Kiosks are added under **Displays & Settings**, each with a print switch.
+- **Waiting-room display** at `/display#key=…`: full screen and without sign-in, made for a TV or monitor. It shows the called tokens with their rooms and who is next, and updates live. After one click it plays a chime and reads each call aloud, and it asks the screen to stay awake.
+  - The key stays in the URL fragment, which browsers never send to a server.
+  - The host must serve `index.html` for `/display` and `/kiosk`, as for any single-page app.
 
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.

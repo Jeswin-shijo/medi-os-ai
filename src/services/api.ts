@@ -7,7 +7,7 @@
 // httpOnly cookie the browser sends to /api/auth; on a 401 the client refreshes
 // once and retries the request.
 
-const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api').replace(/\/$/, '');
+export const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api').replace(/\/$/, '');
 
 /** Required by the API on cookie-authenticated endpoints (CSRF protection). */
 const CLIENT_HEADERS = { 'X-MediOS-Client': 'web' };

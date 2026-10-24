@@ -25,7 +25,13 @@ import {
   OfferedSlot,
   CallPurpose,
   CallStatus,
-  CallOutcome
+  CallOutcome,
+  QueueBoard,
+  QueueToken,
+  QueueSettings,
+  QueueDisplayDevice,
+  QueueDeviceKind,
+  PatientCard
 } from '../types';
 import { api, refreshSession, session, SessionPayload } from './api';
 import { displayDate, displayTime } from '../utils/clinicDate';
@@ -245,7 +251,8 @@ export const settingsService = {
   getSettings: () => api<SettingsState>('/settings'),
   /** The API merges each section sent over the stored one. */
   saveSettings: (settings: Partial<SettingsState>) => api<SettingsState>('/settings', { method: 'PUT', body: settings }),
-  saveCallAgent: (callAgent: Partial<CallAgentSettings>) => api<SettingsState>('/settings', { method: 'PUT', body: { callAgent } })
+  saveCallAgent: (callAgent: Partial<CallAgentSettings>) => api<SettingsState>('/settings', { method: 'PUT', body: { callAgent } }),
+  saveQueue: (queue: Partial<QueueSettings>) => api<SettingsState>('/settings', { method: 'PUT', body: { queue } })
 };
 
 // AI Call Agent: the backend places calls through a voice provider and applies each
@@ -271,4 +278,49 @@ export const callAgentService = {
   cancelCall: (id: string) => api<AgentCall>(`/calls/${enc(id)}/cancel`, { method: 'POST' }),
   runDue: () => api<{ expired: number; queued: number; placed: number; withinCallingHours: boolean }>('/calls/run-due', { method: 'POST' }),
   allowCalls: (uhid: string) => api<{ uhid: string; doNotCall: boolean }>(`/calls/do-not-call/${enc(uhid)}`, { method: 'DELETE' })
+};
+
+// Token queue: the front desk issues tokens, rooms call them, and display screens
+// show them. The backend keeps one live token per patient per day.
+export interface IssueTokenRequest {
+  uhid?: string;
+  appointmentId?: string;
+  priority?: boolean;
+  note?: string;
+}
+
+/** What a call changed: the room's previous token (completed) and the one now called. */
+export interface QueueCallResult {
+  called: QueueToken | null;
+  completed: QueueToken | null;
+}
+
+export const queueService = {
+  getBoard: (date?: string) => api<QueueBoard>('/queue', { query: { date } }),
+  /** `existing` when the patient already held today's token (it is returned, not duplicated). */
+  issue: (request: IssueTokenRequest) => api<{ token: QueueToken; existing: boolean }>('/queue/tokens', { method: 'POST', body: request }),
+  /** `finish` is the room's current token; required while it has one. */
+  callNext: (counter: string, finish?: string) => api<QueueCallResult>('/queue/next', { method: 'POST', body: { counter, finish } }),
+  callToken: (id: string, counter: string, finish?: string) =>
+    api<QueueCallResult>(`/queue/tokens/${enc(id)}/call`, { method: 'POST', body: { counter, finish } }),
+  recall: (id: string) => api<QueueToken>(`/queue/tokens/${enc(id)}/recall`, { method: 'POST' }),
+  skip: (id: string) => api<QueueToken>(`/queue/tokens/${enc(id)}/skip`, { method: 'POST' }),
+  requeue: (id: string) => api<QueueToken>(`/queue/tokens/${enc(id)}/requeue`, { method: 'POST' }),
+  complete: (id: string) => api<QueueToken>(`/queue/tokens/${enc(id)}/complete`, { method: 'POST' }),
+  cancel: (id: string) => api<QueueToken>(`/queue/tokens/${enc(id)}/cancel`, { method: 'POST' }),
+  getDisplays: () => api<QueueDisplayDevice[]>('/queue/displays'),
+  /** The key comes back only here. */
+  addDisplay: (name: string, kind: QueueDeviceKind = 'display', printSlips = false) =>
+    api<{ display: QueueDisplayDevice; key: string }>('/queue/displays', { method: 'POST', body: { name, kind, printSlips } }),
+  updateDisplay: (id: string, changes: { name?: string; printSlips?: boolean }) =>
+    api<QueueDisplayDevice>(`/queue/displays/${enc(id)}`, { method: 'PATCH', body: changes }),
+  removeDisplay: (id: string) => api<{ id: string; removed: boolean }>(`/queue/displays/${enc(id)}`, { method: 'DELETE' }),
+
+  // Patient cards: a card's serial number, as the USB reader types it, linked to a patient.
+  getCards: (uhid: string) => api<PatientCard[]>('/queue/cards', { query: { uhid } }),
+  /** `reassign` moves a card that is linked to someone else (the API refuses with 409 otherwise). */
+  linkCard: (cardId: string, uhid: string, reassign = false) => api<PatientCard>('/queue/cards', { method: 'POST', body: { cardId, uhid, reassign } }),
+  unlinkCard: (id: string) => api<{ id: string; removed: boolean }>(`/queue/cards/${enc(id)}`, { method: 'DELETE' }),
+  /** A card tapped on the front-desk reader: the patient's token for today. 404 for an unknown card. */
+  tapCard: (cardId: string) => api<{ token: QueueToken; existing: boolean; cardId: string }>('/queue/cards/tap', { method: 'POST', body: { cardId } })
 };

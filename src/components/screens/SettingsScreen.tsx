@@ -201,8 +201,8 @@ export const SettingsScreen: React.FC = () => {
     if (!settings) return;
     setSaving(true);
     try {
-      // The call agent's section is edited on its own screen; never send back a stale copy.
-      const saved = await settingsService.saveSettings({ ...settings, callAgent: undefined });
+      // The call agent and token queue sections are edited on their own screens; never send back a stale copy.
+      const saved = await settingsService.saveSettings({ ...settings, callAgent: undefined, queue: undefined });
       setSettings(saved);
       setSessionTimeout(saved.security.sessionTimeout);
       setSavedSuccess(true);
