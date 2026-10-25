@@ -61,8 +61,8 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
     <aside className="medios-card bed-panel swap-in" aria-label={`Bed ${bed.label}`}>
       <div className="bed-panel-head">
         <h3>{bed.label}</h3>
-        <span className="bed-panel-state" style={{ color: meta.color === 'var(--orange-amber)' ? 'var(--orange-dark)' : undefined }}>
-          <span className="bed-panel-dot" style={{ background: meta.color }} aria-hidden="true" />
+        <span className="bed-panel-state">
+          <span className="bed-panel-dot" style={{ background: meta.fill, border: `1px solid ${meta.border}` }} aria-hidden="true" />
           {Icon && <Icon size={12} aria-hidden="true" />}
           {bed.state === 'occupied' && bed.sample ? 'Occupied (sample)' : meta.label}
           {bed.since && <span className="bed-panel-since"> {sinceLabel(bed.since)}</span>}

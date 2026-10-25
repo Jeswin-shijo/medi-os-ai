@@ -1,5 +1,6 @@
 import React from 'react';
 import type { BoardTotals } from '../../types';
+import { BED_STATE_META } from '../../utils/beds';
 import { RollingText } from '../common/RollingText';
 
 export type FloorFilter = number | 'all';
@@ -20,7 +21,7 @@ interface BedTotalsBarProps {
 /** Occupied / Free / Cleaning / % full, plus the floor filter. */
 export const BedTotalsBar: React.FC<BedTotalsBarProps> = ({ totals, floor, onFloor }) => {
   const stats: { label: string; value: number; suffix?: string; color: string }[] = [
-    { label: 'Occupied', value: totals.occupied, color: 'var(--blue-primary)' },
+    { label: 'Occupied', value: totals.occupied, color: 'var(--text-primary)' },
     { label: 'Free', value: totals.free, color: 'var(--green-dark)' },
     { label: 'Cleaning', value: totals.cleaning, color: 'var(--orange-dark)' },
     { label: 'Full', value: totals.percentFull, suffix: '%', color: 'var(--text-primary)' }
@@ -51,6 +52,16 @@ export const BedTotalsBar: React.FC<BedTotalsBarProps> = ({ totals, floor, onFlo
           </button>
         ))}
       </div>
+      <ul className="bed-legend" aria-label="Colour key">
+        {Object.entries(BED_STATE_META).map(([state, m]) => (
+          <li key={state} className="bed-legend-item">
+            <span className="bed-swatch" style={{ backgroundColor: m.fill, borderColor: m.border, color: m.text }} aria-hidden="true">
+              {m.icon && <m.icon size={10} strokeWidth={2.25} />}
+            </span>
+            {m.label}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };

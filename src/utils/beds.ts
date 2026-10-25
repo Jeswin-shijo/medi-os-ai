@@ -2,12 +2,23 @@ import { Ban, Clock, Sparkles, type LucideIcon } from 'lucide-react';
 import type { BedBoard, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
 import { clinicNow, isoDay } from './clinicDate';
 
-export const BED_STATE_META: Record<BedState, { label: string; color: string; icon?: LucideIcon }> = {
-  free: { label: 'Free', color: 'var(--green-emerald)' },
-  occupied: { label: 'Occupied', color: 'var(--blue-primary)' },
-  cleaning: { label: 'Cleaning', color: 'var(--orange-amber)', icon: Sparkles },
-  held: { label: 'Held', color: 'var(--purple-ai)', icon: Clock },
-  blocked: { label: 'Blocked', color: 'var(--red-rose)', icon: Ban }
+/** One place for what each bed state looks like: tiles, the legend, the panel and the totals all read from here. */
+export interface BedStateMeta {
+  label: string;
+  /** Tile fill. */
+  fill: string;
+  border: string;
+  /** Text and icon colour on the fill (AA contrast). */
+  text: string;
+  icon?: LucideIcon;
+}
+
+export const BED_STATE_META: Record<BedState, BedStateMeta> = {
+  free: { label: 'Free', fill: 'var(--green-dark)', border: 'var(--green-dark)', text: '#ffffff' },
+  occupied: { label: 'Occupied', fill: 'var(--gray-pill-bg)', border: 'var(--gray-pill-border)', text: 'var(--text-secondary)' },
+  cleaning: { label: 'Cleaning', fill: 'var(--orange-amber)', border: 'var(--orange-amber)', text: 'var(--text-primary)', icon: Sparkles },
+  held: { label: 'Held', fill: 'var(--blue-primary)', border: 'var(--blue-primary)', text: '#ffffff', icon: Clock },
+  blocked: { label: 'Blocked', fill: 'var(--red-light)', border: 'var(--red-rose)', text: 'var(--red-dark)', icon: Ban }
 };
 
 export const NEED_OPTIONS: { need: Need; label: string }[] = [

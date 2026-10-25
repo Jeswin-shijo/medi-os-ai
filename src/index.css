@@ -2641,11 +2641,10 @@ button.stat-card-item:active {
   top: 2px;
   right: 2px;
 }
-.bed-free { background: var(--green-light); border-color: var(--green-border); color: var(--green-dark); }
-.bed-occupied { background: var(--blue-primary); color: #fff; }
-.bed-cleaning { background: #fdecc8; border-color: #f6cf80; color: var(--orange-dark); }
-.bed-held { background: #efe4fd; border-color: #d7bdf7; color: #6d28d9; border-style: dashed; }
-.bed-blocked { background: var(--red-light); border-color: var(--red-border); color: var(--red-dark); background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0, 0, 0, 0.06) 4px 6px); }
+.bed-blocked { background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0, 0, 0, 0.07) 4px 6px); }
+.bed-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; width: 100%; padding-top: 10px; border-top: 1px solid var(--border-subtle); font-size: var(--fs-sm); color: var(--text-secondary); }
+.bed-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.bed-swatch { width: 16px; height: 16px; border-radius: var(--radius-xs); border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; }
 .bed-tile.is-selected { outline: 2px solid var(--text-primary); outline-offset: 1px; }
 .bed-hint { color: var(--text-muted); font-size: var(--fs-body); text-align: center; padding: 28px 16px; }
 .bed-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }

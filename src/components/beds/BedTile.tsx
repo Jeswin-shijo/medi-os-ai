@@ -21,6 +21,7 @@ export const BedTile: React.FC<BedTileProps> = ({ bed, selected, onSelect }) => 
       aria-label={text}
       aria-pressed={selected}
       data-tip={tip}
+      style={{ backgroundColor: meta.fill, borderColor: meta.border, color: meta.text }}
       onClick={() => onSelect(bed.id)}
     >
       <span className="bed-tile-num">{bed.number}</span>
