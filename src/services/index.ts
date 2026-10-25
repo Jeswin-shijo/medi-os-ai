@@ -31,7 +31,12 @@ import {
   QueueSettings,
   QueueDisplayDevice,
   QueueDeviceKind,
-  PatientCard
+  PatientCard,
+  BedBoard,
+  SuggestBedsRequest,
+  SuggestionResult,
+  AiRefinement,
+  AiStatus
 } from '../types';
 import { api, refreshSession, session, SessionPayload } from './api';
 import { displayDate, displayTime } from '../utils/clinicDate';
@@ -323,4 +328,29 @@ export const queueService = {
   unlinkCard: (id: string) => api<{ id: string; removed: boolean }>(`/queue/cards/${enc(id)}`, { method: 'DELETE' }),
   /** A card tapped on the front-desk reader: the patient's token for today. 404 for an unknown card. */
   tapCard: (cardId: string) => api<{ token: QueueToken; existing: boolean; cardId: string }>('/queue/cards/tap', { method: 'POST', body: { cardId } })
+};
+
+const POST = { method: 'POST' } as const;
+
+// Beds: the board, AI-assisted suggestions, and the bed lifecycle.
+export const bedService = {
+  board: () => api<BedBoard>('/beds/board'),
+  suggest: (req: SuggestBedsRequest) => api<SuggestionResult>('/beds/suggestions', { method: 'POST', body: req }),
+  refine: (id: string) => api<AiRefinement>(`/beds/suggestions/${enc(id)}/refine`, POST),
+  hold: (bedId: string, suggestionId: string) => api<unknown>(`/beds/${enc(bedId)}/hold`, { method: 'POST', body: { suggestionId } }),
+  release: (bedId: string) => api<{ released: boolean }>(`/beds/${enc(bedId)}/hold`, { method: 'DELETE' }),
+  admit: (bedId: string, body: { suggestionId: string; reason?: string; ruleOverride?: boolean }) =>
+    api<unknown>(`/beds/${enc(bedId)}/admit`, { method: 'POST', body }),
+  transfer: (bedId: string, body: { toBedId: string; suggestionId: string; reason?: string; ruleOverride?: boolean }) =>
+    api<unknown>(`/beds/${enc(bedId)}/transfer`, { method: 'POST', body }),
+  discharge: (bedId: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/discharge`, POST),
+  clean: (bedId: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/clean`, POST),
+  block: (bedId: string, reason: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/block`, { method: 'POST', body: { reason } }),
+  unblock: (bedId: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/unblock`, POST)
+};
+
+export const aiService = {
+  status: () => api<AiStatus>('/ai/status'),
+  /** Admin only: tests the connection to the AI provider. */
+  check: () => api<{ provider: AiStatus['provider']; ok: boolean; detail: string }>('/ai/check', POST)
 };

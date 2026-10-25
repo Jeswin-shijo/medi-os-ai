@@ -20,7 +20,8 @@ export type ScreenId =
   | 'voice-to-notes'
   | 'tasks-alerts'
   | 'messages'
-  | 'settings';
+  | 'settings'
+  | 'beds';
 
 export interface Patient {
   id: string;
@@ -453,6 +454,7 @@ export interface SettingsState {
     voiceToNotes: boolean;
     drugInteractionAlerts: boolean;
     followUpSuggestions: boolean;
+    bedSuggestions: boolean;
     responseTone: string;
     language: string;
   };
@@ -715,4 +717,107 @@ export interface Medication extends Omit<PrescriptionItem, 'instructions'> {
   instructions?: string;
   /** Percentage of doses taken, once measured. */
   adherenceScore?: number;
+}
+
+// ---- Beds and AI bed suggestions (mirror the backend views in src/modules/beds) ----
+
+export type BedState = 'free' | 'held' | 'occupied' | 'cleaning' | 'blocked';
+export type WardType = 'emergency' | 'icu' | 'hdu' | 'isolation' | 'general' | 'paediatric' | 'maternity' | 'twin' | 'private' | 'deluxe';
+/** A class staff can admit to (isolation is a need, not a class). */
+export type RoomClass = Exclude<WardType, 'isolation'>;
+export type Need = 'oxygen' | 'highFallRisk' | 'isolation' | 'ventilator' | 'monitor' | 'pregnant';
+export type Feature = 'oxygen' | 'monitor' | 'ventilator' | 'nearNurses' | 'singleRoom' | 'attendantBed';
+
+export interface BoardWard {
+  id: string;
+  code: string;
+  name: string;
+  shortName: string;
+  floor: number;
+  type: WardType;
+  gender: 'male' | 'female' | 'any';
+  ratePerDay: number;
+}
+
+export interface BoardBed {
+  id: string;
+  wardId: string;
+  label: string;
+  number: number;
+  room?: string;
+  features: Feature[];
+  state: BedState;
+  /** When the bed entered its state (clinic clock), ISO. */
+  since: string;
+  sample: boolean;
+  blockedReason?: string;
+  /** Set on held beds: whether the viewer holds it. */
+  heldByMe?: boolean;
+  patient?: { id: string; name: string; uhid: string; admissionId: string; admittedAt: string };
+}
+
+export interface BoardTotals {
+  total: number;
+  occupied: number;
+  free: number;
+  cleaning: number;
+  held: number;
+  blocked: number;
+  percentFull: number;
+}
+
+export interface BedBoard {
+  wards: BoardWard[];
+  beds: BoardBed[];
+  totals: BoardTotals;
+  updatedAt: string;
+}
+
+export interface RankedBedView {
+  bedId: string;
+  label: string;
+  wardName: string;
+  floor: number;
+  ratePerDay: number;
+  features: Feature[];
+  reason: string;
+  aiReason?: string;
+  stepUp: boolean;
+}
+
+export interface SuggestionResult {
+  suggestionId: string;
+  appliedRules: string[];
+  blockedBy: string[];
+  classNote?: string;
+  top: RankedBedView[];
+  eligible: RankedBedView[];
+  ai: 'pending' | 'off';
+}
+
+export interface AiRefinement {
+  status: 'off' | 'ok' | 'timeout' | 'invalid' | 'provider_error';
+  sample: boolean;
+  top: RankedBedView[];
+  extraNeeds: { need: Need; evidence: string }[];
+}
+
+/** Body of POST /beds/suggestions. */
+export interface SuggestBedsRequest {
+  /** The patient id or UHID. */
+  patientId: string;
+  roomClass: RoomClass;
+  needs: Need[];
+  department: string;
+  doctor: string;
+  expectedStayDays: number;
+  notes: string;
+  /** For a transfer: the bed the patient is in now. */
+  currentBedId?: string;
+}
+
+export interface AiStatus {
+  provider: 'none' | 'sample' | 'claude';
+  model: string;
+  features: { bedSuggestions: boolean };
 }

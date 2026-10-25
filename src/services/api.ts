@@ -130,3 +130,64 @@ export async function api<T>(path: string, { method = 'GET', body, query }: Requ
   }
   return payload?.data as T;
 }
+
+/**
+ * Reads a Server-Sent Events stream (`event:` / `data:` lines, blank line between frames).
+ * Uses fetch rather than EventSource because the stream needs the Authorization header.
+ * Resolves when the stream ends or `signal` aborts; rejects on network failure or an error status.
+ */
+export async function streamEvents(
+  path: string,
+  onEvent: (event: string, data: string) => void,
+  signal: AbortSignal
+): Promise<void> {
+  const open = () =>
+    fetch(`${API_URL}${path}`, {
+      credentials: 'include',
+      signal,
+      headers: {
+        ...CLIENT_HEADERS,
+        Accept: 'text/event-stream',
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` })
+      }
+    });
+
+  try {
+    let res = await open();
+    if (res.status === 401) {
+      if (await refreshSession()) res = await open();
+      else {
+        accessToken = null;
+        window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+      }
+    }
+    if (!res.ok || !res.body) throw new ApiError(res.status, `Live updates unavailable (${res.status})`);
+
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += value.replace(/\r\n?/g, '\n');
+      let end: number;
+      while ((end = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, end);
+        buffer = buffer.slice(end + 2);
+        let event = 'message';
+        const data: string[] = [];
+        for (const line of frame.split('\n')) {
+          if (line.startsWith(':')) continue; // comment line
+          const colon = line.indexOf(':');
+          const field = colon === -1 ? line : line.slice(0, colon);
+          const text = colon === -1 ? '' : line.slice(colon + 1).replace(/^ /, '');
+          if (field === 'event') event = text;
+          else if (field === 'data') data.push(text);
+        }
+        if (data.length) onEvent(event, data.join('\n'));
+      }
+    }
+  } catch (err) {
+    if (signal.aborted) return; // closed on purpose
+    throw err instanceof ApiError ? err : new ApiError(0, `Cannot reach the MediOS API at ${API_URL}.`);
+  }
+}
