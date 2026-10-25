@@ -58,3 +58,7 @@ export function sinceLabel(iso: string): string {
   if (Number.isNaN(d.getTime())) return '';
   return isoDay(d) === isoDay(clinicNow()) ? `since ${pad(d.getHours())}:${pad(d.getMinutes())}` : `since ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
+
+/** Same role sets as the backend: who admits, transfers and discharges, and who cleans and blocks beds. */
+export const ADMIT_ROLES = ['admin', 'doctor', 'nurse', 'staff'];
+export const HOUSEKEEPING_ROLES = ['admin', 'nurse', 'staff'];

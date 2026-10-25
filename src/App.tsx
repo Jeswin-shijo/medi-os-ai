@@ -13,6 +13,7 @@ import { PatientsScreen } from './components/screens/PatientsScreen';
 import { AppointmentsScreen } from './components/screens/AppointmentsScreen';
 import { CallAgentScreen } from './components/screens/CallAgentScreen';
 import { QueueScreen } from './components/screens/QueueScreen';
+import { BedsScreen } from './components/screens/BedsScreen';
 import { ConsultationScreen } from './components/screens/ConsultationScreen';
 import { ClinicalNotesScreen } from './components/screens/ClinicalNotesScreen';
 import { LabReportsScreen } from './components/screens/LabReportsScreen';
@@ -47,6 +48,8 @@ const MainLayout: React.FC = () => {
         return <AppointmentsScreen />;
       case 'queue':
         return <QueueScreen />;
+      case 'beds':
+        return <BedsScreen />;
       case 'call-agent':
         return <CallAgentScreen />;
       case 'consultation':

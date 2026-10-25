@@ -2574,3 +2574,101 @@ button.stat-card-item:active {
   .app-sidebar,
   .app-sidebar.is-open { transition: none; }
 }
+
+/* ===== Bed board ===== */
+.bed-totals {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.bed-totals-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+}
+.bed-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.bed-stat-value {
+  font-size: var(--fs-stat);
+  font-weight: 600;
+  line-height: 1;
+}
+.bed-stat-label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.bed-floors {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ward-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ward-card-head h3 {
+  font-size: var(--fs-h4);
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+.bed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 6px;
+}
+.bed-tile {
+  position: relative;
+  min-width: 32px;
+  min-height: 32px;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.bed-tile-icon {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+.bed-free { background: var(--green-light); border-color: var(--green-border); color: var(--green-dark); }
+.bed-occupied { background: var(--blue-primary); color: #fff; }
+.bed-cleaning { background: #fdecc8; border-color: #f6cf80; color: var(--orange-dark); }
+.bed-held { background: #efe4fd; border-color: #d7bdf7; color: #6d28d9; border-style: dashed; }
+.bed-blocked { background: var(--red-light); border-color: var(--red-border); color: var(--red-dark); background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0, 0, 0, 0.06) 4px 6px); }
+.bed-tile.is-selected { outline: 2px solid var(--text-primary); outline-offset: 1px; }
+.bed-hint { color: var(--text-muted); font-size: var(--fs-body); text-align: center; padding: 28px 16px; }
+.bed-panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.bed-panel-head h3 { font-size: var(--fs-h3); font-weight: 500; margin: 0; }
+.bed-panel-state { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); font-weight: 500; }
+.bed-panel-dot { width: 8px; height: 8px; border-radius: 50%; }
+.bed-panel-since { font-weight: 400; color: var(--text-muted); }
+.bed-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0 0 10px; font-size: var(--fs-body); }
+.bed-facts dt { color: var(--text-muted); }
+.bed-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.bed-patient { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+.bed-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.bed-reason { display: flex; gap: 6px; align-items: center; font-size: var(--fs-body); color: var(--text-secondary); margin: 0 0 10px; }
+.bed-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.bed-confirm { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-body); }
+.bed-confirm p { margin: 0; }
+@media (min-width: 1100px) {
+  .bed-side { position: sticky; top: 12px; }
+}
+@media (max-width: 1099px) {
+  .bed-tile { min-width: 36px; min-height: 36px; }
+  .bed-grid { grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bed-tile { transition: none; }
+}

@@ -19,6 +19,7 @@ import {
   Settings,
   LogOut,
   PhoneCall,
+  BedDouble,
   Ticket,
   type LucideIcon
 } from 'lucide-react';
@@ -52,11 +53,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const navItems: NavItem[] = [
+  const navItems: NavItem[] = ([
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
     { id: 'patients', label: 'Patients', icon: UsersRound },
     { id: 'appointments', label: 'Appointments', icon: CalendarCheck },
     { id: 'queue', label: 'Token Queue', icon: Ticket },
+    { id: 'beds', label: 'Beds', icon: BedDouble },
     { id: 'call-agent', label: 'AI Call Agent', icon: PhoneCall },
     { id: 'consultation', label: 'Consultation', icon: UserRoundSearch },
     { id: 'emr', label: 'EMR / Clinical Notes', icon: FileAxis3d },
@@ -72,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { id: 'tasks-alerts', label: 'Tasks & Alerts', icon: Bell },
     { id: 'messages', label: 'Messages', icon: MessageSquareMore, badge: unreadMessagesCount, dot: unreadMessagesCount > 0 },
     { id: 'settings', label: 'Settings', icon: Settings }
-  ];
+  ] as NavItem[]).filter((item) => item.id !== 'beds' || (user?.role !== 'pharmacist' && user?.role !== 'lab'));
 
   return (
     <aside className={`app-sidebar${open ? ' is-open' : ''}`} aria-label="Main navigation">
