@@ -4,7 +4,7 @@ import { useApp } from '../../context/appContextCore';
 import { bedService } from '../../services';
 import { errorMessage } from '../../services/api';
 import type { BoardBed, BoardWard } from '../../types';
-import { ADMIT_ROLES, BED_STATE_META, HOUSEKEEPING_ROLES, sinceLabel } from '../../utils/beds';
+import { ADMIT_ROLES, BED_STATE_META, HOUSEKEEPING_ROLES, floorLabel, sinceLabel } from '../../utils/beds';
 
 const FEATURE_LABEL: Record<string, string> = {
   oxygen: 'Oxygen',
@@ -24,7 +24,6 @@ interface BedPanelProps {
   onChanged: () => void;
 }
 
-const FLOOR_NAME = ['Ground floor', '1st floor', '2nd floor'];
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** Details of the selected bed and the actions its state and the viewer's role allow. */
@@ -73,7 +72,7 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
         <dt>Ward</dt>
         <dd>{ward.name}</dd>
         <dt>Floor</dt>
-        <dd>{FLOOR_NAME[ward.floor] ?? `Floor ${ward.floor}`}</dd>
+        <dd>{floorLabel(ward.floor)}</dd>
         <dt>Rate</dt>
         <dd>₹{ward.ratePerDay.toLocaleString('en-IN')} / day</dd>
         {bed.room && (

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
+import { patientService } from '../../services';
+import { errorMessage } from '../../services/api';
 import { ADMIT_ROLES, groupBoard } from '../../utils/beds';
 import { split } from '../../utils/layout';
 import type { BoardBed } from '../../types';
@@ -8,13 +10,18 @@ import { ScreenHeader } from '../common/ScreenHeader';
 import { BedTotalsBar, type FloorFilter } from '../beds/BedTotalsBar';
 import { WardTiles } from '../beds/WardTiles';
 import { BedPanel } from '../beds/BedPanel';
+import { AdmitDialog } from '../beds/AdmitDialog';
+
+/** What the Admit dialog opens for: a new admission (maybe to a picked bed) or a transfer. */
+type AdmitTarget = Pick<React.ComponentProps<typeof AdmitDialog>, 'preselectBedId' | 'transferFrom'>;
 
 export const BedsScreen: React.FC = () => {
-  const { user, showToast } = useApp();
+  const { user, patients, showToast } = useApp();
   const role = user?.role ?? '';
   const { board, error, reload } = useBedBoard();
   const [floor, setFloor] = useState<FloorFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<AdmitTarget | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const groups = useMemo(() => (board ? groupBoard(board, floor) : []), [board, floor]);
@@ -27,14 +34,17 @@ export const BedsScreen: React.FC = () => {
     }
   }, [selectedId]);
 
-  // Task 12 replaces these two with the Admit dialog.
-  const onAdmit = (bedId?: string) => {
-    void bedId;
-    showToast('The admit dialog is coming next.', 'info');
-  };
-  const onTransfer = (bed: BoardBed) => {
-    void bed;
-    showToast('The transfer dialog is coming next.', 'info');
+  const onAdmit = (bedId?: string) => setDialog({ preselectBedId: bedId });
+  const onTransfer = async (bed: BoardBed) => {
+    const occupant = bed.patient;
+    if (!occupant) return;
+    try {
+      // Age and gender come from the patient record (the board only names the patient).
+      const record = patients.find((p) => p.id === occupant.id) ?? (await patientService.getPatientById(occupant.id));
+      setDialog({ transferFrom: { bedId: bed.id, patient: { id: occupant.id, name: occupant.name, age: record.age, gender: record.gender } } });
+    } catch (err) {
+      showToast(errorMessage(err), 'error');
+    }
   };
 
   return (
@@ -80,6 +90,7 @@ export const BedsScreen: React.FC = () => {
           </div>
         </>
       )}
+      {dialog && <AdmitDialog {...dialog} onClose={() => setDialog(null)} onDone={reload} />}
     </div>
   );
 };

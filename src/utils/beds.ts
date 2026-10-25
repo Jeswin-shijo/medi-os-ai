@@ -43,6 +43,9 @@ export const ROOM_CLASS_OPTIONS: { value: RoomClass; label: string }[] = [
   { value: 'emergency', label: 'Emergency observation' }
 ];
 
+/** Emergency observation is offered only to an emergency department. */
+export const offersEmergency = (department: string) => /emergency/i.test(department);
+
 export function defaultRoomClass(age: number, needs: Need[]): RoomClass {
   if (age < 14) return 'paediatric';
   if (needs.includes('pregnant')) return 'maternity';
@@ -70,6 +73,18 @@ export function sinceLabel(iso: string): string {
   return isoDay(d) === isoDay(clinicNow()) ? `since ${pad(d.getHours())}:${pad(d.getMinutes())}` : `since ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
-/** Same role sets as the backend: who admits, transfers and discharges, and who cleans and blocks beds. */
+/** Same role sets as the backend: who admits, transfers and discharges, who cleans and blocks beds, and who may ignore the bed rules. */
 export const ADMIT_ROLES = ['admin', 'doctor', 'nurse', 'staff'];
 export const HOUSEKEEPING_ROLES = ['admin', 'nurse', 'staff'];
+export const OVERRIDE_ROLES = ['admin', 'doctor'];
+
+/** "₹1,200/day" (Indian digit grouping). */
+export function formatRate(rate: number): string {
+  return `₹${rate.toLocaleString('en-IN')}/day`;
+}
+
+const FLOOR_NAME = ['Ground floor', '1st floor', '2nd floor'];
+
+export function floorLabel(floor: number): string {
+  return FLOOR_NAME[floor] ?? `Floor ${floor}`;
+}

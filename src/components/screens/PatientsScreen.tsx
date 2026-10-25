@@ -40,9 +40,12 @@ import {
   CalendarPlus,
   UserRound,
   Printer,
+  BedDouble,
   type LucideIcon
 } from 'lucide-react';
 import { split, tableMin } from '../../utils/layout';
+import { ADMIT_ROLES } from '../../utils/beds';
+import { AdmitDialog } from '../beds/AdmitDialog';
 
 const PAGE_TABS = [
   'All Patients',
@@ -185,6 +188,7 @@ export const PatientsScreen: React.FC = () => {
   const [drawerSubtab, setDrawerSubtab] = useState<DrawerTab>('Overview');
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [admitPatient, setAdmitPatient] = useState<Patient | null>(null);
 
   // Filters
   const [department, setDepartment] = useState('All');
@@ -337,11 +341,13 @@ export const PatientsScreen: React.FC = () => {
 
   const departments = ['All', ...Array.from(new Set(patients.map((p) => p.department)))];
 
+  const canAdmit = ADMIT_ROLES.includes(user?.role ?? '');
   const rowMenuItems = (p: Patient): MenuItem[] => [
     { label: 'View Profile', icon: UserRound, onClick: () => handleSelectPatient(p) },
     { label: 'Start Consultation', icon: Stethoscope, onClick: () => openFor(p, 'consultation') },
     { label: 'Open EMR', icon: FolderOpen, onClick: () => openFor(p, 'emr') },
-    { label: 'Book Appointment', icon: CalendarPlus, onClick: () => openFor(p, 'appointments') }
+    { label: 'Book Appointment', icon: CalendarPlus, onClick: () => openFor(p, 'appointments') },
+    ...(canAdmit && p.status !== 'Admitted' ? [{ label: 'Admit to a bed', icon: BedDouble, onClick: () => setAdmitPatient(p) }] : [])
   ];
 
   const summaryText =
@@ -1074,6 +1080,8 @@ export const PatientsScreen: React.FC = () => {
           </div>
         </div>
       )}
+
+      {admitPatient && <AdmitDialog patient={admitPatient} onClose={() => setAdmitPatient(null)} onDone={() => void refreshPatients()} />}
     </div>
   );
 };
