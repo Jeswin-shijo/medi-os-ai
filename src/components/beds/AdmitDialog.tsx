@@ -5,7 +5,7 @@ import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
 import { bedService } from '../../services';
 import { ApiError, errorMessage } from '../../services/api';
-import type { AiRefinement, Need, Patient, RoomClass, SuggestionResult } from '../../types';
+import type { AiRefinement, BedAdmission, Need, Patient, RoomClass, SuggestionResult } from '../../types';
 import { NEED_OPTIONS, OVERRIDE_ROLES, ROOM_CLASS_OPTIONS, defaultRoomClass, offersEmergency } from '../../utils/beds';
 import { AdmitStepNeeds, type AdmitForm } from './AdmitStepNeeds';
 import { AdmitStepConfirm } from './AdmitStepConfirm';
@@ -16,8 +16,8 @@ interface AdmitDialogProps {
   patient?: Patient;
   /** A free bed picked on the board: chosen in step 2 when it passes the rules. */
   preselectBedId?: string;
-  /** Move an admitted patient out of this bed instead of admitting. */
-  transferFrom?: { bedId: string; patient: { id: string; name: string; age: number; gender: string } };
+  /** Move an admitted patient out of this bed instead of admitting: opens on step 2 with the admission's needs. */
+  transferFrom?: { bedId: string; admission: BedAdmission };
   onClose(): void;
   /** Called after a successful admit or transfer (step 3). */
   onDone(): void;
@@ -45,17 +45,22 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const bodyRef = useRef<HTMLDivElement>(null);
   const canOverride = OVERRIDE_ROLES.includes(user?.role ?? '');
 
-  const record = patient ?? (transferFrom ? patients.find((p) => p.id === transferFrom.patient.id) : undefined);
-  const [form, setForm] = useState<AdmitForm>(() => ({
-    patientId: patient?.id ?? transferFrom?.patient.id ?? '',
-    doctor: record?.doctor ?? '',
-    department: record?.department ?? '',
-    roomClass: null,
-    needs: [],
-    notes: '',
-    stay: '3'
-  }));
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  /** The admission being moved: its class, needs and notes fill the request. */
+  const moving = transferFrom?.admission;
+  const [form, setForm] = useState<AdmitForm>(() =>
+    moving
+      ? {
+          patientId: moving.patient.id,
+          doctor: moving.doctor,
+          department: moving.department,
+          roomClass: moving.roomClass,
+          needs: [...moving.needs],
+          notes: moving.notes,
+          stay: String(moving.expectedStayDays)
+        }
+      : { patientId: patient?.id ?? '', doctor: patient?.doctor ?? '', department: patient?.department ?? '', roomClass: null, needs: [], notes: '', stay: '3' }
+  );
+  const [step, setStep] = useState<1 | 2 | 3>(moving ? 2 : 1);
   const [suggestion, setSuggestion] = useState<SuggestionResult | null>(null);
   const [refinement, setRefinement] = useState<AiRefinement | null>(null);
   const [aiWaiting, setAiWaiting] = useState(false);
@@ -85,7 +90,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
 
   const selected = patient ?? patients.find((p) => p.id === form.patientId);
-  const age = transferFrom?.patient.age ?? selected?.age ?? 0;
+  const age = moving?.patient.age ?? selected?.age ?? 0;
   const classFor = (needs: Need[]): RoomClass =>
     form.roomClass && (form.roomClass !== 'emergency' || offersEmergency(form.department)) ? form.roomClass : defaultRoomClass(age, needs);
   const roomClass = classFor(form.needs);
@@ -210,6 +215,13 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
       if (id === run.current) setBusy(false);
     }
   };
+
+  // A transfer opens on step 2: find beds for the admission's needs straight away (a request to the API,
+  // once on open; Back to step 1 and Next run it again with edited needs).
+  useEffect(() => {
+    if (moving) void suggest(form.needs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addNeed = (need: Need) => {
     const needs = [...form.needs, need];
@@ -349,10 +361,10 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     void suggest(form.needs);
   };
 
-  const name = transferFrom?.patient.name ?? selected?.name ?? '';
+  const name = moving?.patient.name ?? selected?.name ?? '';
   const fromBed = transferFrom && board?.beds.find((b) => b.id === transferFrom.bedId);
-  const fixedPatient = transferFrom
-    ? { name, detail: `${transferFrom.patient.age} yrs · ${transferFrom.patient.gender}${fromBed ? ` · now in ${fromBed.label}` : ''}` }
+  const fixedPatient = moving
+    ? { name, detail: `${moving.patient.uhid} · ${moving.patient.age} yrs · ${moving.patient.gender}${fromBed ? ` · now in ${fromBed.label}` : ''}` }
     : patient
       ? { name: patient.name, detail: `${patient.uhid} · ${patient.age} yrs · ${patient.gender}` }
       : undefined;
@@ -404,6 +416,11 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
                   <p>{conflict}</p>
                 </div>
               </div>
+            )}
+            {step === 2 && !suggestion && busy && (
+              <p className="admit-hint" role="status">
+                Finding beds for {name}…
+              </p>
             )}
             {step === 2 && suggestion && (
               <AdmitStepBed

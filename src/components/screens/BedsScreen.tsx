@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
-import { patientService } from '../../services';
+import { bedService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { ADMIT_ROLES, groupBoard } from '../../utils/beds';
 import { split } from '../../utils/layout';
@@ -16,7 +16,7 @@ import { AdmitDialog } from '../beds/AdmitDialog';
 type AdmitTarget = Pick<React.ComponentProps<typeof AdmitDialog>, 'preselectBedId' | 'transferFrom'>;
 
 export const BedsScreen: React.FC = () => {
-  const { user, patients, showToast } = useApp();
+  const { user, showToast } = useApp();
   const role = user?.role ?? '';
   const { board, error, reload } = useBedBoard();
   const [floor, setFloor] = useState<FloorFilter>('all');
@@ -36,12 +36,11 @@ export const BedsScreen: React.FC = () => {
 
   const onAdmit = (bedId?: string) => setDialog({ preselectBedId: bedId });
   const onTransfer = async (bed: BoardBed) => {
-    const occupant = bed.patient;
-    if (!occupant) return;
+    if (!bed.patient) return;
     try {
-      // Age and gender come from the patient record (the board only names the patient).
-      const record = patients.find((p) => p.id === occupant.id) ?? (await patientService.getPatientById(occupant.id));
-      setDialog({ transferFrom: { bedId: bed.id, patient: { id: occupant.id, name: occupant.name, age: record.age, gender: record.gender } } });
+      // The admission's class, needs and notes (the board leaves them out): the transfer reruns the rules with them.
+      const admission = await bedService.admission(bed.id);
+      setDialog({ transferFrom: { bedId: bed.id, admission } });
     } catch (err) {
       showToast(errorMessage(err), 'error');
     }

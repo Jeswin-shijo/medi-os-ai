@@ -33,6 +33,7 @@ import {
   QueueDeviceKind,
   PatientCard,
   BedBoard,
+  BedAdmission,
   SuggestBedsRequest,
   SuggestionResult,
   AiRefinement,
@@ -335,6 +336,8 @@ const POST = { method: 'POST' } as const;
 // Beds: the board, AI-assisted suggestions, and the bed lifecycle.
 export const bedService = {
   board: () => api<BedBoard>('/beds/board'),
+  /** The admitted patient in a bed and their admission's needs; 404 for a bed with no admitted patient. */
+  admission: (bedId: string) => api<BedAdmission>(`/beds/${enc(bedId)}/admission`),
   suggest: (req: SuggestBedsRequest) => api<SuggestionResult>('/beds/suggestions', { method: 'POST', body: req }),
   refine: (id: string) => api<AiRefinement>(`/beds/suggestions/${enc(id)}/refine`, POST),
   hold: (bedId: string, suggestionId: string) => api<{ bedId: string; holdExpiresAt: string }>(`/beds/${enc(bedId)}/hold`, { method: 'POST', body: { suggestionId } }),

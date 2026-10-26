@@ -802,6 +802,18 @@ export interface AiRefinement {
   extraNeeds: { need: Need; evidence: string }[];
 }
 
+/** GET /beds/:bedId/admission: the admitted patient and what their admission asked for. A transfer starts from it. */
+export interface BedAdmission {
+  admissionId: string;
+  patient: { id: string; name: string; uhid: string; age: number; gender: 'Male' | 'Female' | 'Other' };
+  roomClass: RoomClass;
+  needs: Need[];
+  department: string;
+  doctor: string;
+  notes: string;
+  expectedStayDays: number;
+}
+
 /** Body of POST /beds/suggestions. */
 export interface SuggestBedsRequest {
   /** The patient id or UHID. */
