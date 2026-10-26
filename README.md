@@ -89,6 +89,12 @@ Token queue:
   - The key stays in the URL fragment, which browsers never send to a server.
   - The host must serve `index.html` for `/display` and `/kiosk`, as for any single-page app.
 
+Beds:
+- **Beds** screen (sidebar; admin, doctor, nurse and front desk): a live board of every ward and bed, coloured and iconed by state (free, occupied, cleaning, held, blocked), with totals, a floor filter and a details panel for the selected bed. It follows the API's `/beds/stream` and re-reads the board on each change, and it refreshes the sign-in first if the access token has expired.
+- **Admit patient** is a three-step dialog: patient and needs, then choose a bed, then confirm. Fixed rules remove unsuitable beds; the top suggestions come with a short reason. A bed is held for 5 minutes while you confirm, with a countdown. Choosing a bed outside the rules (admin and doctor only) needs a reason.
+- The bed panel offers **Admit here**, **Transfer** (same dialog, starting from the patient's current bed), **Discharge**, **Mark cleaned**, **Block** and **Unblock**, depending on the bed's state and your role.
+- **AI suggestions** show a **SAMPLE** label while the API runs in sample mode; if the AI is off or slow, the rule-based list shows with no error. Settings → AI Assistant has the on/off switch and **Check connection** (admin).
+
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.
 - Missing clinical values render as "—", never as a typical reading.
@@ -96,7 +102,7 @@ Conventions:
 
 ## Not connected yet
 
-- **AI.** Panels marked **SAMPLE** (Consultation and EMR assistants, Voice to Notes) show canned demo text. Other "AI" answers summarise the open patient's record and say that AI is not connected.
+- **AI.** The Beds suggestions are the only AI feature wired to the API (sample until the host has an Anthropic key). Panels marked **SAMPLE** (Consultation and EMR assistants, Voice to Notes) show canned demo text. Other "AI" answers summarise the open patient's record and say that AI is not connected.
 - **Messaging providers.** WhatsApp/SMS sending and follow-up reminders report that nothing was sent.
 - **Not built yet:** creating invoices, tasks and follow-ups; file upload for documents; lab and pharmacy ordering. These buttons say so when clicked.
 - The guideline and knowledge libraries are bundled in `src/mock`, though the backend has `/api/knowledge` endpoints.
