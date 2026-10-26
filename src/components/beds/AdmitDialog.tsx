@@ -23,6 +23,9 @@ interface AdmitDialogProps {
   onDone(): void;
 }
 
+/** The hold and what was chosen when it was placed: step 3 and the request use this, whatever the AI says later. */
+type HeldBed = { bedId: string; expiresAt: number; bed: BedOption; reason?: string; ruleOverride: boolean };
+
 const TAKEN = 'That bed was just taken. Choose another.';
 const STEPS = ['Patient & needs', 'Choose bed', 'Confirm'];
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -67,8 +70,10 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   /** True while the hold, admit or transfer request is on its way. */
   const [working, setWorking] = useState(false);
   /** The hold on the chosen bed, from the server (null before step 3). */
-  const [hold, setHold] = useState<{ bedId: string; expiresAt: number } | null>(null);
+  const [hold, setHold] = useState<HeldBed | null>(null);
   const holdRef = useRef(hold);
+  /** False once the dialog has closed: a hold answered after that is given back. */
+  const mounted = useRef(true);
   /** Why staff were sent back to step 2 (a bed taken, or a hold that ran out). */
   const [conflict, setConflict] = useState<string | null>(null);
   /** Each suggest run gets a number; answers from an older run (or after closing) are dropped. */
@@ -89,9 +94,11 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   useEffect(() => {
     const box = boxRef.current;
     const runs = run;
+    mounted.current = true;
     if (box && !box.contains(document.activeElement)) (bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
     return () => {
       runs.current++;
+      mounted.current = false;
       const held = holdRef.current;
       if (held) void bedService.release(held.bedId).catch(() => undefined); // closing gives the bed back
       if (opener?.isConnected) opener.focus();
@@ -158,7 +165,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     }
   };
 
-  const keepHold = (next: { bedId: string; expiresAt: number } | null) => {
+  const keepHold = (next: HeldBed | null) => {
     holdRef.current = next;
     setHold(next);
   };
@@ -281,11 +288,17 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
 
   const goConfirm = async () => {
     if (!canConfirm || !chosen || !suggestion) return;
+    picked.current = true; // from here the AI no longer moves the choice
+    const snapshot = { bed: chosen, reason: reasonRequired ? reason.trim() : undefined, ruleOverride };
     setWorking(true);
     setError(null);
     try {
       const held = await bedService.hold(chosen.bedId, suggestion.suggestionId);
-      keepHold({ bedId: chosen.bedId, expiresAt: new Date(held.holdExpiresAt).getTime() });
+      if (!mounted.current) {
+        void bedService.release(chosen.bedId).catch(() => undefined); // closed while the hold was on its way
+        return;
+      }
+      keepHold({ bedId: chosen.bedId, expiresAt: new Date(held.holdExpiresAt).getTime(), ...snapshot });
       setConflict(null);
       setStep(3);
     } catch (err) {
@@ -300,19 +313,19 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
 
   const confirm = async () => {
     const held = holdRef.current;
-    if (working || !held || !chosen || !suggestion) return;
+    if (working || !held || !suggestion) return;
     setWorking(true);
     setError(null);
     const body = {
       suggestionId: suggestion.suggestionId,
-      ...(reasonRequired && { reason: reason.trim() }),
-      ...(ruleOverride && { ruleOverride: true })
+      ...(held.reason && { reason: held.reason }),
+      ...(held.ruleOverride && { ruleOverride: true })
     };
     try {
       if (transferFrom) await bedService.transfer(transferFrom.bedId, { toBedId: held.bedId, ...body });
       else await bedService.admit(held.bedId, body);
       keepHold(null); // the bed is theirs now: nothing to give back
-      showToast(`${name} ${transferFrom ? 'transferred' : 'admitted'} to ${chosen.label}`, 'success');
+      showToast(`${name} ${transferFrom ? 'transferred' : 'admitted'} to ${held.bed.label}`, 'success');
       void refreshPatients().catch(() => undefined); // the Patients list shows them as Admitted
       onDone();
       onClose();
@@ -409,15 +422,15 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
                 busy={busy}
               />
             )}
-            {step === 3 && chosen && hold && (
+            {step === 3 && hold && (
               <AdmitStepConfirm
                 patientName={name}
                 fromLabel={fromBed?.label}
-                bed={chosen}
+                bed={hold.bed}
                 doctor={form.doctor.trim()}
                 stayDays={Number(form.stay)}
-                reason={reasonRequired ? reason.trim() : undefined}
-                ruleOverride={ruleOverride}
+                reason={hold.reason}
+                ruleOverride={hold.ruleOverride}
                 holdExpiresAt={hold.expiresAt}
               />
             )}
