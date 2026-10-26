@@ -64,6 +64,8 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const run = useRef(0);
   /** Set once staff choose a bed themselves, so the AI's answer no longer moves the choice. */
   const picked = useRef(false);
+  /** The control that opened the dialog, read during the first render: before autoFocus moves focus into the dialog. */
+  const [opener] = useState(() => document.activeElement as HTMLElement | null);
 
   const selected = patient ?? patients.find((p) => p.id === form.patientId);
   const age = transferFrom?.patient.age ?? selected?.age ?? 0;
@@ -71,17 +73,16 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     form.roomClass && (form.roomClass !== 'emergency' || offersEmergency(form.department)) ? form.roomClass : defaultRoomClass(age, needs);
   const roomClass = classFor(form.needs);
 
-  // Focus moves into the dialog on open and back to where it was on close; answers arriving after closing are dropped.
+  // Focus moves into the dialog on open and back to the opener on close; answers arriving after closing are dropped.
   useEffect(() => {
-    const before = document.activeElement as HTMLElement | null;
     const box = boxRef.current;
     const runs = run;
     if (box && !box.contains(document.activeElement)) (bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
     return () => {
       runs.current++;
-      before?.focus?.();
+      if (opener?.isConnected) opener.focus();
     };
-  }, []);
+  }, [opener]);
 
   // A new step starts at its top, with focus on it.
   const shownStep = useRef(step);

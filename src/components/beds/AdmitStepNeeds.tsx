@@ -171,7 +171,10 @@ export const AdmitStepNeeds: React.FC<AdmitStepNeedsProps> = ({ form, onChange, 
   );
 };
 
-/** Type to search patients by name, UHID or phone; arrow keys and Enter pick one. */
+/**
+ * Type to search patients by name, UHID or phone; arrow keys and Enter pick one. The list opens on typing, a click
+ * or an arrow key, not on focus, so Esc right after the dialog opens closes the dialog.
+ */
 const PatientPicker: React.FC<{ patients: Patient[]; onPick: (patient: Patient) => void }> = ({ patients, onPick }) => {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -221,7 +224,7 @@ const PatientPicker: React.FC<{ patients: Patient[]; onPick: (patient: Patient) 
             setActive(0);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           onKeyDown={onKeyDown}
         />
