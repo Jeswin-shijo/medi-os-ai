@@ -346,7 +346,9 @@ export const bedService = {
     api<unknown>(`/beds/${enc(bedId)}/admit`, { method: 'POST', body }),
   transfer: (bedId: string, body: { toBedId: string; suggestionId: string; reason?: string; ruleOverride?: boolean }) =>
     api<unknown>(`/beds/${enc(bedId)}/transfer`, { method: 'POST', body }),
-  discharge: (bedId: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/discharge`, POST),
+  /** `admissionId`: the admission the panel showed (null for a sample occupant); the API refuses with 409 if the bed changed. */
+  discharge: (bedId: string, admissionId: string | null) =>
+    api<{ ok: boolean }>(`/beds/${enc(bedId)}/discharge`, { method: 'POST', body: { admissionId } }),
   clean: (bedId: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/clean`, POST),
   block: (bedId: string, reason: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/block`, { method: 'POST', body: { reason } }),
   unblock: (bedId: string) => api<{ ok: boolean }>(`/beds/${enc(bedId)}/unblock`, POST)

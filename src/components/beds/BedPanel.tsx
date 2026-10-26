@@ -28,11 +28,21 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: 'n
 
 /** Details of the selected bed and the actions its state and the viewer's role allow. */
 export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, onTransfer, onChanged }) => {
-  const { showToast } = useApp();
+  const { showToast, refreshPatients } = useApp();
   const [busy, setBusy] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [reason, setReason] = useState('');
   const [confirmDischarge, setConfirmDischarge] = useState(false);
+  // A discharge confirm or block form is for the bed as it was: when the bed changes state or patient (live
+  // updates), close it, so it never acts on a patient it didn't name.
+  const bedNow = `${bed.state}:${bed.patient?.admissionId ?? ''}`;
+  const [formFor, setFormFor] = useState(bedNow);
+  if (formFor !== bedNow) {
+    setFormFor(bedNow);
+    setConfirmDischarge(false);
+    setBlocking(false);
+    setReason('');
+  }
   const canAdmit = ADMIT_ROLES.includes(role);
   const canClean = HOUSEKEEPING_ROLES.includes(role);
   const meta = BED_STATE_META[bed.state];
@@ -56,6 +66,15 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
   };
 
   const patient = bed.patient;
+  // Names the admission shown, so the API refuses if the bed changed meanwhile.
+  const discharge = () =>
+    run(
+      async () => {
+        await bedService.discharge(bed.id, patient?.admissionId ?? null);
+        if (patient) void refreshPatients().catch(() => undefined); // the Patients list stops showing them as Admitted
+      },
+      patient ? 'Patient discharged. Bed sent for cleaning.' : 'Bed sent for cleaning.'
+    );
   return (
     <aside className="medios-card bed-panel swap-in" aria-label={`Bed ${bed.label}`}>
       <div className="bed-panel-head">
@@ -119,7 +138,7 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
         <div className="bed-confirm" role="alertdialog" aria-label="Confirm discharge">
           <p>Discharge {patient?.name ?? 'this patient'} and free this bed for cleaning?</p>
           <div className="bed-actions">
-            <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => run(() => bedService.discharge(bed.id), 'Patient discharged. Bed sent for cleaning.')}>
+            <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => void discharge()}>
               Discharge
             </button>
             <button className="btn-secondary btn-sm" disabled={busy} onClick={() => setConfirmDischarge(false)}>
@@ -177,7 +196,7 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
             </button>
           )}
           {bed.state === 'occupied' && canAdmit && (
-            <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => (patient ? setConfirmDischarge(true) : void run(() => bedService.discharge(bed.id), 'Bed sent for cleaning.'))}>
+            <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => (patient ? setConfirmDischarge(true) : void discharge())}>
               Discharge
             </button>
           )}
