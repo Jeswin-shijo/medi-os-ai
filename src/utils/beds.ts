@@ -46,8 +46,9 @@ export const ROOM_CLASS_OPTIONS: { value: RoomClass; label: string }[] = [
 /** Emergency observation is offered only to an emergency department. */
 export const offersEmergency = (department: string) => /emergency/i.test(department);
 
-export function defaultRoomClass(age: number, needs: Need[]): RoomClass {
-  if (age < 14) return 'paediatric';
+/** The class step 1 starts on; `age` is unknown until a patient is chosen. */
+export function defaultRoomClass(age: number | undefined, needs: Need[]): RoomClass {
+  if (age !== undefined && age < 14) return 'paediatric';
   if (needs.includes('pregnant')) return 'maternity';
   return 'general';
 }

@@ -90,7 +90,8 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
 
   const selected = patient ?? patients.find((p) => p.id === form.patientId);
-  const age = moving?.patient.age ?? selected?.age ?? 0;
+  /** Unknown until a patient is chosen: no class default for age before that. */
+  const age = moving?.patient.age ?? selected?.age;
   const classFor = (needs: Need[]): RoomClass =>
     form.roomClass && (form.roomClass !== 'emergency' || offersEmergency(form.department)) ? form.roomClass : defaultRoomClass(age, needs);
   const roomClass = classFor(form.needs);
