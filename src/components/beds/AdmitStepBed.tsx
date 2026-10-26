@@ -39,6 +39,8 @@ interface AdmitStepBedProps {
 }
 
 const needLabel = (need: Need) => (NEED_OPTIONS.find((o) => o.need === need)?.label ?? need).toLowerCase();
+/** The API's messages have no full stop: add one so the advice after them reads as its own sentence. */
+const sentence = (text: string) => (/[.!?]$/.test(text) ? text : `${text}.`);
 
 /** Step 2: the rules applied, the suggested beds (AI-refined when it answers), every eligible bed and the override. */
 export const AdmitStepBed: React.FC<AdmitStepBedProps> = ({
@@ -127,7 +129,7 @@ export const AdmitStepBed: React.FC<AdmitStepBedProps> = ({
           </div>
         ) : (
           <Notice tone="warn">
-            {suggestion.blockedBy.length ? suggestion.blockedBy.join(' ') : 'No free bed passes the rules for this patient.'}{' '}
+            {suggestion.blockedBy.length ? suggestion.blockedBy.map(sentence).join(' ') : 'No free bed passes the rules for this patient.'}{' '}
             {canOverride ? 'Use “Ignore rules” below to choose any free bed, with a reason.' : 'Ask a doctor or admin to choose a bed outside the rules.'}
           </Notice>
         )}
