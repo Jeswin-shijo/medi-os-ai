@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/appContextCore';
-import { settingsService } from '../../services';
-import { SettingsState } from '../../types';
+import { aiService, settingsService } from '../../services';
+import { AiStatus, SettingsState } from '../../types';
 import { errorMessage } from '../../services/api';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
@@ -32,6 +32,7 @@ import {
   ImageOff,
   UserRound,
   Bot,
+  BedDouble,
   Sparkles,
   ChevronDown,
   MessageSquareDashed,
@@ -181,6 +182,8 @@ export const SettingsScreen: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [rxDuration, setRxDuration] = useState('5 days');
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiChecking, setAiChecking] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,6 +200,38 @@ export const SettingsScreen: React.FC = () => {
     }
     load();
   }, [showToast]);
+
+  // Only the AI tab needs the provider status; the switch below saves on its own.
+  useEffect(() => {
+    if (activeTab !== 'ai') return;
+    aiService.status().then(setAiStatus).catch(() => setAiStatus(null));
+  }, [activeTab]);
+
+  const canEditAi = user?.role === 'admin' || user?.role === 'doctor';
+
+  const saveBedSuggestions = async (bedSuggestions: boolean) => {
+    if (!settings) return;
+    try {
+      const saved = await settingsService.saveSettings({ ai: { ...settings.ai, bedSuggestions } });
+      setSettings(prev => prev && ({ ...prev, ai: { ...prev.ai, bedSuggestions: saved.ai.bedSuggestions } }));
+      setAiStatus(await aiService.status());
+      showToast(bedSuggestions ? 'AI bed suggestions are on' : 'AI bed suggestions are off', 'success');
+    } catch (err) {
+      showToast(`Failed to save: ${errorMessage(err)}`, 'error');
+    }
+  };
+
+  const checkAiConnection = async () => {
+    setAiChecking(true);
+    try {
+      const result = await aiService.check();
+      showToast(result.detail, result.ok ? 'success' : 'error');
+    } catch (err) {
+      showToast(errorMessage(err), 'error');
+    } finally {
+      setAiChecking(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!settings) return;
@@ -812,6 +847,43 @@ export const SettingsScreen: React.FC = () => {
       )}
 
       {/* ===================== AI ASSISTANT ===================== */}
+      {activeTab === 'ai' && (
+        <div className="medios-card" style={{ padding: '14px 18px 18px', marginBottom: 16 }}>
+          <SectionTitle
+            icon={BedDouble}
+            color="var(--purple-ai)"
+            title="AI bed suggestions"
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 14 }}>
+            {aiStatus && (
+              <div>
+                <span className={`status-pill ${aiStatus.provider === 'claude' ? 'green' : aiStatus.provider === 'sample' ? 'purple' : 'gray'}`} style={{ whiteSpace: 'normal', textAlign: 'center', height: 'auto', minHeight: 22, padding: '3px 9px' }}>
+                  {aiStatus.provider === 'claude'
+                    ? `Provider: Claude (${aiStatus.model})`
+                    : aiStatus.provider === 'sample'
+                      ? 'Provider: Sample mode — no AI service is called'
+                      : 'Provider: Off'}
+                </span>
+              </div>
+            )}
+            <DetailToggle
+              title="Suggest beds with AI"
+              desc="When off, admissions still get rule-based bed suggestions."
+              checked={settings.ai.bedSuggestions}
+              onChange={saveBedSuggestions}
+              disabled={!canEditAi}
+            />
+            {user?.role === 'admin' && (
+              <div>
+                <button type="button" className="btn-outline-blue" onClick={checkAiConnection} disabled={aiChecking}>
+                  {aiChecking ? 'Checking…' : 'Check connection'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'ai' && (
         <div className="medios-card" style={{ padding: '14px 18px 18px' }}>
           <SectionTitle
