@@ -337,7 +337,7 @@ export const bedService = {
   board: () => api<BedBoard>('/beds/board'),
   suggest: (req: SuggestBedsRequest) => api<SuggestionResult>('/beds/suggestions', { method: 'POST', body: req }),
   refine: (id: string) => api<AiRefinement>(`/beds/suggestions/${enc(id)}/refine`, POST),
-  hold: (bedId: string, suggestionId: string) => api<unknown>(`/beds/${enc(bedId)}/hold`, { method: 'POST', body: { suggestionId } }),
+  hold: (bedId: string, suggestionId: string) => api<{ bedId: string; holdExpiresAt: string }>(`/beds/${enc(bedId)}/hold`, { method: 'POST', body: { suggestionId } }),
   release: (bedId: string) => api<{ released: boolean }>(`/beds/${enc(bedId)}/hold`, { method: 'DELETE' }),
   admit: (bedId: string, body: { suggestionId: string; reason?: string; ruleOverride?: boolean }) =>
     api<unknown>(`/beds/${enc(bedId)}/admit`, { method: 'POST', body }),

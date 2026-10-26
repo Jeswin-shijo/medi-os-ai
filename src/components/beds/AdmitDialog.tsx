@@ -1,13 +1,14 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BedDouble, X } from 'lucide-react';
+import { AlertTriangle, BedDouble, X } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
 import { bedService } from '../../services';
-import { errorMessage } from '../../services/api';
+import { ApiError, errorMessage } from '../../services/api';
 import type { AiRefinement, Need, Patient, RoomClass, SuggestionResult } from '../../types';
 import { NEED_OPTIONS, OVERRIDE_ROLES, ROOM_CLASS_OPTIONS, defaultRoomClass, offersEmergency } from '../../utils/beds';
 import { AdmitStepNeeds, type AdmitForm } from './AdmitStepNeeds';
+import { AdmitStepConfirm } from './AdmitStepConfirm';
 import { AdmitChoiceBar, AdmitStepBed, type AiMarker, type BedOption } from './AdmitStepBed';
 
 interface AdmitDialogProps {
@@ -22,6 +23,7 @@ interface AdmitDialogProps {
   onDone(): void;
 }
 
+const TAKEN = 'That bed was just taken. Choose another.';
 const STEPS = ['Patient & needs', 'Choose bed', 'Confirm'];
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -32,8 +34,8 @@ const needLabels = (needs: Need[]) => NEED_OPTIONS.filter((o) => needs.includes(
  * Admit (or transfer) in three steps: the patient and needs, then a bed from the rule-based
  * suggestions (refined by the AI when it answers), then confirm.
  */
-export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedId, transferFrom, onClose }) => {
-  const { patients, user, showToast } = useApp();
+export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedId, transferFrom, onClose, onDone }) => {
+  const { patients, user, showToast, refreshPatients } = useApp();
   const { board } = useBedBoard();
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
@@ -60,10 +62,20 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const [ignoredNeeds, setIgnoredNeeds] = useState<Need[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The latest suggest failed: its beds (or none) don't match what was asked, so Confirm waits. */
+  const [suggestFailed, setSuggestFailed] = useState(false);
+  /** True while the hold, admit or transfer request is on its way. */
+  const [working, setWorking] = useState(false);
+  /** The hold on the chosen bed, from the server (null before step 3). */
+  const [hold, setHold] = useState<{ bedId: string; expiresAt: number } | null>(null);
+  const holdRef = useRef(hold);
+  /** Why staff were sent back to step 2 (a bed taken, or a hold that ran out). */
+  const [conflict, setConflict] = useState<string | null>(null);
   /** Each suggest run gets a number; answers from an older run (or after closing) are dropped. */
   const run = useRef(0);
   /** Set once staff choose a bed themselves, so the AI's answer no longer moves the choice. */
   const picked = useRef(false);
+  const chosenRef = useRef<string | null>(null);
   /** The control that opened the dialog, read during the first render: before autoFocus moves focus into the dialog. */
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
 
@@ -80,9 +92,15 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     if (box && !box.contains(document.activeElement)) (bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? box).focus();
     return () => {
       runs.current++;
+      const held = holdRef.current;
+      if (held) void bedService.release(held.bedId).catch(() => undefined); // closing gives the bed back
       if (opener?.isConnected) opener.focus();
     };
   }, [opener]);
+
+  useEffect(() => {
+    chosenRef.current = chosenBedId;
+  }, [chosenBedId]);
 
   // A new step starts at its top, with focus on it.
   const shownStep = useRef(step);
@@ -129,7 +147,10 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
       const result = await bedService.refine(suggestionId);
       if (id !== run.current || result.status !== 'ok') return;
       setRefinement(result);
-      if (!picked.current && result.top[0]) setChosenBedId(result.top[0].bedId);
+      if (!picked.current && result.top[0]) {
+        if (result.top[0].bedId !== chosenRef.current) setReason('');
+        setChosenBedId(result.top[0].bedId);
+      }
     } catch {
       // An AI that fails or cannot be reached leaves the rule-based cards, with no error shown.
     } finally {
@@ -137,7 +158,13 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     }
   };
 
-  const suggest = async (needs: Need[]) => {
+  const keepHold = (next: { bedId: string; expiresAt: number } | null) => {
+    holdRef.current = next;
+    setHold(next);
+  };
+
+  /** Runs the rules again; true when it answered. */
+  const suggest = async (needs: Need[]): Promise<boolean> => {
     const id = ++run.current;
     setBusy(true);
     setError(null);
@@ -152,7 +179,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
         notes: form.notes,
         ...(transferFrom && { currentBedId: transferFrom.bedId })
       });
-      if (id !== run.current) return;
+      if (id !== run.current) return false;
       const preselected = !!preselectBedId && result.eligible.some((b) => b.bedId === preselectBedId);
       picked.current = preselected;
       setSuggestion(result);
@@ -161,10 +188,17 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
       setRuleOverride(false);
       setReason('');
       setStep(2);
+      setSuggestFailed(false);
       setAiWaiting(result.ai === 'pending');
       if (result.ai === 'pending') void refine(id, result.suggestionId);
+      return true;
     } catch (err) {
-      if (id === run.current) setError(errorMessage(err));
+      if (id === run.current) {
+        setError(errorMessage(err));
+        setSuggestFailed(true);
+        setAiWaiting(false);
+      }
+      return false;
     } finally {
       if (id === run.current) setBusy(false);
     }
@@ -174,7 +208,12 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     const needs = [...form.needs, need];
     change({ needs });
     bodyRef.current?.focus(); // the notice and its buttons go away
-    void suggest(needs);
+    void suggest(needs).then((ok) => {
+      if (ok) return;
+      // The cards and suggestion still belong to the old needs: take the added need back so they agree.
+      setForm((f) => ({ ...f, needs: f.needs.filter((n) => n !== need) }));
+      setSuggestFailed(false);
+    });
   };
   const ignoreNeed = (need: Need) => {
     setIgnoredNeeds((list) => [...list, need]);
@@ -183,6 +222,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
 
   const choose = (bedId: string, override: boolean) => {
     picked.current = true;
+    if (bedId !== chosenBedId) setReason(''); // a reason belongs to the bed it was written for
     setChosenBedId(bedId);
     setRuleOverride(override);
   };
@@ -192,7 +232,18 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     setBusy(false);
     setAiWaiting(false);
     setError(null);
+    setConflict(null);
+    setSuggestFailed(false);
     setStep(1);
+  };
+
+  /** Step 3 back to step 2: gives the bed back. */
+  const backToBed = () => {
+    const held = holdRef.current;
+    if (held) void bedService.release(held.bedId).catch(() => undefined);
+    keepHold(null);
+    setError(null);
+    setStep(2);
   };
 
   const aiOk = refinement?.status === 'ok' ? refinement : null;
@@ -226,16 +277,61 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const ruleTopId = suggestion?.top[0]?.bedId;
   const aiTopId = aiOk?.top[0]?.bedId;
   const reasonRequired = !!chosenBedId && (ruleOverride || (chosenBedId !== ruleTopId && chosenBedId !== aiTopId));
-  const canConfirm = !!chosen && !busy && (!reasonRequired || !!reason.trim());
+  const canConfirm = !!chosen && !busy && !suggestFailed && !working && (!reasonRequired || !!reason.trim());
 
-  const goConfirm = () => {
-    if (!canConfirm) return;
-    showToast('The confirm step is coming next.', 'info'); // Task 13: hold the bed and move to step 3
+  const goConfirm = async () => {
+    if (!canConfirm || !chosen || !suggestion) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const held = await bedService.hold(chosen.bedId, suggestion.suggestionId);
+      keepHold({ bedId: chosen.bedId, expiresAt: new Date(held.holdExpiresAt).getTime() });
+      setConflict(null);
+      setStep(3);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        showToast(err.message || TAKEN, 'error');
+        void suggest(form.needs); // the beds changed: ask again, staying on step 2
+      } else setError(errorMessage(err));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const confirm = async () => {
+    const held = holdRef.current;
+    if (working || !held || !chosen || !suggestion) return;
+    setWorking(true);
+    setError(null);
+    const body = {
+      suggestionId: suggestion.suggestionId,
+      ...(reasonRequired && { reason: reason.trim() }),
+      ...(ruleOverride && { ruleOverride: true })
+    };
+    try {
+      if (transferFrom) await bedService.transfer(transferFrom.bedId, { toBedId: held.bedId, ...body });
+      else await bedService.admit(held.bedId, body);
+      keepHold(null); // the bed is theirs now: nothing to give back
+      showToast(`${name} ${transferFrom ? 'transferred' : 'admitted'} to ${chosen.label}`, 'success');
+      void refreshPatients().catch(() => undefined); // the Patients list shows them as Admitted
+      onDone();
+      onClose();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setConflict(err.message);
+        keepHold(null);
+        setStep(2);
+        void suggest(form.needs);
+      } else setError(errorMessage(err));
+    } finally {
+      setWorking(false);
+    }
   };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (step === 2) return goConfirm();
+    if (step === 2) return void goConfirm();
+    if (step === 3) return void confirm();
     if (!form.patientId) return setError('Choose a patient first.');
     void suggest(form.needs);
   };
@@ -288,6 +384,14 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
             {step === 1 && (
               <AdmitStepNeeds form={form} onChange={change} roomClass={roomClass} fixedPatient={fixedPatient} patients={patients} onPickPatient={pickPatient} />
             )}
+            {step === 2 && conflict && (
+              <div className="admit-notice is-warn" role="alert">
+                <AlertTriangle size={15} aria-hidden="true" />
+                <div className="admit-notice-body">
+                  <p>{conflict}</p>
+                </div>
+              </div>
+            )}
             {step === 2 && suggestion && (
               <AdmitStepBed
                 summary={summary}
@@ -303,6 +407,18 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
                 canOverride={canOverride}
                 overrideBeds={overrideBeds}
                 busy={busy}
+              />
+            )}
+            {step === 3 && chosen && hold && (
+              <AdmitStepConfirm
+                patientName={name}
+                fromLabel={fromBed?.label}
+                bed={chosen}
+                doctor={form.doctor.trim()}
+                stayDays={Number(form.stay)}
+                reason={reasonRequired ? reason.trim() : undefined}
+                ruleOverride={ruleOverride}
+                holdExpiresAt={hold.expiresAt}
               />
             )}
           </div>
@@ -322,13 +438,22 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
                   {busy ? 'Finding beds…' : 'Next: Choose bed'}
                 </button>
               </>
-            ) : (
+            ) : step === 2 ? (
               <>
-                <button type="button" className="btn-secondary" onClick={back}>
+                <button type="button" className="btn-secondary" onClick={back} disabled={working}>
                   Back
                 </button>
                 <button type="submit" className="btn-primary" disabled={!canConfirm}>
-                  Next: Confirm
+                  {working ? 'Holding bed…' : 'Next: Confirm'}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn-secondary" onClick={backToBed} disabled={working}>
+                  Back
+                </button>
+                <button type="submit" className="btn-primary" disabled={working}>
+                  {working ? (transferFrom ? 'Transferring…' : 'Admitting…') : transferFrom ? 'Transfer patient' : 'Admit patient'}
                 </button>
               </>
             )}

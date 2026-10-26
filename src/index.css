@@ -971,6 +971,22 @@ a {
   border-color: #b8c4d6;
 }
 
+.btn-primary:disabled,
+.btn-primary:disabled:hover {
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.btn-secondary:disabled,
+.btn-secondary:disabled:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .btn-outline-blue {
   background-color: #ffffff;
   color: var(--blue-text);
@@ -2862,6 +2878,10 @@ button.stat-card-item:active {
 .admit-choice { display: flex; flex-direction: column; gap: 8px; padding: 10px 20px; border-top: 1px solid var(--border-color); font-size: var(--fs-body); }
 .admit-choice-line { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin: 0; }
 .admit-choice-meta { color: var(--text-muted); }
+.admit-countdown { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.admit-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; margin: 0; font-size: var(--fs-body); }
+.admit-facts dt { color: var(--text-muted); }
+.admit-facts dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
 .admit-error { margin: 0; padding: 9px 20px; border-top: 1px solid var(--red-border); background-color: var(--red-light); color: var(--red-dark); font-size: var(--fs-body); }
 @media (max-width: 640px) {
   .admit-steps { padding: 8px 16px; }
