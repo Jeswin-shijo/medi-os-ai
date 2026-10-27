@@ -3,7 +3,7 @@ import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
 import { bedService } from '../../services';
 import { errorMessage } from '../../services/api';
-import { ADMIT_ROLES, groupBoard } from '../../utils/beds';
+import { REQUEST_ROLES, followRequest, groupBoard } from '../../utils/beds';
 import { split } from '../../utils/layout';
 import type { BoardBed } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
@@ -11,17 +11,20 @@ import { BedTotalsBar, type FloorFilter } from '../beds/BedTotalsBar';
 import { WardTiles } from '../beds/WardTiles';
 import { BedPanel } from '../beds/BedPanel';
 import { AdmitDialog } from '../beds/AdmitDialog';
+import { RequestBedDialog } from '../beds/RequestBedDialog';
 
-/** What the Admit dialog opens for: a new admission (maybe to a picked bed) or a transfer. */
-type AdmitTarget = Pick<React.ComponentProps<typeof AdmitDialog>, 'preselectBedId' | 'transferFrom'>;
+/** What the request dialog opens for: a new admission or a transfer. */
+type RequestTarget = Pick<React.ComponentProps<typeof RequestBedDialog>, 'transferFrom'>;
 
 export const BedsScreen: React.FC = () => {
-  const { user, showToast } = useApp();
+  const { user, showToast, refreshAlertCount } = useApp();
   const role = user?.role ?? '';
   const { board, error, reload } = useBedBoard();
   const [floor, setFloor] = useState<FloorFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<AdmitTarget | null>(null);
+  /** Admit here: the manual flow for a picked free bed. */
+  const [manualBedId, setManualBedId] = useState<string | null>(null);
+  const [request, setRequest] = useState<RequestTarget | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const groups = useMemo(() => (board ? groupBoard(board, floor) : []), [board, floor]);
@@ -34,13 +37,13 @@ export const BedsScreen: React.FC = () => {
     }
   }, [selectedId]);
 
-  const onAdmit = (bedId?: string) => setDialog({ preselectBedId: bedId });
+  const onAdmit = (bedId: string) => setManualBedId(bedId);
   const onTransfer = async (bed: BoardBed) => {
     if (!bed.patient) return;
     try {
       // The admission's class, needs and notes (the board leaves them out): the transfer reruns the rules with them.
       const admission = await bedService.admission(bed.id);
-      setDialog({ transferFrom: { bedId: bed.id, admission } });
+      setRequest({ transferFrom: { bedId: bed.id, admission } });
     } catch (err) {
       showToast(errorMessage(err), 'error');
     }
@@ -52,8 +55,8 @@ export const BedsScreen: React.FC = () => {
         title="Beds"
         subtitle="Live view of every bed"
         actions={
-          ADMIT_ROLES.includes(role) && (
-            <button className="btn-primary" onClick={() => onAdmit()}>
+          REQUEST_ROLES.includes(role) && (
+            <button className="btn-primary" onClick={() => setRequest({})}>
               Admit patient
             </button>
           )
@@ -89,7 +92,17 @@ export const BedsScreen: React.FC = () => {
           </div>
         </>
       )}
-      {dialog && <AdmitDialog {...dialog} onClose={() => setDialog(null)} onDone={reload} />}
+      {manualBedId && <AdmitDialog preselectBedId={manualBedId} onClose={() => setManualBedId(null)} onDone={reload} />}
+      {request && (
+        <RequestBedDialog
+          {...request}
+          onClose={() => setRequest(null)}
+          onSubmitted={(r) => {
+            followRequest(r.id, { showToast, refreshAlertCount }, r.patientName);
+            void reload();
+          }}
+        />
+      )}
     </div>
   );
 };

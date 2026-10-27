@@ -44,8 +44,8 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import { split, tableMin } from '../../utils/layout';
-import { ADMIT_ROLES } from '../../utils/beds';
-import { AdmitDialog } from '../beds/AdmitDialog';
+import { REQUEST_ROLES, followRequest } from '../../utils/beds';
+import { RequestBedDialog } from '../beds/RequestBedDialog';
 
 const PAGE_TABS = [
   'All Patients',
@@ -179,7 +179,7 @@ const miniCard: React.CSSProperties = {
 const sectionTitle: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 };
 
 export const PatientsScreen: React.FC = () => {
-  const { activePatient, setActivePatient, setActiveScreen, showToast, user, patients, refreshPatients } = useApp();
+  const { activePatient, setActivePatient, setActiveScreen, showToast, user, patients, refreshPatients, refreshAlertCount } = useApp();
   const myName = user?.name ?? '';
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<PageTab>('All Patients');
@@ -341,7 +341,7 @@ export const PatientsScreen: React.FC = () => {
 
   const departments = ['All', ...Array.from(new Set(patients.map((p) => p.department)))];
 
-  const canAdmit = ADMIT_ROLES.includes(user?.role ?? '');
+  const canAdmit = REQUEST_ROLES.includes(user?.role ?? '');
   const rowMenuItems = (p: Patient): MenuItem[] => [
     { label: 'View Profile', icon: UserRound, onClick: () => handleSelectPatient(p) },
     { label: 'Start Consultation', icon: Stethoscope, onClick: () => openFor(p, 'consultation') },
@@ -1081,7 +1081,13 @@ export const PatientsScreen: React.FC = () => {
         </div>
       )}
 
-      {admitPatient && <AdmitDialog patient={admitPatient} onClose={() => setAdmitPatient(null)} onDone={() => void refreshPatients()} />}
+      {admitPatient && (
+        <RequestBedDialog
+          patient={admitPatient}
+          onClose={() => setAdmitPatient(null)}
+          onSubmitted={(r) => followRequest(r.id, { showToast, refreshAlertCount }, r.patientName)}
+        />
+      )}
     </div>
   );
 };

@@ -5,7 +5,7 @@ import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
 import { bedService } from '../../services';
 import { ApiError, errorMessage } from '../../services/api';
-import type { AiRefinement, BedAdmission, Need, Patient, RoomClass, SuggestionResult } from '../../types';
+import type { AiRefinement, BedAdmission, BedRequest, Need, Patient, RoomClass, SuggestionResult } from '../../types';
 import { NEED_OPTIONS, OVERRIDE_ROLES, ROOM_CLASS_OPTIONS, defaultRoomClass, offersEmergency } from '../../utils/beds';
 import { AdmitStepNeeds, type AdmitForm } from './AdmitStepNeeds';
 import { AdmitStepConfirm } from './AdmitStepConfirm';
@@ -18,6 +18,8 @@ interface AdmitDialogProps {
   preselectBedId?: string;
   /** Move an admitted patient out of this bed instead of admitting: opens on step 2 with the admission's needs. */
   transferFrom?: { bedId: string; admission: BedAdmission };
+  /** A request the Bed Agent could not finish: opens on step 2 with its patient, needs and notes (a transfer moves out of its from-bed) and sends its id. */
+  fromRequest?: BedRequest;
   onClose(): void;
   /** Called after a successful admit or transfer (step 3). */
   onDone(): void;
@@ -37,7 +39,7 @@ const needLabels = (needs: Need[]) => NEED_OPTIONS.filter((o) => needs.includes(
  * Admit (or transfer) in three steps: the patient and needs, then a bed from the rule-based
  * suggestions (refined by the AI when it answers), then confirm.
  */
-export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedId, transferFrom, onClose, onDone }) => {
+export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedId, transferFrom: transferProp, fromRequest, onClose, onDone }) => {
   const { patients, user, showToast, refreshPatients } = useApp();
   const { board } = useBedBoard();
   const titleId = useId();
@@ -45,10 +47,25 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   const bodyRef = useRef<HTMLDivElement>(null);
   const canOverride = OVERRIDE_ROLES.includes(user?.role ?? '');
 
+  /** The bed a transfer moves out of: given, or the request's from-bed. */
+  const fromBedId = transferProp?.bedId ?? (fromRequest?.type === 'transfer' ? fromRequest.fromBedId : undefined);
+  const transferFrom = fromBedId ? { bedId: fromBedId } : undefined;
+  const requestId = fromRequest?.id;
   /** The admission being moved: its class, needs and notes fill the request. */
-  const moving = transferFrom?.admission;
+  const moving = transferProp?.admission;
   const [form, setForm] = useState<AdmitForm>(() =>
-    moving
+    fromRequest
+      ? {
+          patientId: fromRequest.patientId,
+          doctor: fromRequest.doctor,
+          department: fromRequest.department,
+          roomClass: fromRequest.roomClass,
+          // The doctor's needs plus those the Bed Agent added from the notes.
+          needs: Array.from(new Set([...fromRequest.needs, ...fromRequest.addedNeeds.map((n) => n.need)])),
+          notes: fromRequest.notes ?? '',
+          stay: String(fromRequest.expectedStayDays)
+        }
+      : moving
       ? {
           patientId: moving.patient.id,
           doctor: moving.doctor,
@@ -60,7 +77,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
         }
       : { patientId: patient?.id ?? '', doctor: patient?.doctor ?? '', department: patient?.department ?? '', roomClass: null, needs: [], notes: '', stay: '3' }
   );
-  const [step, setStep] = useState<1 | 2 | 3>(moving ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(moving || fromRequest ? 2 : 1);
   const [suggestion, setSuggestion] = useState<SuggestionResult | null>(null);
   const [refinement, setRefinement] = useState<AiRefinement | null>(null);
   const [aiWaiting, setAiWaiting] = useState(false);
@@ -91,7 +108,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
 
   const selected = patient ?? patients.find((p) => p.id === form.patientId);
   /** Unknown until a patient is chosen: no class default for age before that. */
-  const age = moving?.patient.age ?? selected?.age;
+  const age = moving?.patient.age ?? fromRequest?.patientAge ?? selected?.age;
   const classFor = (needs: Need[]): RoomClass =>
     form.roomClass && (form.roomClass !== 'emergency' || offersEmergency(form.department)) ? form.roomClass : defaultRoomClass(age, needs);
   const roomClass = classFor(form.needs);
@@ -220,7 +237,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
   // A transfer opens on step 2: find beds for the admission's needs straight away (a request to the API,
   // once on open; Back to step 1 and Next run it again with edited needs).
   useEffect(() => {
-    if (moving) void suggest(form.needs);
+    if (moving || fromRequest) void suggest(form.needs);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -331,6 +348,7 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     setError(null);
     const body = {
       suggestionId: suggestion.suggestionId,
+      ...(requestId && { requestId }),
       ...(held.reason && { reason: held.reason }),
       ...(held.ruleOverride && { ruleOverride: true })
     };
@@ -362,10 +380,12 @@ export const AdmitDialog: React.FC<AdmitDialogProps> = ({ patient, preselectBedI
     void suggest(form.needs);
   };
 
-  const name = moving?.patient.name ?? selected?.name ?? '';
+  const name = moving?.patient.name ?? fromRequest?.patientName ?? selected?.name ?? '';
   const fromBed = transferFrom && board?.beds.find((b) => b.id === transferFrom.bedId);
   const fixedPatient = moving
     ? { name, detail: `${moving.patient.uhid} · ${moving.patient.age} yrs · ${moving.patient.gender}${fromBed ? ` · now in ${fromBed.label}` : ''}` }
+    : fromRequest
+      ? { name, detail: `${fromRequest.patientUhid} · ${fromRequest.patientAge} yrs · ${fromRequest.patientGender}${fromBed ? ` · now in ${fromBed.label}` : ''}` }
     : patient
       ? { name: patient.name, detail: `${patient.uhid} · ${patient.age} yrs · ${patient.gender}` }
       : undefined;

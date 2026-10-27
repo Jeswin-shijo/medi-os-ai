@@ -2684,8 +2684,15 @@ button.stat-card-item:active {
   .bed-tile { min-width: 36px; min-height: 36px; }
   .bed-grid { grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); }
 }
+/* One pulse when a tile's state changes: 300 ms. */
+.bed-tile.is-changed { animation: bed-changed 300ms ease-out 1; }
+@keyframes bed-changed {
+  0% { box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.55); }
+  100% { box-shadow: 0 0 0 7px rgba(29, 78, 216, 0); }
+}
 @media (prefers-reduced-motion: reduce) {
   .bed-tile { transition: none; }
+  .bed-tile.is-changed { animation: none; }
 }
 
 /* ===== Admit dialog ===== */

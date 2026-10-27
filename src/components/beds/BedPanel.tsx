@@ -4,7 +4,7 @@ import { useApp } from '../../context/appContextCore';
 import { bedService } from '../../services';
 import { errorMessage } from '../../services/api';
 import type { BoardBed, BoardWard } from '../../types';
-import { ADMIT_ROLES, BED_STATE_META, HOUSEKEEPING_ROLES, floorLabel, sinceLabel } from '../../utils/beds';
+import { ADMIT_ROLES, BED_STATE_META, HOUSEKEEPING_ROLES, REQUEST_ROLES, floorLabel, sinceLabel } from '../../utils/beds';
 
 const FEATURE_LABEL: Record<string, string> = {
   oxygen: 'Oxygen',
@@ -44,6 +44,7 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
     setReason('');
   }
   const canAdmit = ADMIT_ROLES.includes(role);
+  const canRequest = REQUEST_ROLES.includes(role);
   const canClean = HOUSEKEEPING_ROLES.includes(role);
   const meta = BED_STATE_META[bed.state];
   const Icon = meta.icon;
@@ -180,7 +181,7 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
 
       {!confirmDischarge && !blocking && (
         <div className="bed-actions">
-          {bed.state === 'free' && canAdmit && (
+          {bed.state === 'free' && canRequest && (
             <button className="btn-primary btn-sm" disabled={busy} onClick={() => onAdmit(bed.id)}>
               Admit here
             </button>
@@ -190,7 +191,7 @@ export const BedPanel: React.FC<BedPanelProps> = ({ bed, ward, role, onAdmit, on
               Block
             </button>
           )}
-          {bed.state === 'occupied' && patient && canAdmit && (
+          {bed.state === 'occupied' && patient && !patient.sample && canRequest && (
             <button className="btn-outline-blue btn-sm" disabled={busy} onClick={() => onTransfer(bed)}>
               Transfer
             </button>

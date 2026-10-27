@@ -1,5 +1,6 @@
 import { Ban, Clock, Sparkles, type LucideIcon } from 'lucide-react';
 import type { BedBoard, BedRequest, BedRequestPriority, BedRequestState, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
+import { bedRequestService } from '../services';
 import { clinicNow, isoDay } from './clinicDate';
 
 /** One place for what each bed state looks like: tiles, the legend, the panel and the totals all read from here. */
@@ -113,4 +114,37 @@ export const PRIORITY_OPTIONS: { value: BedRequestPriority; label: string }[] = 
 export function requestTypeLabel(r: Pick<BedRequest, 'type' | 'stepDown'>): string {
   if (r.stepDown) return 'Step-down';
   return r.type === 'transfer' ? 'Transfer' : 'Admission';
+}
+
+
+const FOLLOW_EVERY_MS = 1000;
+const FOLLOW_FOR_MS = 30_000;
+
+/**
+ * Toasts for a bed request just sent, on any screen: "finding a bed" now, then the outcome once the Bed Agent
+ * moves it on from `searching`. Polls once a second and stops on any other state, or after 30 seconds.
+ */
+export function followRequest(
+  id: string,
+  deps: { showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void; refreshAlertCount: () => Promise<void> },
+  name: string
+): void {
+  deps.showToast(`Bed Agent is finding a bed for ${name}…`, 'info');
+  const until = Date.now() + FOLLOW_FOR_MS;
+  const poll = async () => {
+    try {
+      const r = await bedRequestService.get(id);
+      if (r.state === 'assigned') return deps.showToast(`${name} assigned to ${r.assignedBedLabel ?? 'a bed'}`, 'success');
+      if (r.state === 'waiting' || r.state === 'attention') {
+        deps.showToast(`No bed yet for ${name}. The team has been alerted.`, 'warning');
+        void deps.refreshAlertCount().catch(() => undefined);
+        return;
+      }
+      if (r.state === 'cancelled') return;
+    } catch {
+      // A failed check is tried again until the time is up.
+    }
+    if (Date.now() < until) window.setTimeout(() => void poll(), FOLLOW_EVERY_MS);
+  };
+  window.setTimeout(() => void poll(), FOLLOW_EVERY_MS);
 }
