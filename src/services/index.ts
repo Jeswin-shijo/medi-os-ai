@@ -35,6 +35,13 @@ import {
   BedBoard,
   BedAdmission,
   SuggestBedsRequest,
+  BedRequest,
+  BedRequestQuery,
+  CreateBedRequestBody,
+  BedOverview,
+  SnapshotRange,
+  SnapshotPoint,
+  Need,
   SuggestionResult,
   AiRefinement,
   AiStatus
@@ -336,15 +343,18 @@ const POST = { method: 'POST' } as const;
 // Beds: the board, AI-assisted suggestions, and the bed lifecycle.
 export const bedService = {
   board: () => api<BedBoard>('/beds/board'),
+  overview: () => api<BedOverview>('/beds/overview'),
+  /** Hourly counts, oldest first. */
+  snapshots: (range: SnapshotRange) => api<{ range: SnapshotRange; points: SnapshotPoint[] }>(`/beds/snapshots?range=${range}`),
   /** The admitted patient in a bed and their admission's needs; 404 for a bed with no admitted patient. */
   admission: (bedId: string) => api<BedAdmission>(`/beds/${enc(bedId)}/admission`),
   suggest: (req: SuggestBedsRequest) => api<SuggestionResult>('/beds/suggestions', { method: 'POST', body: req }),
   refine: (id: string) => api<AiRefinement>(`/beds/suggestions/${enc(id)}/refine`, POST),
   hold: (bedId: string, suggestionId: string) => api<{ bedId: string; holdExpiresAt: string }>(`/beds/${enc(bedId)}/hold`, { method: 'POST', body: { suggestionId } }),
   release: (bedId: string) => api<{ released: boolean }>(`/beds/${enc(bedId)}/hold`, { method: 'DELETE' }),
-  admit: (bedId: string, body: { suggestionId: string; reason?: string; ruleOverride?: boolean }) =>
+  admit: (bedId: string, body: { suggestionId: string; reason?: string; ruleOverride?: boolean; requestId?: string }) =>
     api<unknown>(`/beds/${enc(bedId)}/admit`, { method: 'POST', body }),
-  transfer: (bedId: string, body: { toBedId: string; suggestionId: string; reason?: string; ruleOverride?: boolean }) =>
+  transfer: (bedId: string, body: { toBedId: string; suggestionId: string; reason?: string; ruleOverride?: boolean; requestId?: string }) =>
     api<unknown>(`/beds/${enc(bedId)}/transfer`, { method: 'POST', body }),
   /** `admissionId`: the admission the panel showed (null for a sample occupant); the API refuses with 409 if the bed changed. */
   discharge: (bedId: string, admissionId: string | null) =>
@@ -358,4 +368,20 @@ export const aiService = {
   status: () => api<AiStatus>('/ai/status'),
   /** Admin only: tests the connection to the AI provider. */
   check: () => api<{ provider: AiStatus['provider']; ok: boolean; detail: string }>('/ai/check', POST)
+};
+
+// Bed requests: what doctors ask for and the Bed Agent works through.
+export const bedRequestService = {
+  create: (body: CreateBedRequestBody) => api<BedRequest>('/beds/requests', { method: 'POST', body }),
+  list: (q: BedRequestQuery = {}) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(q)) if (value !== undefined) params.set(key, String(value));
+    const qs = params.toString();
+    return api<BedRequest[]>(`/beds/requests${qs ? `?${qs}` : ''}`);
+  },
+  get: (id: string) => api<BedRequest>(`/beds/requests/${enc(id)}`),
+  cancel: (id: string) => api<BedRequest>(`/beds/requests/${enc(id)}/cancel`, POST),
+  /** `confirm` true adds a need found in the notes; false dismisses it. */
+  notesNeed: (id: string, need: Need, confirm: boolean) =>
+    api<BedRequest>(`/beds/requests/${enc(id)}/notes-need`, { method: 'POST', body: { need, confirm } })
 };

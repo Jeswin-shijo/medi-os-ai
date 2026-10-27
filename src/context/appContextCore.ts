@@ -37,8 +37,15 @@ export interface AppContextType {
   /** Open critical tasks/alerts (header bell). */
   openAlertCount: number;
   setOpenAlertCount: (count: number) => void;
+  /** Recounts the open critical alerts from the task list (e.g. after the Bed Agent raises one). */
+  refreshAlertCount: () => Promise<void>;
   unreadMessagesCount: number;
   setUnreadMessagesCount: (count: number) => void;
+  /** Opens the Bed Agent screen on one request. */
+  openBedRequest: (id: string) => void;
+  /** The request the Bed Agent screen should open, until it is cleared. */
+  focusRequestId: string | null;
+  clearFocusRequest: () => void;
   navigateToPatientScreen: (screen: ScreenId, patient: Patient) => void;
 }
 

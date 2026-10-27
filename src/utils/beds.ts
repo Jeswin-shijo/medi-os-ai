@@ -1,5 +1,5 @@
 import { Ban, Clock, Sparkles, type LucideIcon } from 'lucide-react';
-import type { BedBoard, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
+import type { BedBoard, BedRequest, BedRequestPriority, BedRequestState, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
 import { clinicNow, isoDay } from './clinicDate';
 
 /** One place for what each bed state looks like: tiles, the legend, the panel and the totals all read from here. */
@@ -88,4 +88,29 @@ const FLOOR_NAME = ['Ground floor', '1st floor', '2nd floor'];
 
 export function floorLabel(floor: number): string {
   return FLOOR_NAME[floor] ?? `Floor ${floor}`;
+}
+
+/** Who may create, cancel and decide on bed requests (same as the backend's REQUEST_ROLES). */
+export const REQUEST_ROLES = ['admin', 'doctor'];
+
+/** How each request state reads in lists and badges. */
+export const REQUEST_STATE_META: Record<BedRequestState, { label: string; tone: 'info' | 'success' | 'warning' | 'danger' | 'neutral' }> = {
+  searching: { label: 'Searching', tone: 'info' },
+  assigned: { label: 'Bed assigned', tone: 'success' },
+  waiting: { label: 'Waiting for a bed', tone: 'warning' },
+  attention: { label: 'Needs attention', tone: 'danger' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' }
+};
+
+export const PRIORITY_OPTIONS: { value: BedRequestPriority; label: string }[] = [
+  { value: 'critical', label: 'Critical' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' }
+];
+
+/** "Admission", "Transfer" or "Step-down" (a transfer out of a higher-care unit). */
+export function requestTypeLabel(r: Pick<BedRequest, 'type' | 'stepDown'>): string {
+  if (r.stepDown) return 'Step-down';
+  return r.type === 'transfer' ? 'Transfer' : 'Admission';
 }

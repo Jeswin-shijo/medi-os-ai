@@ -1,21 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { bedService } from '../services';
 import { errorMessage, streamEvents } from '../services/api';
-import type { BedBoard } from '../types';
+import type { BedBoard, BedRequestEvent } from '../types';
 
 const DEBOUNCE_MS = 200;
 const FIRST_RETRY_MS = 3000;
 const MAX_RETRY_MS = 30_000;
 const FALLBACK_POLL_MS = 30_000;
 
+interface BedBoardOptions {
+  /** Called for each bed request that changed state (the latest callback is used; changing it does not reconnect). */
+  onRequest?: (event: BedRequestEvent) => void;
+}
+
 /**
  * The bed board, kept live: loads on mount, reloads when the server says something changed,
  * reconnects with a growing delay when the stream drops, and polls while it is down.
+ * `version` goes up on every `changed` or `request` event, so other hooks can refetch with it.
  */
-export function useBedBoard(): { board: BedBoard | null; error: string | null; reload: () => Promise<void> } {
+export function useBedBoard(opts: BedBoardOptions = {}): {
+  board: BedBoard | null;
+  error: string | null;
+  reload: () => Promise<void>;
+  version: number;
+  live: boolean;
+} {
   const [board, setBoard] = useState<BedBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  const [live, setLive] = useState(false);
   const alive = useRef(true);
+  const onRequest = useRef(opts.onRequest);
+  useEffect(() => {
+    onRequest.current = opts.onRequest;
+  }, [opts.onRequest]);
 
   const reload = useCallback(async () => {
     try {
@@ -45,13 +63,24 @@ export function useBedBoard(): { board: BedBoard | null; error: string | null; r
       try {
         await streamEvents(
           '/beds/stream',
-          (event) => {
+          (event, data) => {
             if (!connected) {
               connected = true;
               delay = FIRST_RETRY_MS;
+              setLive(true);
               void reload(); // anything missed while the stream was down
             }
-            if (event === 'changed') scheduleReload();
+            if (event === 'changed') {
+              scheduleReload();
+              setVersion((v) => v + 1);
+            } else if (event === 'request') {
+              setVersion((v) => v + 1);
+              try {
+                onRequest.current?.(JSON.parse(data) as BedRequestEvent);
+              } catch {
+                // A malformed event is skipped; the version bump already refreshes the screens.
+              }
+            }
           },
           controller.signal
         );
@@ -59,6 +88,7 @@ export function useBedBoard(): { board: BedBoard | null; error: string | null; r
         // Falls through to the reconnect below.
       }
       connected = false;
+      if (alive.current) setLive(false);
       if (controller.signal.aborted) return;
       retry = window.setTimeout(connect, delay);
       delay = Math.min(delay * 2, MAX_RETRY_MS);
@@ -94,5 +124,5 @@ export function useBedBoard(): { board: BedBoard | null; error: string | null; r
     };
   }, [reload]);
 
-  return { board, error, reload };
+  return { board, error, reload, version, live };
 }

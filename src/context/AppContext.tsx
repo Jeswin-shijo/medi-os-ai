@@ -62,6 +62,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [openAlertCount, setOpenAlertCount] = useState(0);
+  const [focusRequestId, setFocusRequestId] = useState<string | null>(null);
+
+  const refreshAlertCount = useCallback(async () => {
+    try {
+      const tasks = await taskService.getTasks();
+      setOpenAlertCount(tasks.filter(t => t.category === 'Critical' && t.status !== 'Completed').length);
+    } catch {
+      setOpenAlertCount(0);
+    }
+  }, []);
 
   const showToast = useCallback((message: string, type: Toast['type'] = 'success') => {
     const id = `toast-${Date.now()}-${Math.random()}`;
@@ -96,6 +106,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveScreenState('dashboard');
     setUnreadMessagesCount(0);
     setOpenAlertCount(0);
+    setFocusRequestId(null);
     setIdleMinutes(null);
     setAuthStatus('signed-out');
   }, []);
@@ -107,15 +118,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .getUnreadCount()
       .then(setUnreadMessagesCount)
       .catch(() => setUnreadMessagesCount(0));
-    taskService
-      .getTasks()
-      .then(tasks => setOpenAlertCount(tasks.filter(t => t.category === 'Critical' && t.status !== 'Completed').length))
-      .catch(() => setOpenAlertCount(0));
+    void refreshAlertCount();
     settingsService
       .getSettings()
       .then(s => setIdleMinutes(parseSessionTimeout(s.security?.sessionTimeout)))
       .catch(() => setIdleMinutes(null));
-  }, [refreshPatients, showToast]);
+  }, [refreshPatients, refreshAlertCount, showToast]);
 
   // Resume the session from the refresh cookie on page load.
   useEffect(() => {
@@ -172,6 +180,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const openBedRequest = useCallback(
+    (id: string) => {
+      setFocusRequestId(id);
+      setActiveScreen('bed-agent');
+    },
+    [setActiveScreen]
+  );
+  const clearFocusRequest = useCallback(() => setFocusRequestId(null), []);
+
   const navigateToPatientScreen = (screen: ScreenId, patient: Patient) => {
     setActivePatient(patient);
     setActiveScreen(screen);
@@ -196,6 +213,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         openAlertCount,
         setOpenAlertCount,
+        refreshAlertCount,
+        openBedRequest,
+        focusRequestId,
+        clearFocusRequest,
         setSessionTimeout: (label: string) => setIdleMinutes(parseSessionTimeout(label)),
         unreadMessagesCount,
         setUnreadMessagesCount,

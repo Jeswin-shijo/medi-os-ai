@@ -21,7 +21,8 @@ export type ScreenId =
   | 'tasks-alerts'
   | 'messages'
   | 'settings'
-  | 'beds';
+  | 'beds'
+  | 'bed-agent';
 
 export interface Patient {
   id: string;
@@ -310,6 +311,8 @@ export interface TaskAlertItem {
   dueDateTime: string;
   status: 'Pending' | 'Scheduled' | 'In Progress' | 'Completed';
   category: 'Critical' | 'Follow-up' | 'Lab' | 'Imaging' | 'Medication' | 'System';
+  /** What the alert points at, e.g. 'bed-request:<id>'. */
+  link?: string;
 }
 
 export interface ChatMessage {
@@ -455,6 +458,8 @@ export interface SettingsState {
     drugInteractionAlerts: boolean;
     followUpSuggestions: boolean;
     bedSuggestions: boolean;
+    /** The Bed Agent assigns beds to requests on its own. */
+    bedAutoAllocate: boolean;
     responseTone: string;
     language: string;
   };
@@ -753,7 +758,8 @@ export interface BoardBed {
   blockedReason?: string;
   /** Set on held beds: whether the viewer holds it. */
   heldByMe?: boolean;
-  patient?: { id: string; name: string; uhid: string; admissionId: string; admittedAt: string };
+  /** A sample inpatient has no patient record: `id` is ''. */
+  patient?: { id: string; name: string; uhid: string; admissionId: string; admittedAt: string; sample: boolean };
 }
 
 export interface BoardTotals {
@@ -793,6 +799,8 @@ export interface SuggestionResult {
   top: RankedBedView[];
   eligible: RankedBedView[];
   ai: 'pending' | 'off';
+  /** True when no ward type meets every ticked need (isolation with a ventilator, say). */
+  conflict: boolean;
 }
 
 export interface AiRefinement {
@@ -832,4 +840,193 @@ export interface AiStatus {
   provider: 'none' | 'sample' | 'claude';
   model: string;
   features: { bedSuggestions: boolean };
+}
+
+// ---- Bed Agent: bed requests and the overview (mirror bed-requests.service.ts and bed-overview.ts) ----
+
+export type BedRequestState = 'searching' | 'assigned' | 'waiting' | 'attention' | 'cancelled';
+export type BedRequestPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface NeedEvidence {
+  need: Need;
+  evidence: string;
+}
+
+/** A doctor's or admin's answer to a need found in the notes. */
+export interface ResolvedNeed extends NeedEvidence {
+  confirmed: boolean;
+  byName: string;
+  /** ISO. */
+  at: string;
+}
+
+/** Why the agent (or staff) chose a bed. */
+export interface BedDecision {
+  suggestionId: string;
+  by: 'ai' | 'rules' | 'staff';
+  bedId: string;
+  bedLabel: string;
+  wardName: string;
+  reason: string;
+  appliedRules: string[];
+  addedNeeds: NeedEvidence[];
+  candidates: { bedId: string; label: string; score: number; reason: string }[];
+  resolvedNeeds: ResolvedNeed[];
+  /** True when `by` is 'ai' and the answer was canned (sample mode). */
+  sample: boolean;
+  ruleOverride?: boolean;
+}
+
+/** A doctor's request for a bed. Times are ISO. */
+export interface BedRequest {
+  id: string;
+  type: 'admission' | 'transfer';
+  stepDown: boolean;
+  patientId: string;
+  patientName: string;
+  patientUhid: string;
+  patientAge: number;
+  patientGender: 'Male' | 'Female' | 'Other';
+  fromBedId?: string;
+  fromBedLabel?: string;
+  fromWardType?: WardType;
+  admissionId?: string;
+  roomClass: RoomClass;
+  needs: Need[];
+  addedNeeds: NeedEvidence[];
+  pendingNeeds: NeedEvidence[];
+  dismissedNeeds: Need[];
+  resolvedNeeds: ResolvedNeed[];
+  /** Only from `get`: lists leave the clinical notes out. */
+  notes?: string;
+  department: string;
+  doctor: string;
+  expectedStayDays: number;
+  priority: BedRequestPriority;
+  state: BedRequestState;
+  stateReason: string;
+  stateSince: string;
+  open: boolean;
+  attempts: number;
+  requestedBy: string;
+  requestedByName: string;
+  requestedAt: string;
+  assignedBedId?: string;
+  assignedBedLabel?: string;
+  assignedAt?: string;
+  decision?: BedDecision;
+  closedByName?: string;
+}
+
+/** Body of POST /beds/requests. */
+export interface CreateBedRequestBody extends Omit<SuggestBedsRequest, 'currentBedId'> {
+  type: 'admission' | 'transfer';
+  /** For a transfer: the bed the patient is in now. */
+  fromBedId?: string;
+  priority: BedRequestPriority;
+}
+
+export interface BedRequestQuery {
+  state?: BedRequestState;
+  type?: 'admission' | 'transfer' | 'step-down';
+  limit?: number;
+  /** ISO: only requests made before this time. */
+  before?: string;
+}
+
+/** A live stream message: a request changed state. */
+export interface BedRequestEvent {
+  id: string;
+  state: BedRequestState;
+  type: 'admission' | 'transfer';
+  patientName: string;
+  bedLabel?: string;
+  reason: string;
+}
+
+export type CardKey =
+  | 'total'
+  | 'occupied'
+  | 'available'
+  | 'cleaning'
+  | 'blocked'
+  | 'cleaningBlocked'
+  | 'expectedDischarges'
+  | 'expectedAdmissions';
+
+export interface StatCardData {
+  value: number;
+  /** The bed total, for "x of y"; null for cards that are not a share of the beds. */
+  total: number | null;
+  /** Change against 24 hours ago, in percent; null without a snapshot from then. */
+  trendPct: number | null;
+  /** The last 24 hourly points, oldest first; null where there is no snapshot. */
+  spark: (number | null)[];
+  note: string;
+}
+
+export interface TypeRow {
+  type: WardType;
+  label: string;
+  total: number;
+  occupied: number;
+  free: number;
+  cleaning: number;
+  blocked: number;
+  percentFull: number;
+}
+
+export interface DischargeItem {
+  admissionId: string;
+  patientName: string;
+  wardName: string;
+  bedLabel: string;
+  /** ISO. */
+  dueAt: string;
+  overdue: boolean;
+  sample: boolean;
+}
+
+export interface Movement {
+  id: string;
+  kind: 'admission' | 'transfer' | 'discharge';
+  /** ISO. */
+  at: string;
+  patientName: string;
+  from: string;
+  to: string;
+  sample: boolean;
+}
+
+export interface AgentSuggestion {
+  id: string;
+  tone: 'warn' | 'info' | 'ok';
+  title: string;
+  detail: string;
+  action: { label: string; target: 'requests' | 'discharge' | 'cleaning' | 'utilization' | 'bed-map' };
+}
+
+export interface BedOverview {
+  /** ISO. */
+  at: string;
+  totals: BoardTotals;
+  cards: Record<CardKey, StatCardData>;
+  byType: TypeRow[];
+  dischargePlan: DischargeItem[];
+  movements: Movement[];
+  suggestions: AgentSuggestion[];
+  openRequests: number;
+  avgAdmissionsPerDay: number;
+}
+
+export type SnapshotRange = '24h' | '7d';
+
+/** One hour of bed counts (real clock); null where no snapshot was taken. */
+export interface SnapshotPoint {
+  /** ISO. */
+  hour: string;
+  occupied: number | null;
+  free: number | null;
+  cleaning: number | null;
+  blocked: number | null;
 }
