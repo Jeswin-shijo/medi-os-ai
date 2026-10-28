@@ -25,7 +25,9 @@ import {
   CornerDownLeft,
   type LucideIcon,
   PhoneCall,
-  Ticket
+  Ticket,
+  BedDouble,
+  Bot
 } from 'lucide-react';
 import { AiSparkle, Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
@@ -43,6 +45,8 @@ const MODULES: ModuleItem[] = [
   { id: 'patients', label: 'Patients', hint: 'Patient directory', icon: UsersRound },
   { id: 'appointments', label: 'Appointments', hint: 'Schedule & queue', icon: CalendarCheck },
   { id: 'queue', label: 'Token Queue', hint: 'Check-in tokens & waiting-room display', icon: Ticket },
+  { id: 'beds', label: 'Beds & Rooms', hint: 'Live bed board', icon: BedDouble },
+  { id: 'bed-agent', label: 'Bed Agent', hint: 'Bed requests & allocation', icon: Bot },
   { id: 'call-agent', label: 'AI Call Agent', hint: 'Confirmation & booking calls', icon: PhoneCall },
   { id: 'consultation', label: 'Consultation', hint: 'SOAP workspace', icon: UserRoundSearch },
   { id: 'emr', label: 'EMR / Clinical Notes', hint: 'Medical records', icon: FileAxis3d },
@@ -62,6 +66,9 @@ const MODULES: ModuleItem[] = [
   { id: 'messages', label: 'Messages', hint: 'Chat & teleconsultation', icon: MessageSquareMore },
   { id: 'settings', label: 'Settings', hint: 'Hospital & AI settings', icon: Settings }
 ];
+
+/** Pharmacists and lab staff have no access to the bed pages (as the sidebar and the API). */
+const hiddenFor = (id: ScreenId, role?: string) => (id === 'beds' || id === 'bed-agent') && (role === 'pharmacist' || role === 'lab');
 
 type Entry =
   | { kind: 'ai' }
@@ -91,7 +98,7 @@ const sectionLabel: React.CSSProperties = {
 };
 
 export const CommandPaletteModal: React.FC = () => {
-  const { isCommandPaletteOpen, setIsCommandPaletteOpen, setActiveScreen, setActivePatient, showToast, patients: allPatients } = useApp();
+  const { isCommandPaletteOpen, setIsCommandPaletteOpen, setActiveScreen, setActivePatient, showToast, patients: allPatients, user } = useApp();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -101,7 +108,7 @@ export const CommandPaletteModal: React.FC = () => {
   const patients = allPatients
     .filter(p => p.name.toLowerCase().includes(q) || p.uhid.toLowerCase().includes(q) || p.phone.includes(q))
     .slice(0, 5);
-  const modules = MODULES.filter(m => m.label.toLowerCase().includes(q) || m.hint.toLowerCase().includes(q));
+  const modules = MODULES.filter(m => !hiddenFor(m.id, user?.role) && (m.label.toLowerCase().includes(q) || m.hint.toLowerCase().includes(q)));
   const showAi = !q || 'ai voice scribe notes gpt'.includes(q) || q.includes('ai');
 
   const entries: Entry[] = [

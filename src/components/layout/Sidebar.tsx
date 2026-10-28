@@ -20,11 +20,16 @@ import {
   LogOut,
   PhoneCall,
   BedDouble,
+  Bot,
   Ticket,
   type LucideIcon
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
+
+/** The bed pages, and the roles that cannot open them (as the API). */
+const BED_SCREENS: ScreenId[] = ['beds', 'bed-agent'];
+const NO_BED_ACCESS = ['pharmacist', 'lab'];
 
 interface NavItem {
   id: ScreenId;
@@ -58,7 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { id: 'patients', label: 'Patients', icon: UsersRound },
     { id: 'appointments', label: 'Appointments', icon: CalendarCheck },
     { id: 'queue', label: 'Token Queue', icon: Ticket },
-    { id: 'beds', label: 'Beds', icon: BedDouble },
+    { id: 'beds', label: 'Beds & Rooms', icon: BedDouble },
+    { id: 'bed-agent', label: 'Bed Agent', icon: Bot },
     { id: 'call-agent', label: 'AI Call Agent', icon: PhoneCall },
     { id: 'consultation', label: 'Consultation', icon: UserRoundSearch },
     { id: 'emr', label: 'EMR / Clinical Notes', icon: FileAxis3d },
@@ -74,7 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { id: 'tasks-alerts', label: 'Tasks & Alerts', icon: Bell },
     { id: 'messages', label: 'Messages', icon: MessageSquareMore, badge: unreadMessagesCount, dot: unreadMessagesCount > 0 },
     { id: 'settings', label: 'Settings', icon: Settings }
-  ] as NavItem[]).filter((item) => item.id !== 'beds' || (user?.role !== 'pharmacist' && user?.role !== 'lab'));
+  ] as NavItem[]).filter((item) => !BED_SCREENS.includes(item.id) || !NO_BED_ACCESS.includes(user?.role ?? ''));
 
   return (
     <aside className={`app-sidebar${open ? ' is-open' : ''}`} aria-label="Main navigation">

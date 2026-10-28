@@ -14,12 +14,14 @@ export interface BedRequestFilter {
 /**
  * Bed requests, newest first. The first page reloads 300 ms after `version` or the filter changes;
  * `loadMore` adds the next page, using the oldest `requestedAt` loaded as the cursor.
+ * `loaded` turns true with the first page, so lists can tell "none yet" from "still loading".
  */
 export function useBedRequests(
   filter: BedRequestFilter,
   version: number
-): { requests: BedRequest[]; loadMore: () => Promise<void>; hasMore: boolean; error: string | null } {
+): { requests: BedRequest[]; loadMore: () => Promise<void>; hasMore: boolean; error: string | null; loaded: boolean } {
   const [requests, setRequests] = useState<BedRequest[]>([]);
+  const [firstPage, setFirstPage] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { state, type } = filter;
@@ -38,6 +40,7 @@ export function useBedRequests(
             if (mine !== generation.current) return;
             loaded.current = page;
             setRequests(page);
+            setFirstPage(true);
             setHasMore(page.length >= PAGE_SIZE);
             setError(null);
           })
@@ -66,5 +69,5 @@ export function useBedRequests(
     }
   }, [state, type]);
 
-  return { requests, loadMore, hasMore, error };
+  return { requests, loadMore, hasMore, error, loaded: firstPage };
 }

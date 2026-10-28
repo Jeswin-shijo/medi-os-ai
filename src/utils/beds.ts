@@ -1,7 +1,7 @@
 import { Ban, Clock, Sparkles, type LucideIcon } from 'lucide-react';
 import type { BedBoard, BedRequest, BedRequestPriority, BedRequestState, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
 import { bedRequestService } from '../services';
-import { clinicNow, isoDay } from './clinicDate';
+import { clinicNow, displayTime, isoDay } from './clinicDate';
 
 /** One place for what each bed state looks like: tiles, the legend, the panel and the totals all read from here. */
 export interface BedStateMeta {
@@ -115,6 +115,57 @@ export function requestTypeLabel(r: Pick<BedRequest, 'type' | 'stepDown'>): stri
   if (r.stepDown) return 'Step-down';
   return r.type === 'transfer' ? 'Transfer' : 'Admission';
 }
+
+/** The `.status-pill` colour class for each REQUEST_STATE_META tone. */
+export const TONE_PILL: Record<(typeof REQUEST_STATE_META)[BedRequestState]['tone'], string> = {
+  info: 'blue',
+  success: 'green',
+  warning: 'orange',
+  danger: 'red',
+  neutral: 'gray'
+};
+
+/** The `.status-pill` colour class for each priority. */
+export const PRIORITY_PILL: Record<BedRequestPriority, string> = { critical: 'red', high: 'orange', medium: 'cyan', low: 'gray' };
+
+/** A unit is full at 85% (the backend's UNIT_FULL_PCT); from 70% it is getting there. */
+export const UNIT_FULL_PCT = 85;
+export const UNIT_WARN_PCT = 70;
+
+export type MeterTone = 'ok' | 'warn' | 'danger';
+
+export function meterTone(value: number, max: number): MeterTone {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  if (pct >= UNIT_FULL_PCT) return 'danger';
+  if (pct >= UNIT_WARN_PCT) return 'warn';
+  return 'ok';
+}
+
+const dayOffset = (d: Date): number => {
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  return Math.round((day(d) - day(clinicNow())) / 86_400_000);
+};
+
+/** "09:30 AM" for today (clinic day), otherwise "24 Sep": for list rows. */
+export function clockOrDay(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return dayOffset(d) === 0 ? displayTime(d) : `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/** "Today, 09:30 AM", "Tomorrow, 10:00 AM", "Yesterday, 04:10 PM" or "21 Sep, 04:29 PM". */
+export function dayAndTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const offset = dayOffset(d);
+  const day = offset === 0 ? 'Today' : offset === 1 ? 'Tomorrow' : offset === -1 ? 'Yesterday' : `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return `${day}, ${displayTime(d)}`;
+}
+
+/** True when the time falls on the clinic's today. */
+export const isClinicToday = (iso: string): boolean => dayOffset(new Date(iso)) === 0;
+
+export const roomClassLabel = (value: RoomClass): string => ROOM_CLASS_OPTIONS.find((o) => o.value === value)?.label ?? value;
 
 
 const FOLLOW_EVERY_MS = 1000;
