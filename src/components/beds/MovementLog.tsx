@@ -8,6 +8,8 @@ interface MovementLogProps {
   /** Show only the newest this many. */
   limit?: number;
   action?: React.ReactNode;
+  /** Narrow cards: time, patient with the type under the name, and one wrapping "From → To" cell. No sideways scroll. */
+  compact?: boolean;
 }
 
 const KIND: Record<Movement['kind'], { label: string; pill: string }> = {
@@ -17,7 +19,7 @@ const KIND: Record<Movement['kind'], { label: string; pill: string }> = {
 };
 
 /** Recent admissions, transfers and discharges, newest first. */
-export const MovementLog: React.FC<MovementLogProps> = ({ movements, limit, action }) => {
+export const MovementLog: React.FC<MovementLogProps> = ({ movements, limit, action, compact }) => {
   const shown = limit ? movements.slice(0, limit) : movements;
   return (
     <section className="medios-card bagent-card">
@@ -30,6 +32,30 @@ export const MovementLog: React.FC<MovementLogProps> = ({ movements, limit, acti
       </div>
       {shown.length === 0 ? (
         <p className="data-empty">No admissions, transfers or discharges yet.</p>
+      ) : compact ? (
+        <table className="medios-table compact bagent-table mv-compact">
+          <thead>
+            <tr>
+              <th scope="col">Time</th>
+              <th scope="col">Patient</th>
+              <th scope="col">From → To</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((m) => (
+              <tr key={m.id}>
+                <td className="bagent-time">{clockOrDay(m.at)}</td>
+                <td>
+                  <span className="bagent-name">{m.patientName}</span>
+                  <span className={`status-pill sm ${KIND[m.kind].pill} mv-kind`}>{KIND[m.kind].label}</span>
+                </td>
+                <td className="mv-route">
+                  {m.from} → {m.to}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : (
         <div className="table-scroll" style={tableMin(460)}>
           <table className="medios-table compact bagent-table">

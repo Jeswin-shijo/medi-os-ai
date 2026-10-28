@@ -250,9 +250,9 @@ const Overview: React.FC<OverviewProps> = ({ board, overview, role, version, onU
         <p className="data-empty">The floor plan will show each room here. Use the Bed map tab for every bed now.</p>
       </section>
 
-      <div className="cols-3 bagent-grid bagent-trio" style={cols('minmax(0, 0.8fr) minmax(0, 1.3fr) minmax(0, 1fr)')}>
+      <div className="cols-3 bagent-grid bagent-trio" style={cols('minmax(0, 0.7fr) minmax(0, 1.4fr) minmax(0, 1fr)')}>
         <RoomsOverview rows={overview.byType} />
-        <MovementLog movements={overview.movements} limit={MOVEMENT_ROWS} />
+        <MovementLog compact movements={overview.movements} limit={MOVEMENT_ROWS} />
         <CleaningList board={board} role={role} onOpen={onCleaningRow} />
       </div>
 

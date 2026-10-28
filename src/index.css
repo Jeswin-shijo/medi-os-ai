@@ -3211,6 +3211,12 @@ button.stat-card-item:active {
 .clean-wait { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .clean-wait.is-late { color: var(--red-dark); font-weight: 600; }
 .clean-row .btn-sm { flex: 0 0 auto; white-space: nowrap; }
+/* Compact movement log: the type sits under the name and the route wraps. */
+.bagent-table.mv-compact td { white-space: normal; vertical-align: top; }
+.bagent-table.mv-compact td.bagent-time { white-space: nowrap; }
+.mv-compact .bagent-name { display: block; }
+.mv-compact .mv-kind { margin-top: 2px; }
+.mv-route { overflow-wrap: anywhere; }
 @media (max-width: 1100px) {
   .bagent-pair-always { grid-template-columns: minmax(0, 1fr); }
 }
