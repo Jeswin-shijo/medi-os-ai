@@ -5,7 +5,7 @@ import { useBedBoard } from '../../hooks/useBedBoard';
 import { useBedOverview, useBedSeries } from '../../hooks/useBedOverview';
 import { bedService } from '../../services';
 import { errorMessage } from '../../services/api';
-import { REQUEST_ROLES, followRequest, groupBoard } from '../../utils/beds';
+import { REQUEST_ROLES, followRequest, groupBoard, planFloors } from '../../utils/beds';
 import { cols, split } from '../../utils/layout';
 import type { BedBoard, BedOverview, BoardBed, StatCardData, TypeRow } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
@@ -14,6 +14,7 @@ import { WardTiles } from '../beds/WardTiles';
 import { BedPanel } from '../beds/BedPanel';
 import { AdmitDialog } from '../beds/AdmitDialog';
 import { RequestBedDialog } from '../beds/RequestBedDialog';
+import { FloorPlan } from '../beds/FloorPlan';
 import { LivePill } from '../beds/LivePill';
 import { StatCard } from '../beds/StatCard';
 import { UnitStatusCards } from '../beds/UnitStatusCards';
@@ -143,7 +144,7 @@ export const BedsScreen: React.FC = () => {
               </p>
             )}
             {overview ? (
-              <Overview board={board} overview={overview} role={role} version={version} onUnit={onUnit} onCleaningRow={onCleaningRow} onSuggestion={onSuggestion} />
+              <Overview board={board} overview={overview} role={role} version={version} onUnit={onUnit} onCleaningRow={onCleaningRow} onSuggestion={onSuggestion} onAdmit={onAdmit} onTransfer={onTransfer} onChanged={reload} />
             ) : (
               <div className="medios-card data-empty" role={overviewError ? 'alert' : undefined}>
                 {overviewError ?? 'Loading the overview…'}
@@ -204,6 +205,9 @@ interface OverviewProps {
   onUnit(row: TypeRow): void;
   onCleaningRow(bedId: string): void;
   onSuggestion(target: SuggestionTarget): void;
+  onAdmit(bedId: string): void;
+  onTransfer(bed: BoardBed): void;
+  onChanged(): void;
 }
 
 /** The card's own note is replaced by the share of all beds. */
@@ -212,7 +216,17 @@ const share = (data: StatCardData, total: number): StatCardData => ({
   note: `${total > 0 ? Math.round((data.value / total) * 100) : 0}% of beds`
 });
 
-const Overview: React.FC<OverviewProps> = ({ board, overview, role, version, onUnit, onCleaningRow, onSuggestion }) => {
+const Overview: React.FC<OverviewProps> = ({ board, overview, role, version, onUnit, onCleaningRow, onSuggestion, onAdmit, onTransfer, onChanged }) => {
+  const [floorPick, setFloorPick] = useState<number | null>(null);
+  const [planSelectedId, setPlanSelectedId] = useState<string | null>(null);
+  const floors = planFloors(board);
+  const planFloor = floorPick !== null && floors.includes(floorPick) ? floorPick : (floors[0] ?? 0);
+  const changeFloor = (f: number) => {
+    setFloorPick(f);
+    setPlanSelectedId(null);
+  };
+  const planBed = board.beds.find((b) => b.id === planSelectedId) ?? null;
+  const planWard = planBed ? board.wards.find((w) => w.id === planBed.wardId) : undefined;
   const { cards, totals } = overview;
   const { points } = useBedSeries('24h', version);
   const all = totals.total;
@@ -247,7 +261,16 @@ const Overview: React.FC<OverviewProps> = ({ board, overview, role, version, onU
         <div className="card-header-row">
           <h3 className="card-title">Floor plan</h3>
         </div>
-        <p className="data-empty">The floor plan will show each room here. Use the Bed map tab for every bed now.</p>
+        <div className="split" style={{ ...split('320px'), gap: 16, alignItems: 'start' }}>
+          <FloorPlan board={board} floor={planFloor} onFloor={changeFloor} selectedId={planSelectedId} onSelect={setPlanSelectedId} />
+          <div className="bed-side">
+            {planBed && planWard ? (
+              <BedPanel key={planBed.id} bed={planBed} ward={planWard} role={role} onAdmit={onAdmit} onTransfer={onTransfer} onChanged={onChanged} />
+            ) : (
+              <div className="medios-card bed-hint">Select a bed to see details</div>
+            )}
+          </div>
+        </div>
       </section>
 
       <div className="cols-3 bagent-grid bagent-trio" style={cols('minmax(0, 0.7fr) minmax(0, 1.4fr) minmax(0, 1fr)')}>

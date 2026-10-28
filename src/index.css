@@ -3173,7 +3173,7 @@ button.stat-card-item:active {
   padding: 10px 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background-color: var(--bg-card, #fff);
+  background-color: var(--bg-card);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -3426,3 +3426,18 @@ button.stat-card-item:active {
   }
   .meter-fill { transition: none; }
 }
+
+/* Floor plan: one flat block per ward, flowing and wrapping. */
+.plan { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.plan-wards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 340px)); gap: 10px; min-width: 0; }
+.plan-ward { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px; background-color: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.plan-ward-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
+.plan-ward-head h4 { margin: 0; font-size: var(--fs-body); font-weight: 500; }
+.plan-ward-free { font-size: var(--fs-sm); color: var(--text-muted); }
+.plan-cells { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.plan-cells .bed-tile { width: 36px; height: 36px; min-width: 36px; min-height: 36px; aspect-ratio: auto; flex: 0 0 auto; }
+.plan-station { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px dashed var(--border-subtle); border-radius: var(--radius-sm); background-color: var(--bg-card); }
+.plan-station-mark { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); font-weight: 500; color: var(--text-secondary); }
+.plan-room { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background-color: var(--bg-card); }
+.plan-room-label { font-size: var(--fs-xs); color: var(--text-muted); }
+.plan-room-beds { display: flex; gap: 6px; }

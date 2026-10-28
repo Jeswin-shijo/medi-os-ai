@@ -199,3 +199,6 @@ export function followRequest(
   };
   window.setTimeout(() => void poll(), FOLLOW_EVERY_MS);
 }
+
+/** The floors that have wards, lowest first. */
+export const planFloors = (board: BedBoard): number[] => [...new Set(board.wards.map((w) => w.floor))].sort((a, b) => a - b);
