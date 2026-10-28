@@ -39,6 +39,7 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import { tableMin } from '../../utils/layout';
+import { ADMIT_ROLES } from '../../utils/beds';
 
 /** Lungs glyph for the chest X-ray alert (not in Lucide). */
 const Lungs = createLucideIcon('lungs', [
@@ -151,7 +152,9 @@ const checkbox: React.CSSProperties = { width: 15, height: 15, accentColor: 'var
 const ctrlBtn: React.CSSProperties = { height: 33, padding: '0 16px', fontWeight: 400 };
 
 export const TasksAlertsScreen: React.FC = () => {
-  const { showToast, setOpenAlertCount, openBedRequest } = useApp();
+  const { showToast, setOpenAlertCount, openBedRequest, user } = useApp();
+  // Pharmacy and lab have no bed pages, so their alerts never offer "Open request".
+  const canOpenRequests = ADMIT_ROLES.includes(user?.role ?? '');
   const [tasks, setTasksState] = useState<TaskAlertItem[]>([]);
   const criticalOpen = (list: TaskAlertItem[]) => list.filter((t) => t.category === 'Critical' && t.status !== 'Completed').length;
   const setTasks = (list: TaskAlertItem[]) => {
@@ -270,7 +273,8 @@ export const TasksAlertsScreen: React.FC = () => {
     return <div style={line1}>{due}</div>;
   };
 
-  const requestId = (task: TaskAlertItem) => (task.link?.startsWith('bed-request:') ? task.link.slice('bed-request:'.length) : null);
+  const requestId = (task: TaskAlertItem) =>
+    canOpenRequests && task.link?.startsWith('bed-request:') ? task.link.slice('bed-request:'.length) : null;
 
   const rowAction = (task: TaskAlertItem) => {
     const id = requestId(task);
