@@ -90,10 +90,12 @@ Token queue:
   - The host must serve `index.html` for `/display` and `/kiosk`, as for any single-page app.
 
 Beds:
-- **Beds** screen (sidebar; admin, doctor, nurse and front desk): a live board of every ward and bed, coloured and iconed by state (free, occupied, cleaning, held, blocked), with totals, a floor filter and a details panel for the selected bed. It follows the API's `/beds/stream` and re-reads the board on each change, and it refreshes the sign-in first if the access token has expired.
-- **Admit patient** is a three-step dialog: patient and needs, then choose a bed, then confirm. Fixed rules remove unsuitable beds; the top suggestions come with a short reason. A bed is held for 5 minutes while you confirm, with a countdown. Choosing a bed outside the rules (admin and doctor only) needs a reason.
-- The bed panel offers **Admit here**, **Transfer** (same dialog, starting from the patient's current bed), **Discharge**, **Mark cleaned**, **Block** and **Unblock**, depending on the bed's state and your role.
-- **AI suggestions** show a **SAMPLE** label while the API runs in sample mode; if the AI is off or slow, the rule-based list shows with no error. Settings → AI Assistant has the on/off switch and **Check connection** (admin).
+- **Beds & Rooms** (sidebar; admin, doctor, nurse and front desk) has two tabs and a **LIVE** badge that follows the API's `/beds/stream`. **Overview** shows five cards (total, occupied, available, cleaning, blocked) with a trend and sparkline, an occupancy ring, unit cards, a floor plan, rooms, the movement log, the cleaning list, a trend chart and bed suggestions. **Bed map** is the tile board of every ward and bed (free, occupied, cleaning, held, blocked), with a floor filter and a details panel.
+- **Bed Agent** (same roles) has five tabs: **Overview** (queue, discharge and admission outlook, availability by unit), **Requests** (every request with its decision detail and actions), **Discharge planning**, **Utilization** and **Settings** (admin).
+- **Admit patient** (admin and doctor) is one short form: patient, needs, notes and a priority, then **Find a bed**. The Bed Agent picks the bed on its own within the fixed rules; a toast follows the request. Oxygen or fall risk found in the notes is added automatically. Needs that change the ward (isolation, ventilator, pregnancy, monitor) hold the request as **Needs attention**: a doctor confirms or dismisses them. When no bed fits, the request waits, raises an alert (header bell, Tasks & Alerts with **Open request**) and retries as beds free up. Each request shows who decided and why: AI, AI (sample), Rules or Staff.
+- **Assign by hand** (admin and doctor), from a request, opens the choose-a-bed and confirm steps. A bed is held for 5 minutes with a countdown, and choosing a bed outside the rules needs a reason.
+- **Nurses and front desk** cannot admit. They discharge, **Mark cleaned**, **Block** and **Unblock** from the bed panel. Admins have the **Allocate beds automatically** switch in Settings; when it is off, new requests wait for someone to assign a bed by hand.
+- **AI** wording shows a **SAMPLE** label while the API runs in sample mode; if the AI is off or slow, the rule-based choice is used with no error. Settings → AI Assistant has the on/off switch and **Check connection** (admin).
 
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.
@@ -102,7 +104,7 @@ Conventions:
 
 ## Not connected yet
 
-- **AI.** The Beds suggestions are the only AI feature wired to the API (sample until the host has an Anthropic key). Panels marked **SAMPLE** (Consultation and EMR assistants, Voice to Notes) show canned demo text. Other "AI" answers summarise the open patient's record and say that AI is not connected.
+- **AI.** The Bed Agent is the only AI feature wired to the API (sample until the host has an Anthropic key). Panels marked **SAMPLE** (Consultation and EMR assistants, Voice to Notes) show canned demo text. Other "AI" answers summarise the open patient's record and say that AI is not connected.
 - **Messaging providers.** WhatsApp/SMS sending and follow-up reminders report that nothing was sent.
 - **Not built yet:** creating invoices, tasks and follow-ups; file upload for documents; lab and pharmacy ordering. These buttons say so when clicked.
 - The guideline and knowledge libraries are bundled in `src/mock`, though the backend has `/api/knowledge` endpoints.
