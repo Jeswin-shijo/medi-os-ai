@@ -151,7 +151,7 @@ const checkbox: React.CSSProperties = { width: 15, height: 15, accentColor: 'var
 const ctrlBtn: React.CSSProperties = { height: 33, padding: '0 16px', fontWeight: 400 };
 
 export const TasksAlertsScreen: React.FC = () => {
-  const { showToast, setOpenAlertCount } = useApp();
+  const { showToast, setOpenAlertCount, openBedRequest } = useApp();
   const [tasks, setTasksState] = useState<TaskAlertItem[]>([]);
   const criticalOpen = (list: TaskAlertItem[]) => list.filter((t) => t.category === 'Critical' && t.status !== 'Completed').length;
   const setTasks = (list: TaskAlertItem[]) => {
@@ -270,7 +270,16 @@ export const TasksAlertsScreen: React.FC = () => {
     return <div style={line1}>{due}</div>;
   };
 
+  const requestId = (task: TaskAlertItem) => (task.link?.startsWith('bed-request:') ? task.link.slice('bed-request:'.length) : null);
+
   const rowAction = (task: TaskAlertItem) => {
+    const id = requestId(task);
+    if (id)
+      return (
+        <button type="button" className="text-link" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={() => openBedRequest(id)}>
+          Open request
+        </button>
+      );
     const kind = rowActionKind(task);
     const Icon = kind === 'schedule' ? CalendarDays : kind === 'call' ? Phone : Eye;
     const msg = kind === 'schedule' ? `Reschedule: ${task.title}` : kind === 'call' ? `Calling ${task.patientName}...` : `Viewing task: ${task.title}`;
@@ -567,6 +576,11 @@ export const TasksAlertsScreen: React.FC = () => {
                           <span style={line2}>
                             {task.patientName} • {task.dueDateTime}
                           </span>
+                          {requestId(task) && (
+                            <button type="button" className="text-link" style={{ fontSize: 12, alignSelf: 'flex-start' }} onClick={() => openBedRequest(requestId(task)!)}>
+                              Open request
+                            </button>
+                          )}
                           <div style={{ display: 'flex', gap: 6 }}>
                             <span className={`status-pill ${TYPE_PILL[task.type]}`} style={{ ...pill, fontSize: 10.5 }}>
                               {task.type}
@@ -666,7 +680,7 @@ export const TasksAlertsScreen: React.FC = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {!criticalAlerts.length && <span style={{ fontSize: 12, color: 'var(--text-secondary)', paddingLeft: 6 }}>{loading ? 'Loading…' : 'No open critical alerts.'}</span>}
-              {criticalAlerts.slice(0, 4).map((t) => ({ id: t.id, title: t.title, patient: t.patientName || t.subtitle, time: t.dueDateTime, badge: criticalBadge(t) })).map((ca) => {
+              {criticalAlerts.slice(0, 4).map((t) => ({ id: t.id, title: t.title, patient: t.patientName || t.subtitle, time: t.dueDateTime, badge: criticalBadge(t), request: requestId(t) })).map((ca) => {
                 const meta = CRITICAL_META[ca.badge] ?? CRITICAL_META.Lab;
                 const Icon = meta.icon;
                 return (
@@ -682,6 +696,11 @@ export const TasksAlertsScreen: React.FC = () => {
                         {ca.patient} | {ca.time}
                       </div>
                     </div>
+                    {ca.request && (
+                      <button type="button" className="text-link" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => openBedRequest(ca.request!)}>
+                        Open request
+                      </button>
+                    )}
                     <span className="status-pill" style={{ ...pill, backgroundColor: meta.badgeBg, color: meta.badgeColor, height: 23, flexShrink: 0 }}>
                       {ca.badge}
                     </span>

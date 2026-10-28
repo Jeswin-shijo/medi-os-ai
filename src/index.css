@@ -2958,7 +2958,6 @@ button.stat-card-item:active {
   color: var(--orange-dark);
   font-size: var(--fs-body);
 }
-.bagent-soon { margin: 10px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
 .bagent-tab-count {
   display: inline-flex;
   align-items: center;
@@ -3247,9 +3246,87 @@ button.stat-card-item:active {
 .sugg-detail { margin: 1px 0 0; font-size: var(--fs-sm); line-height: 1.35; color: var(--text-muted); }
 .sugg-btn { height: 28px; padding: 0 10px; font-size: var(--fs-sm); }
 
+/* Requests tab: filter chips, the list, and the decision beside it. */
+.bagent-requests { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.bagent-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.bagent-split { gap: var(--gap); align-items: start; }
+.bagent-split .bagent-banner { margin-bottom: 8px; }
+.bagent-detail { min-width: 0; }
+.bagent-more { align-self: center; margin-top: 10px; }
+.bagent-table tr.is-overdue td { background-color: var(--red-light); }
+.bagent-table tr.is-overdue td:first-child { box-shadow: inset 3px 0 0 var(--red-rose); }
+
+/* Request detail. */
+.rd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.rd-who { display: flex; flex-direction: column; min-width: 0; }
+.rd-name { overflow-wrap: anywhere; }
+.rd-reason { margin: 8px 0 0; padding: 8px 10px; border-radius: var(--radius-md); font-size: var(--fs-body); line-height: 1.4; background-color: var(--bg-subtle); color: var(--text-primary); }
+.rd-reason.is-danger { background-color: var(--red-light); color: var(--red-dark); }
+.rd-reason.is-warning { background-color: var(--orange-light); color: var(--orange-dark); }
+.rd-reason.is-success { background-color: var(--green-light); color: var(--green-dark); }
+.rd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.rd-pending { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; width: 100%; }
+.rd-pending-text { flex: 1 1 100%; font-size: var(--fs-body); font-weight: 500; }
+.rd-btn { height: 30px; padding: 0 12px; font-size: var(--fs-body); }
+.rd-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: var(--fs-body); }
+.rd-h { margin: 16px 0 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.rd-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 0; }
+.rd-facts > div { min-width: 0; }
+.rd-facts dt { font-size: var(--fs-xs); color: var(--text-muted); }
+.rd-facts dd { margin: 1px 0 0; font-size: var(--fs-body); overflow-wrap: anywhere; }
+.rd-label { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 600; margin-right: 6px; }
+.rd-needs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 10px; }
+.rd-chips { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.rd-list { margin: 6px 0 0; padding-left: 18px; font-size: var(--fs-body); line-height: 1.45; color: var(--text-secondary); }
+.rd-notes { margin: 8px 0 0; font-size: var(--fs-body); line-height: 1.45; overflow-wrap: anywhere; }
+.rd-decision { display: flex; flex-direction: column; gap: 6px; }
+.rd-decider { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; font-size: var(--fs-body); }
+.rd-text { margin: 0; font-size: var(--fs-body); line-height: 1.45; }
+.rd-rules { display: flex; flex-direction: column; }
+.rd-empty { padding: 8px 0; text-align: left; }
+.rd-cands { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+.rd-cands li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 6px 8px; border-top: 1px solid var(--border-subtle); font-size: var(--fs-body); }
+.rd-cands li.is-chosen { background-color: var(--blue-light); }
+.rd-cand-bed { font-weight: 500; overflow-wrap: anywhere; }
+.rd-cand-score { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.rd-cand-why { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.4; }
+
+/* Utilization chart. */
+.trend { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.trend-read { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin: 0; min-height: 20px; font-size: var(--fs-body); }
+.trend-when { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.trend-val { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.trend-key { width: 10px; height: 3px; border-radius: 2px; }
+.trend-box { width: 100%; height: 220px; touch-action: pan-y; cursor: crosshair; border-radius: var(--radius-md); }
+.trend-box:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 2px; }
+.trend-box svg { display: block; overflow: visible; }
+.trend-grid { stroke: var(--border-subtle); stroke-width: 1; }
+.trend-tick { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.trend-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  animation: sparkDraw 0.6s var(--ease-out);
+}
+.trend-cursor { stroke: var(--border-strong); stroke-width: 1; }
+.trend-dot { stroke: var(--bg-card); stroke-width: 2; }
+
+/* Settings tab. */
+.bas { display: flex; flex-direction: column; gap: 10px; }
+.bas-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 16px; background-color: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.bas-text { flex: 1; min-width: 0; }
+.bas-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.bas-desc { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.4; }
+@media (max-width: 480px) {
+  .rd-facts { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .live-dot::after,
   .spark-line,
+  .trend-line,
   .spark-end,
   .meter-fill,
   .rq-row-enter,

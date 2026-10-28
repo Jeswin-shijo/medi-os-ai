@@ -7,6 +7,7 @@ import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { ChangePasswordDialog } from '../common/ChangePasswordDialog';
 import { ActiveSessions } from '../common/ActiveSessions';
+import { BedAgentSettings } from '../beds/BedAgentSettings';
 import {
   Settings as SettingsIcon,
   Building2,
@@ -206,20 +207,6 @@ export const SettingsScreen: React.FC = () => {
     if (activeTab !== 'ai') return;
     aiService.status().then(setAiStatus).catch(() => setAiStatus(null));
   }, [activeTab]);
-
-  const canEditAi = user?.role === 'admin' || user?.role === 'doctor';
-
-  const saveBedSuggestions = async (bedSuggestions: boolean) => {
-    if (!settings) return;
-    try {
-      const saved = await settingsService.saveSettings({ ai: { ...settings.ai, bedSuggestions } });
-      setSettings(prev => prev && ({ ...prev, ai: { ...prev.ai, bedSuggestions: saved.ai.bedSuggestions } }));
-      setAiStatus(await aiService.status());
-      showToast(bedSuggestions ? 'AI bed suggestions are on' : 'AI bed suggestions are off', 'success');
-    } catch (err) {
-      showToast(`Failed to save: ${errorMessage(err)}`, 'error');
-    }
-  };
 
   const checkAiConnection = async () => {
     setAiChecking(true);
@@ -866,13 +853,11 @@ export const SettingsScreen: React.FC = () => {
                 </span>
               </div>
             )}
-            <DetailToggle
-              title="Suggest beds with AI"
-              desc="When off, admissions still get rule-based bed suggestions."
-              checked={settings.ai.bedSuggestions}
-              onChange={saveBedSuggestions}
-              disabled={!canEditAi}
-            />
+            <BedAgentSettings role={user?.role ?? ''} onSaved={(ai) => {
+              // Keep this screen's copy current, so its Save button never writes an old switch back.
+              setSettings(prev => prev && ({ ...prev, ai: { ...prev.ai, bedSuggestions: ai.bedSuggestions, bedAutoAllocate: ai.bedAutoAllocate } }));
+              void aiService.status().then(setAiStatus).catch(() => undefined);
+            }} />
             {user?.role === 'admin' && (
               <div>
                 <button type="button" className="btn-outline-blue" onClick={checkAiConnection} disabled={aiChecking}>

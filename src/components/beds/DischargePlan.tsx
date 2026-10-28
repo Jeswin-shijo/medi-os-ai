@@ -50,7 +50,7 @@ export const DischargePlan: React.FC<DischargePlanProps> = ({ items, limit, onVi
               {shown.map((item) => {
                 const s = status(item);
                 return (
-                  <tr key={item.admissionId}>
+                  <tr key={item.admissionId} className={item.overdue ? 'is-overdue' : undefined}>
                     <td className="bagent-name">{item.patientName}</td>
                     <td>{item.bedLabel}</td>
                     <td className="bagent-time">{dayAndTime(item.dueAt)}</td>
