@@ -493,6 +493,9 @@ export interface SettingsState {
   queue: QueueSettings;
 }
 
+/** A settings save: any sections, each with only the keys that change (the API merges them key by key). */
+export type SettingsPatch = { [S in keyof SettingsState]?: Partial<SettingsState[S]> };
+
 // ---------------------------------------------------------------- token queue
 
 export interface QueueSettings {

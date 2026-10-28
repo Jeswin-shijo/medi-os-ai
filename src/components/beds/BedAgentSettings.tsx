@@ -50,7 +50,10 @@ export const BedAgentSettings: React.FC<BedAgentSettingsProps> = ({ role, onSave
     if (!ai) return;
     setSaving(key);
     try {
-      const saved = await settingsService.saveSettings({ ai: { ...ai, [key]: value } });
+      // Only the switch that changed: the rest of the AI section is saved by the Settings screen.
+      const patch: Partial<SettingsState['ai']> = {};
+      patch[key] = value;
+      const saved = await settingsService.saveSettings({ ai: patch });
       setAi(saved.ai);
       showToast(`${ROWS.find((r) => r.key === key)?.title} is ${saved.ai[key] ? 'on' : 'off'}`, 'success');
       onSaved?.(saved.ai);

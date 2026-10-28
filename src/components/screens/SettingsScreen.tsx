@@ -224,8 +224,10 @@ export const SettingsScreen: React.FC = () => {
     if (!settings) return;
     setSaving(true);
     try {
-      // The call agent and token queue sections are edited on their own screens; never send back a stale copy.
-      const saved = await settingsService.saveSettings({ ...settings, callAgent: undefined, queue: undefined });
+      // The call agent and token queue sections, and the two Bed Agent switches, are saved where they are edited;
+      // never send back a stale copy of them.
+      const { bedAutoAllocate: _autoAllocate, bedSuggestions: _suggestions, ...ai } = settings.ai;
+      const saved = await settingsService.saveSettings({ ...settings, ai, callAgent: undefined, queue: undefined });
       setSettings(saved);
       setSessionTimeout(saved.security.sessionTimeout);
       setSavedSuccess(true);

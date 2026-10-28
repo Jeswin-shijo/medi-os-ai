@@ -14,6 +14,7 @@ import {
   VitalsRecord,
   AuthUser,
   SettingsState,
+  SettingsPatch,
   DashboardStats,
   Medication,
   LabTrend,
@@ -262,8 +263,8 @@ export const dashboardService = {
 // Settings Service
 export const settingsService = {
   getSettings: () => api<SettingsState>('/settings'),
-  /** The API merges each section sent over the stored one. */
-  saveSettings: (settings: Partial<SettingsState>) => api<SettingsState>('/settings', { method: 'PUT', body: settings }),
+  /** The API merges each section sent over the stored one, key by key, so a section may carry only the keys that change. */
+  saveSettings: (settings: SettingsPatch) => api<SettingsState>('/settings', { method: 'PUT', body: settings }),
   saveCallAgent: (callAgent: Partial<CallAgentSettings>) => api<SettingsState>('/settings', { method: 'PUT', body: { callAgent } }),
   saveQueue: (queue: Partial<QueueSettings>) => api<SettingsState>('/settings', { method: 'PUT', body: { queue } })
 };
