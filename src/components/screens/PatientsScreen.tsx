@@ -1085,7 +1085,7 @@ export const PatientsScreen: React.FC = () => {
         <RequestBedDialog
           patient={admitPatient}
           onClose={() => setAdmitPatient(null)}
-          onSubmitted={(r) => followRequest(r.id, { showToast, refreshAlertCount }, r.patientName)}
+          onSubmitted={(r) => followRequest(r.id, { showToast, refreshAlertCount, onAssigned: () => void refreshPatients().catch(() => undefined) }, r.patientName)}
         />
       )}
     </div>

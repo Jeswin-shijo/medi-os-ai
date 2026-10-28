@@ -1,5 +1,5 @@
 import { Ban, Clock, Sparkles, type LucideIcon } from 'lucide-react';
-import type { BedBoard, BedRequest, BedRequestPriority, BedRequestState, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
+import type { BedBoard, BedRequest, BedRequestEvent, BedRequestPriority, BedRequestState, BedState, BoardBed, BoardWard, Need, RoomClass } from '../types';
 import { bedRequestService } from '../services';
 import { clinicNow, displayTime, isoDay } from './clinicDate';
 
@@ -170,34 +170,65 @@ export const roomClassLabel = (value: RoomClass): string => ROOM_CLASS_OPTIONS.f
 
 const FOLLOW_EVERY_MS = 1000;
 const FOLLOW_FOR_MS = 30_000;
+/** A followed id is kept a little after following ends, in case the stream's event for the same change comes later. */
+const FOLLOW_GRACE_MS = 2000;
+
+type ToastFn = (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+
+/** Requests this tab follows with `followRequest`: the bed screens leave their toasts to it. */
+const followed = new Set<string>();
 
 /**
  * Toasts for a bed request just sent, on any screen: "finding a bed" now, then the outcome once the Bed Agent
  * moves it on from `searching`. Polls once a second and stops on any other state, or after 30 seconds.
+ * `onAssigned` runs once the patient has a bed (the Patients list reloads, say).
  */
 export function followRequest(
   id: string,
-  deps: { showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void; refreshAlertCount: () => Promise<void> },
+  deps: { showToast: ToastFn; refreshAlertCount: () => Promise<void>; onAssigned?: () => void },
   name: string
 ): void {
+  followed.add(id);
+  const stop = () => window.setTimeout(() => followed.delete(id), FOLLOW_GRACE_MS);
   deps.showToast(`Bed Agent is finding a bed for ${name}…`, 'info');
   const until = Date.now() + FOLLOW_FOR_MS;
   const poll = async () => {
     try {
       const r = await bedRequestService.get(id);
-      if (r.state === 'assigned') return deps.showToast(`${name} assigned to ${r.assignedBedLabel ?? 'a bed'}`, 'success');
+      if (r.state === 'assigned') {
+        stop();
+        deps.showToast(`${name} assigned to ${r.assignedBedLabel ?? 'a bed'}`, 'success');
+        deps.onAssigned?.();
+        return;
+      }
       if (r.state === 'waiting' || r.state === 'attention') {
+        stop();
         deps.showToast(`No bed yet for ${name}. The team has been alerted.`, 'warning');
         void deps.refreshAlertCount().catch(() => undefined);
         return;
       }
-      if (r.state === 'cancelled') return;
+      if (r.state === 'cancelled') return void stop();
     } catch {
       // A failed check is tried again until the time is up.
     }
     if (Date.now() < until) window.setTimeout(() => void poll(), FOLLOW_EVERY_MS);
+    else stop();
   };
   window.setTimeout(() => void poll(), FOLLOW_EVERY_MS);
+}
+
+/**
+ * What a bed screen does with a request event from the stream, for anyone watching: no bed found (waiting or
+ * needs attention) shows a toast, unless this tab already follows the request, and refreshes the bell; an
+ * assigned or cancelled request only refreshes the bell (its alert was closed).
+ */
+export function announceRequest(event: BedRequestEvent, deps: { showToast: ToastFn; refreshAlertCount: () => Promise<void> }): void {
+  if (event.state === 'waiting' || event.state === 'attention') {
+    if (!followed.has(event.id)) deps.showToast(`No bed yet for ${event.patientName}: ${event.reason}`, 'warning');
+    void deps.refreshAlertCount().catch(() => undefined);
+  } else if (event.state === 'assigned' || event.state === 'cancelled') {
+    void deps.refreshAlertCount().catch(() => undefined);
+  }
 }
 
 /** The floors that have wards, lowest first. */

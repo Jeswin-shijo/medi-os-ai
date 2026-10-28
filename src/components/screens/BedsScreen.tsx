@@ -1,13 +1,13 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { BedDouble, BrushCleaning, Ban, Hotel, UsersRound } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useBedBoard } from '../../hooks/useBedBoard';
 import { useBedOverview, useBedSeries } from '../../hooks/useBedOverview';
 import { bedService } from '../../services';
 import { errorMessage } from '../../services/api';
-import { REQUEST_ROLES, followRequest, groupBoard, planFloors } from '../../utils/beds';
+import { REQUEST_ROLES, announceRequest, followRequest, groupBoard, planFloors } from '../../utils/beds';
 import { cols, split } from '../../utils/layout';
-import type { BedBoard, BedOverview, BoardBed, StatCardData, TypeRow } from '../../types';
+import type { BedBoard, BedOverview, BedRequestEvent, BoardBed, StatCardData, TypeRow } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { BedTotalsBar, type FloorFilter } from '../beds/BedTotalsBar';
 import { WardTiles } from '../beds/WardTiles';
@@ -38,7 +38,9 @@ type RequestTarget = Pick<React.ComponentProps<typeof RequestBedDialog>, 'transf
 export const BedsScreen: React.FC = () => {
   const { user, showToast, refreshAlertCount, setActiveScreen } = useApp();
   const role = user?.role ?? '';
-  const { board, error, reload, version, live } = useBedBoard();
+  // Anyone watching hears when the Bed Agent can't place a patient, and the bell keeps up.
+  const onRequest = useCallback((event: BedRequestEvent) => announceRequest(event, { showToast, refreshAlertCount }), [showToast, refreshAlertCount]);
+  const { board, error, reload, version, live } = useBedBoard({ onRequest });
   const { overview, error: overviewError } = useBedOverview(version);
   const [tab, setTab] = useState<Tab>('overview');
   const tabsId = useId();

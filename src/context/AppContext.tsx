@@ -7,6 +7,8 @@ import { UNAUTHORIZED_EVENT, errorMessage } from '../services/api';
 import { AppContext, type AuthStatus, type Toast } from './appContextCore';
 
 const LAST_PATIENT_KEY = 'medios_last_patient';
+/** How often the bell re-counts open alerts, which others (the Bed Agent, other staff) raise and close. */
+const ALERT_REFRESH_MS = 60_000;
 
 const rememberPatient = (uhid: string | null) => {
   try {
@@ -161,6 +163,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     resetSession();
     authService.logout();
   }, [resetSession]);
+
+  // Keep the bell live while signed in: every minute while the tab is visible, and on coming back to it.
+  useEffect(() => {
+    if (authStatus !== 'signed-in') return;
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') void refreshAlertCount();
+    };
+    const timer = window.setInterval(refreshIfVisible, ALERT_REFRESH_MS);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [authStatus, refreshAlertCount]);
 
   // Sign out unattended workstations (Settings → Session Timeout).
   useIdleSignOut(authStatus === 'signed-in' ? idleMinutes : null, () => {

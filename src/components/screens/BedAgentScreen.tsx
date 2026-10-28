@@ -1,14 +1,14 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { BedDouble, BrushCleaning, LogOut, UserRoundPlus, UsersRound } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { errorMessage } from '../../services/api';
 import { useBedBoard } from '../../hooks/useBedBoard';
 import { useBedOverview, useBedSeries } from '../../hooks/useBedOverview';
 import { useBedRequests, type BedRequestFilter } from '../../hooks/useBedRequests';
-import { REQUEST_ROLES, followRequest } from '../../utils/beds';
+import { REQUEST_ROLES, announceRequest, followRequest } from '../../utils/beds';
 import { cols, split } from '../../utils/layout';
 import { bedRequestService } from '../../services';
-import type { BedOverview, BedRequest, SnapshotRange } from '../../types';
+import type { BedOverview, BedRequest, BedRequestEvent, SnapshotRange } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
 import { StatCard } from '../beds/StatCard';
@@ -42,7 +42,9 @@ const MOVEMENT_ROWS = 6;
 export const BedAgentScreen: React.FC = () => {
   const { user, showToast, refreshAlertCount, setActiveScreen, focusRequestId, clearFocusRequest } = useApp();
   const role = user?.role ?? '';
-  const { version, live, reload } = useBedBoard();
+  // Anyone watching hears when the Bed Agent can't place a patient, and the bell keeps up.
+  const onRequest = useCallback((event: BedRequestEvent) => announceRequest(event, { showToast, refreshAlertCount }), [showToast, refreshAlertCount]);
+  const { version, live, reload } = useBedBoard({ onRequest });
   const { overview, error } = useBedOverview(version);
   const queue = useBedRequests(ALL_REQUESTS, version);
   const [tab, setTab] = useState<Tab>('overview');
