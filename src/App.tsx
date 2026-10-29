@@ -32,6 +32,7 @@ import { VoiceToNotesScreen } from './components/screens/VoiceToNotesScreen';
 import { TasksAlertsScreen } from './components/screens/TasksAlertsScreen';
 import { MessagesScreen } from './components/screens/MessagesScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
+import { CoordinatorScreen } from './components/screens/CoordinatorScreen';
 import { AgentPlaceholderScreen } from './components/screens/AgentPlaceholderScreen';
 import { LoginScreen } from './components/screens/LoginScreen';
 
@@ -54,8 +55,8 @@ const MainLayout: React.FC = () => {
         return <BedsScreen />;
       case 'bed-agent':
         return <BedAgentScreen />;
-      case 'coordinator': // Replaced by the Coordinator page.
-        return <AgentPlaceholderScreen agent="coordinator" />;
+      case 'coordinator':
+        return <CoordinatorScreen />;
       case 'er-agent':
         return <AgentPlaceholderScreen agent="er" />;
       case 'lab-agent':

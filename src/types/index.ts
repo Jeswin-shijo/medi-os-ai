@@ -1209,7 +1209,7 @@ export interface AgentMessage {
   createdAt: string;
 }
 
-export type CoordinatorClockState = 'running' | 'met' | 'expired' | 'cancelled' | (string & {});
+export type CoordinatorClockState = 'running' | 'met' | 'expired' | (string & {});
 
 /** A deadline clock on a case (backend ClockView). */
 export interface CoordinatorClock {

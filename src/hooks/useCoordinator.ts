@@ -7,6 +7,8 @@ const FIRST_RETRY_MS = 3000;
 const MAX_RETRY_MS = 30_000;
 /** Wait this long after something changes, so a burst of events costs one request. */
 const REFETCH_MS = 300;
+/** While the stream is down, refetch this often (as the bed board does). */
+const FALLBACK_POLL_MS = 30_000;
 
 interface CoordinatorStreamOptions {
   /** Called for each live event (the latest callback is used; changing it does not reconnect). */
@@ -69,8 +71,13 @@ export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { ver
       if (document.visibilityState === 'visible') setVersion((v) => v + 1);
     };
     document.addEventListener('visibilitychange', onVisible);
+    // While the stream is down, poll so the lists still catch up.
+    const poll = window.setInterval(() => {
+      if (!connected && document.visibilityState === 'visible') setVersion((v) => v + 1);
+    }, FALLBACK_POLL_MS);
 
     return () => {
+      window.clearInterval(poll);
       alive = false;
       controller.abort();
       window.clearTimeout(retry);
@@ -119,6 +126,8 @@ export function useCoordinatorList<T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(0);
+  // A manual reload() runs at once; stream changes wait out the debounce.
+  const manualRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -133,14 +142,18 @@ export function useCoordinatorList<T>(
           .catch((err) => alive && setError(errorMessage(err)))
           .finally(() => alive && setLoading(false));
       },
-      version === 0 && manual === 0 ? 0 : REFETCH_MS
+      version === 0 || manualRef.current ? 0 : REFETCH_MS
     );
+    manualRef.current = false;
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
   }, [fetcher, version, manual]);
 
-  const reload = useCallback(() => setManual((n) => n + 1), []);
+  const reload = useCallback(() => {
+    manualRef.current = true;
+    setManual((n) => n + 1);
+  }, []);
   return { items, loading, error, reload };
 }
