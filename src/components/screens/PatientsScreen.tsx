@@ -272,6 +272,15 @@ export const PatientsScreen: React.FC = () => {
       await refreshPatients();
       handleSelectPatient(added);
       setIsAddPatientOpen(false);
+      // A fresh form for the next patient: a date of birth left over would verify the wrong person by phone.
+      setNewName('');
+      setNewAge('');
+      setNewDob('');
+      setNewGender('Male');
+      setNewPhone('');
+      setNewBloodGroup('');
+      setNewDepartment('General Medicine');
+      setNewConditions('');
       showToast(`Patient ${added.name} registered (UHID ${added.uhid})`);
     } catch (err) {
       showToast(`Could not register patient: ${errorMessage(err)}`, 'error');
