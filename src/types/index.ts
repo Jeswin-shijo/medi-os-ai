@@ -1356,6 +1356,14 @@ export interface ErVisit {
   patientId: string;
   patientUhid: string;
   patientName: string;
+  patientAge: number | null;
+  patientGender: string | null;
+  /** True while the patient is a placeholder whose details are not filled in yet. */
+  detailsPending: boolean;
+  /** The visit's live ER clocks (`er-triage`, `er-doctor`, `er-step-<step>`); empty once the visit has left. */
+  clocks: { key: string; label: string; state: 'running' | 'expired'; dueAt: string }[];
+  /** Any clock is expired or past due. */
+  overdue: boolean;
   mode: ErMode;
   complaint: string;
   complaintText: string;

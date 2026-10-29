@@ -3894,3 +3894,4 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 @media (prefers-reduced-motion: reduce) {
   .er-table tbody tr { transition: none; }
 }
+.er-left { color: var(--text-secondary); white-space: nowrap; }

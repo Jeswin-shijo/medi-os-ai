@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import type { ErVisit, Patient, TriageColour } from '../../types';
+import type { ErVisit, TriageColour } from '../../types';
 import { displayTime } from '../../utils/clinicDate';
 import { tableMin } from '../../utils/layout';
-import { COLOUR_LABEL, STATUS_LABEL, TRIAGE_COLOURS, boardOrder, isPlaceholderName, overdueMinutes, placeholderGender } from '../../utils/er';
+import { COLOUR_LABEL, STATUS_LABEL, TRIAGE_COLOURS, boardOrder, nextDeadline } from '../../utils/er';
 
 type Filter = 'all' | TriageColour;
 const FILTERS: { id: Filter; label: string }[] = [{ id: 'all', label: 'All' }, ...TRIAGE_COLOURS.map((c) => ({ id: c as Filter, label: COLOUR_LABEL[c] }))];
@@ -12,23 +12,22 @@ interface ErQueueProps {
   /** null while the board loads. */
   visits: ErVisit[] | null;
   error: string | null;
-  /** Doctor target in minutes per colour, from the overview. */
-  doctorTargets: Partial<Record<TriageColour, number>>;
+  /** Shown with the error when the first load failed. */
+  onRetry(): void;
   complaintLabels: Record<string, string>;
-  patients: Patient[];
   selectedId: string | null;
   onSelect(visit: ErVisit): void;
   expectedCount: number;
 }
 
-const ageSex = (visit: ErVisit, patient: Patient | undefined): string => {
-  if (patient) return `${patient.age} ${patient.gender === 'Male' ? 'M' : patient.gender === 'Female' ? 'F' : 'O'}`;
-  const g = placeholderGender(visit.patientName);
-  return g ? g[0] : '—';
+const ageSex = (visit: ErVisit): string => {
+  const sex = visit.patientGender ? visit.patientGender[0].toUpperCase() : '';
+  if (visit.patientAge === null && !sex) return '—';
+  return `${visit.patientAge ?? '?'} ${sex}`.trim();
 };
 
 /** The people in the ER, most urgent first: untriaged, then red to green, then by arrival. */
-export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, doctorTargets, complaintLabels, patients, selectedId, onSelect, expectedCount }) => {
+export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, onRetry, complaintLabels, selectedId, onSelect, expectedCount }) => {
   const [filter, setFilter] = useState<Filter>('all');
   // Deadlines pass with the clock, not only with data: re-check every 30 seconds.
   const [now, setNow] = useState(() => Date.now());
@@ -38,7 +37,6 @@ export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, doctorTargets, 
   }, []);
 
   const sorted = useMemo(() => (visits ? [...visits].sort(boardOrder) : []), [visits]);
-  const patientById = useMemo(() => new Map(patients.map((p) => [p.id, p])), [patients]);
   const shown = filter === 'all' ? sorted : sorted.filter((v) => v.colour === filter);
   const countOf = (f: Filter) => (f === 'all' ? sorted.length : sorted.filter((v) => v.colour === f).length);
 
@@ -62,9 +60,13 @@ export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, doctorTargets, 
         ))}
       </div>
       {!visits ? (
-        <p className="data-empty" role={error ? 'alert' : undefined}>
-          {error ?? 'Loading the ER queue…'}
-        </p>
+        error ? (
+          <p className="data-empty" role="alert">
+            {error} <button type="button" className="btn-secondary btn-sm" onClick={onRetry}>Try again</button>
+          </p>
+        ) : (
+          <p className="data-empty">Loading the ER queue…</p>
+        )
       ) : shown.length === 0 ? (
         <p className="data-empty">{sorted.length ? 'Nobody in the ER at this colour.' : 'Nobody is in the ER. New arrivals show up here.'}</p>
       ) : (
@@ -84,20 +86,20 @@ export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, doctorTargets, 
             </thead>
             <tbody>
               {shown.map((v) => {
-                const late = overdueMinutes(v, doctorTargets, now);
-                const placeholder = isPlaceholderName(v.patientName);
+                const next = nextDeadline(v, now);
+                const late = v.overdue;
                 const selected = v.id === selectedId;
                 return (
-                  <tr key={v.id} className={`er-row${selected ? ' selected' : ''}${late !== null ? ' is-late' : ''}`} onClick={() => onSelect(v)}>
+                  <tr key={v.id} className={`er-row${selected ? ' selected' : ''}${late ? ' is-late' : ''}`} onClick={() => onSelect(v)}>
                     <td className="er-time">{displayTime(new Date(v.arrivedAt))}</td>
                     <td>
                       <button type="button" className="er-select" aria-pressed={selected} onClick={(e) => { e.stopPropagation(); onSelect(v); }}>
                         <span className="er-name">{v.patientName}</span>
-                        {placeholder && <span className="status-pill sm gray er-pending">Details pending</span>}
-                        {!placeholder && <span className="er-sub">{v.patientUhid}</span>}
+                        {v.detailsPending && <span className="status-pill sm gray er-pending">Details pending</span>}
+                        {!v.detailsPending && <span className="er-sub">{v.patientUhid}</span>}
                       </button>
                     </td>
-                    <td>{ageSex(v, patientById.get(v.patientId))}</td>
+                    <td>{ageSex(v)}</td>
                     <td className="er-complaint">{v.complaintText || complaintLabels[v.complaint] || v.complaint}</td>
                     <td>
                       {v.colour ? <span className={`tri-pill ${v.colour}`}>{COLOUR_LABEL[v.colour]}</span> : <span className="tri-pill none">Not triaged</span>}
@@ -105,10 +107,10 @@ export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, doctorTargets, 
                     <td>{STATUS_LABEL[v.status]}</td>
                     <td>{v.bayName ?? '—'}</td>
                     <td>
-                      {late !== null ? (
-                        <span className="er-late" data-tip="Past the time target for this step">
-                          <AlertTriangle size={13} aria-hidden="true" />
-                          {late} min late
+                      {late || next ? (
+                        <span className={next && next.minutes >= 0 && !late ? 'er-left' : 'er-late'} data-tip={next?.label || 'Past the time target'}>
+                          {late && <AlertTriangle size={13} aria-hidden="true" />}
+                          {next ? (next.minutes < 0 ? `${-next.minutes} min late` : `${next.minutes} min left`) : 'Late'}
                         </span>
                       ) : (
                         <span className="er-ok">—</span>

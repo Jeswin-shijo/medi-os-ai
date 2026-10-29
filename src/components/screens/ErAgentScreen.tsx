@@ -3,7 +3,7 @@ import { Activity, Clock3, HeartPulse, Plus, Siren } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useEr } from '../../hooks/useEr';
 import { COLOUR_LABEL, ER_ROLES, TRIAGE_COLOURS } from '../../utils/er';
-import type { ErVisit, TriageColour } from '../../types';
+import type { ErVisit } from '../../types';
 import { split } from '../../utils/layout';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
@@ -12,14 +12,16 @@ import { ErQueue } from '../er/ErQueue';
 
 /** The ER Agent: who is in the ER, how urgent, and whether the deadlines are being met. */
 export const ErAgentScreen: React.FC = () => {
-  const { user, patients } = useApp();
+  const { user } = useApp();
   const canArrive = ER_ROLES.includes(user?.role ?? '');
-  const { board, overview, complaints, error, live } = useEr();
+  const { board, overview, complaints, error, live, reload } = useEr();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected: ErVisit | null = board?.visits.find((v) => v.id === selectedId) ?? null;
 
   const complaintLabels = useMemo(() => Object.fromEntries((complaints?.complaints ?? []).map((c) => [c.key, c.label])), [complaints]);
-  const doctorTargets = useMemo(() => Object.fromEntries((overview?.colours ?? []).map((c) => [c.colour, c.targetMin])) as Partial<Record<TriageColour, number>>, [overview]);
+  // A visit that left the board is no longer selected.
+  const stillThere = board && selectedId !== null ? board.visits.some((v) => v.id === selectedId) : true;
+  if (!stillThere) setSelectedId(null);
 
   const cards = overview?.cards;
   const perf = overview?.performance;
@@ -63,9 +65,8 @@ export const ErAgentScreen: React.FC = () => {
             <StatCard icon={Activity} tone="green" title="On-time response" data={cards.onTimePct} display={perf?.onTimePct == null ? '—' : undefined} unit="%" />
           </div>
         ) : (
-          <div className="medios-card data-empty" role={error ? 'alert' : undefined}>
-            {error ?? 'Loading the ER…'}
-          </div>
+          // The first-load error shows once, in the queue below.
+          !error && <div className="medios-card data-empty">Loading the ER…</div>
         )}
 
         {overview && (
@@ -91,9 +92,8 @@ export const ErAgentScreen: React.FC = () => {
           <ErQueue
             visits={board?.visits ?? null}
             error={error}
-            doctorTargets={doctorTargets}
+            onRetry={reload}
             complaintLabels={complaintLabels}
-            patients={patients}
             selectedId={selectedId}
             onSelect={(v) => setSelectedId(v.id)}
             expectedCount={board?.expected.length ?? 0}
