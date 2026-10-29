@@ -1521,7 +1521,15 @@ export interface LabLineView {
   results: LabResultRow[];
   version: number;
   enteredAt: string | null;
+  enteredBy: { id: string; name: string } | null;
+  /** Kept for older readers; same as enteredBy.name. */
+  enteredByName: string | null;
+  validatedBy: { id: string; name: string } | null;
   releasedAt: string | null;
+  /** Real time of the first release. */
+  releasedRealAt: string | null;
+  /** Real time of the latest release, amendments included. */
+  lastReleasedRealAt: string | null;
   cancelled: { by: string; reason: string; at: string } | null;
   critical: { active: boolean; ackBy: string | null; ackAt: string | null; ackNote: string | null } | null;
 }
@@ -1618,8 +1626,12 @@ export interface LabWorklistLine {
   tatDueAt: string;
   results: LabResultRow[];
   critical: boolean;
-  enteredBy: { name: string } | null;
+  enteredBy: { id: string; name: string } | null;
   enteredAt: string | null;
+  validatedBy: { id: string; name: string } | null;
+  releasedRealAt: string | null;
+  lastReleasedRealAt: string | null;
+  version: number;
   sentBack: { by: string; reason: string; at: string } | null;
 }
 
@@ -1685,6 +1697,8 @@ export interface LabCriticalRow {
   ackAt: string | null;
   /** From the running critical clock; null once acknowledged. */
   dueAt: string | null;
+  /** The line was amended after its first release. */
+  amended: boolean;
 }
 
 export interface LabOverview {

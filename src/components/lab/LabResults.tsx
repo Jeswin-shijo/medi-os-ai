@@ -1,15 +1,16 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { labAgentService } from '../../services';
 import { useErAction } from '../er/useErAction';
 import type { LabLineView, LabRequestView, LabWorklist, LabWorklistLine } from '../../types';
-import { clinicNow, displayTime } from '../../utils/clinicDate';
+import { displayTime } from '../../utils/clinicDate';
 import { PRIORITY_LABEL, PRIORITY_TONE } from '../../utils/lab';
 import { LabResultEntry, type EntryLine } from './LabResultEntry';
 import { LabResultValues } from './LabResultValues';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const realReleased = (l: LabLineView): number => new Date(l.lastReleasedRealAt ?? l.releasedRealAt ?? 0).getTime();
 
 interface LabResultsProps {
   canBench: boolean;
@@ -29,18 +30,23 @@ interface Released {
 /** The Results tab: results awaiting a second person's validation, and what was released in the last 24 hours. */
 export const LabResults: React.FC<LabResultsProps> = ({ canBench, worklist, requests, error, onRetry, onChanged }) => {
   const [amending, setAmending] = useState<EntryLine | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
 
-  // Released times are staff-visible clinic times, so the 24 hours run on the clinic clock too.
+  // The 24 hours and the order run on the real release time (the latest release when a result was amended).
   const released = useMemo<Released[]>(() => {
-    const since = clinicNow().getTime() - DAY_MS;
+    const since = now - DAY_MS;
     const out: Released[] = [];
     for (const request of requests ?? []) {
       for (const line of request.lines) {
-        if (line.status === 'released' && line.releasedAt && new Date(line.releasedAt).getTime() >= since) out.push({ request, line });
+        if (line.status === 'released' && realReleased(line) >= since) out.push({ request, line });
       }
     }
-    return out.sort((a, b) => new Date(b.line.releasedAt!).getTime() - new Date(a.line.releasedAt!).getTime());
-  }, [requests]);
+    return out.sort((a, b) => realReleased(b.line) - realReleased(a.line));
+  }, [requests, now]);
 
   if (!canBench) {
     return (
@@ -135,8 +141,8 @@ const ValidateRow: React.FC<{ line: LabWorklistLine; onChanged(): void }> = ({ l
   const { busy, error, setError, run } = useErAction();
   const [sending, setSending] = useState(false);
   const [reason, setReason] = useState('');
-  // The worklist names who entered it but gives no id, so the names are compared; the server still refuses the same person.
-  const own = !!user && !!l.enteredBy && l.enteredBy.name === user.name;
+  // The same person cannot validate their own entry; the server refuses it too and its message shows below.
+  const own = !!user && !!l.enteredBy && l.enteredBy.id === user.id;
 
   const release = async () => {
     const ok = await run('release', () => labAgentService.release(l.lineId));

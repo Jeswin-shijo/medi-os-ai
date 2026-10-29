@@ -9,7 +9,7 @@ import { LabDialogShell } from './LabDialogShell';
 
 interface LabCriticalProps {
   rows: LabCriticalRow[] | null;
-  /** Used only to tell an amended result apart. */
+  /** Only for the note given with an acknowledgement. */
   requests: LabRequestView[] | null;
   error: string | null;
   canAck: boolean;
@@ -26,8 +26,6 @@ export const LabCritical: React.FC<LabCriticalProps> = ({ rows, requests, error,
     const t = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => window.clearInterval(t);
   }, []);
-  const amended = new Set<string>();
-  for (const r of requests ?? []) for (const l of r.lines) if (l.version > 1) amended.add(l.id);
 
   return (
     <div className="bagent-overview lab-body">
@@ -63,7 +61,7 @@ export const LabCritical: React.FC<LabCriticalProps> = ({ rows, requests, error,
                     <span className="er-name">
                       {c.label}: {c.parameter} {c.value}
                       {unit ? ` ${unit}` : ''}
-                      {amended.has(c.lineId) ? ' (amended)' : ''}
+                      {c.amended ? ' (amended)' : ''}
                     </span>
                     <span className="er-sub lab-block">
                       {c.requestNumber} · ordered by {c.orderedBy || '—'}
