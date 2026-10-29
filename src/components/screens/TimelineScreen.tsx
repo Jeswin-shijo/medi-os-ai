@@ -17,6 +17,7 @@ import {
   FileSignature,
   Activity,
   Siren,
+  Stethoscope,
   BedDouble,
   ChevronDown,
   ChevronUp,
@@ -53,7 +54,8 @@ const CATEGORY_META: Record<Category, { icon: LucideIcon; tone: Tone; action?: {
   Prescription: { icon: FileSignature, tone: 'cyan', action: { label: 'View Prescription', screen: 'prescriptions' } },
   Vitals: { icon: Activity, tone: 'green', action: { label: 'Open Vitals Dashboard', screen: 'vitals' } },
   Emergency: { icon: Siren, tone: 'red' },
-  Admission: { icon: BedDouble, tone: 'gray' }
+  Admission: { icon: BedDouble, tone: 'gray' },
+  Outpatient: { icon: Stethoscope, tone: 'blue' }
 };
 
 const STATUS_PILL: Record<TimelineEvent['status'], string> = {
@@ -70,7 +72,8 @@ const FILTERS: { label: string; category?: Category }[] = [
   { label: 'Imaging', category: 'Imaging' },
   { label: 'Prescriptions', category: 'Prescription' },
   { label: 'Vitals Checks', category: 'Vitals' },
-  { label: 'Emergency', category: 'Emergency' }
+  { label: 'Emergency', category: 'Emergency' },
+  { label: 'Outpatient', category: 'Outpatient' }
 ];
 
 const pillStyle = (tone: Tone): React.CSSProperties => ({ backgroundColor: TONES[tone].bg, color: TONES[tone].fg });
@@ -525,6 +528,7 @@ export const TimelineScreen: React.FC = () => {
                     <option value="Prescription">Prescription / Medication</option>
                     <option value="Vitals">Vitals Check</option>
                     <option value="Emergency">Emergency Encounter</option>
+                    <option value="Outpatient">Outpatient Visit</option>
                   </select>
                 </div>
 

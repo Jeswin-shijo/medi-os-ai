@@ -59,7 +59,9 @@ const markerFor = (status: LabTestReport['status']): Marker =>
       : { color: 'var(--chart-green)', filled: true };
 
 /** Chart series for one parameter, with a y range padded around its values. */
-type TrendSeries = { unit: string; min: number; max: number; points: { date: string; value: number }[] };
+type TrendSeries = { unit: string; min: number; max: number; points: { date: string; value: number; time?: string }[] };
+/** Another point in the list shares this one's date: its time is then shown too. */
+const sameDay = (list: { date: string; time?: string }[], p: { date: string; time?: string }) => list.filter((q) => q.date === p.date).length > 1;
 const toSeries = (trend: LabTrend): TrendSeries => {
   const values = trend.history.map((p) => p.value);
   const lo = Math.min(...values);
@@ -149,14 +151,14 @@ const TrendChart: React.FC<{ series: TrendSeries; count: number; height?: number
       <path d={area} fill="url(#labTrendFill)" />
       <polyline fill="none" stroke="var(--red-rose)" strokeWidth="2" points={line} />
       {pts.map((p, i) => (
-        <g key={p.date}>
+        <g key={`${p.date}|${p.time ?? i}`}>
           <circle cx={xOf(i)} cy={yOf(p.value)} r="3.5" fill="var(--red-rose)" />
           <text x={xOf(i)} y={yOf(p.value) - 8} fontSize="10" textAnchor="middle" fill="var(--red-rose)">
             {p.value}
           </text>
           <line x1={xOf(i)} x2={xOf(i)} y1={H - bottom} y2={H - bottom + 4} stroke="var(--chart-gray)" />
           <text x={xOf(i)} y={H - 7} fontSize="10" textAnchor="middle" fill="var(--text-secondary)">
-            {p.date}
+            {sameDay(pts, p) && p.time ? `${p.date} ${p.time}` : p.date}
           </text>
         </g>
       ))}
@@ -491,12 +493,12 @@ export const LabReportsScreen: React.FC = () => {
                       <span style={{ color: 'var(--text-muted)' }}>Latest {Math.min(3, trend.history.length)} results</span>
                     </div>
                     <div style={{ display: 'flex', gap: 18 }}>
-                      {trend.history.slice(-3).map(h => (
-                        <div key={h.date}>
+                      {trend.history.slice(-3).map((h, hi, last) => (
+                        <div key={`${h.date}|${h.time ?? hi}`}>
                           <div style={{ fontWeight: 700 }}>
                             {h.value} {trend.unit}
                           </div>
-                          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{h.date}</div>
+                          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{sameDay(last, h) && h.time ? `${h.date} ${h.time}` : h.date}</div>
                         </div>
                       ))}
                     </div>

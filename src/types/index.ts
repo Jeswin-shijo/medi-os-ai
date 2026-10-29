@@ -195,7 +195,7 @@ export interface LabTestReport {
   };
   trend?: {
     parameter: string;
-    history: { date: string; value: number }[];
+    history: { date: string; value: number; time?: string }[];
   };
 }
 
@@ -204,7 +204,7 @@ export interface LabTrend {
   parameter: string;
   unit: string;
   targetRange: string;
-  history: { date: string; value: number }[];
+  history: { date: string; value: number; time?: string }[];
 }
 
 export interface ImagingStudy {
@@ -362,7 +362,7 @@ export interface TimelineEvent {
   uhid: string;
   date: string;
   time: string;
-  category: 'Consultation' | 'Lab' | 'Imaging' | 'Prescription' | 'Vitals' | 'Emergency' | 'Admission';
+  category: 'Consultation' | 'Lab' | 'Imaging' | 'Prescription' | 'Vitals' | 'Emergency' | 'Admission' | 'Outpatient';
   title: string;
   subtitle: string;
   doctor: string;

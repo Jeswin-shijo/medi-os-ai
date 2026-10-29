@@ -4,6 +4,8 @@ import { erService } from '../../services';
 import type { ErBay, ErComplaintInfo, ErVisit, TriageColour } from '../../types';
 import { displayTime } from '../../utils/clinicDate';
 import { COLOUR_LABEL, ER_CLINICAL_ROLES, ER_ROLES, ER_DOCTOR_ROLES, MODE_LABEL, STATUS_LABEL, TRIAGE_COLOURS, leftText, minutesTo } from '../../utils/er';
+import { LabPatientTests } from '../lab/LabPatientTests';
+import { canReadLab } from '../../utils/lab';
 import { ErDispositionBar } from './ErDispositionBar';
 import { ErHandover } from './ErHandover';
 import { FillDetailsDialog } from './FillDetailsDialog';
@@ -84,6 +86,7 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
       <BaySection visit={visit} canEdit={canClinical && !closed} onChanged={onChanged} />
       <ErPathwaySteps visit={visit} info={complaints?.pathways ?? []} now={now} canEdit={canClinical} onChanged={onChanged} />
       <DoctorSection visit={visit} now={now} canEdit={canDoctor && !closed} onChanged={changedAndFocus} />
+      {canReadLab(role) && <LabPatientTests patientId={visit.patientId} since={visit.arrivedAt} patient={{ id: visit.patientId, name: visit.patientName, uhid: visit.patientUhid }} />}
       {canDoctor && <ErDispositionBar visit={visit} onChanged={onChanged} onAdmitted={() => headingRef.current?.focus({ preventScroll: true })} />}
       <ErHandover key={visit.id} visit={visit} canEdit={canClinical} onChanged={onChanged} />
       {visit.triage && visit.triage.history.length > 0 && (

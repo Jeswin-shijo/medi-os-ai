@@ -32,6 +32,7 @@ import {
   CircleCheck,
   History,
   Stethoscope,
+  FlaskConical,
   FolderOpen,
   Pill,
   HeartPulse,
@@ -45,6 +46,8 @@ import {
 } from 'lucide-react';
 import { split, tableMin } from '../../utils/layout';
 import { REQUEST_ROLES, followRequest } from '../../utils/beds';
+import { LabOrderFlow } from '../lab/LabPatientTests';
+import { canOrderLab } from '../../utils/lab';
 import { RequestBedDialog } from '../beds/RequestBedDialog';
 
 const PAGE_TABS = [
@@ -189,6 +192,7 @@ export const PatientsScreen: React.FC = () => {
   const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [admitPatient, setAdmitPatient] = useState<Patient | null>(null);
+  const [labPatient, setLabPatient] = useState<Patient | null>(null);
 
   // Filters
   const [department, setDepartment] = useState('All');
@@ -347,6 +351,7 @@ export const PatientsScreen: React.FC = () => {
     { label: 'Start Consultation', icon: Stethoscope, onClick: () => openFor(p, 'consultation') },
     { label: 'Open EMR', icon: FolderOpen, onClick: () => openFor(p, 'emr') },
     { label: 'Book Appointment', icon: CalendarPlus, onClick: () => openFor(p, 'appointments') },
+    ...(canOrderLab(user?.role ?? '') ? [{ label: 'Order tests', icon: FlaskConical, onClick: () => setLabPatient(p) }] : []),
     ...(canAdmit && p.status !== 'Admitted' ? [{ label: 'Admit to a bed', icon: BedDouble, onClick: () => setAdmitPatient(p) }] : [])
   ];
 
@@ -677,6 +682,7 @@ export const PatientsScreen: React.FC = () => {
                     onClose={() => setOpenMenu(null)}
                     items={[
                       { label: 'Book Appointment', icon: CalendarPlus, onClick: () => openFor(selectedPatient, 'appointments') },
+                      ...(canOrderLab(user?.role ?? '') ? [{ label: 'Order tests', icon: FlaskConical, onClick: () => setLabPatient(selectedPatient) }] : []),
                       { label: 'Patient Documents', icon: FileText, onClick: () => openFor(selectedPatient, 'documents') },
                       { label: 'Print Summary', icon: Printer, onClick: () => showToast(`Preparing summary of ${selectedPatient.name} for print…`) }
                     ]}
@@ -1082,6 +1088,7 @@ export const PatientsScreen: React.FC = () => {
         </div>
       )}
 
+      {labPatient && user && <LabOrderFlow patient={labPatient} role={user.role} onClose={() => setLabPatient(null)} />}
       {admitPatient && (
         <RequestBedDialog
           patient={admitPatient}

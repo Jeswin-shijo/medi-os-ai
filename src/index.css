@@ -4135,3 +4135,22 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .lab-crit-note { margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); background-color: var(--red-light); border: 1px solid var(--red-border); color: var(--red-dark); font-size: var(--fs-sm); }
 .lab-crit-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .lab-crit-list .lab-crit-row { align-items: flex-start; }
+
+/* Lab: a patient's tests (ER panel) and Settings → Lab */
+.lpt-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.lpt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 7px 0; border-bottom: 1px solid var(--border-color); font-size: var(--fs-body); min-width: 0; }
+.lpt-row:last-child { border-bottom: 0; }
+.lpt-name { flex: 1 1 140px; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.lpt-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.lpt-time { flex-basis: 100%; }
+.ls-group { margin: 14px 0 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); }
+.ls-group:first-of-type { margin-top: 10px; }
+.ls-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 0; border-bottom: 1px solid var(--border-color); font-size: var(--fs-sm); min-width: 0; }
+.ls-row-name { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 1px; color: var(--text-primary); }
+.ls-row-name small { color: var(--text-muted); font-size: var(--fs-xs); }
+.ls-inputs { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-secondary); }
+.ls-inputs .input-field { width: 78px; height: 34px; padding: 0 8px; }
+.ls-text { color: var(--text-secondary); }
+.ls-history { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); }
+.ls-history li { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.ls-history .ls-when { color: var(--text-muted); font-size: var(--fs-xs); }
