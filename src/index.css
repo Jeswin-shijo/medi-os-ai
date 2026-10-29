@@ -3616,18 +3616,71 @@ button.stat-card-item:active {
 .co-split { align-items: start; }
 .co-card { min-width: 0; }
 .co-card .bagent-filters { margin-bottom: 6px; }
-.co-slot { border-style: dashed; }
-.co-slot .data-empty { margin: 0; }
 /* With a case open the page has less room, so the three-column row becomes two. */
 .co-split .co-trio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.co-split .co-trio > .co-slot { grid-column: 1 / -1; order: 3; }
+.co-split .co-trio > .co-stack { grid-column: 1 / -1; order: 3; }
 .co-split .cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 1100px) {
-  .co-split .co-trio > .co-slot { grid-column: auto; order: 0; }
+  .co-split .co-trio > .co-stack { grid-column: auto; order: 0; }
 }
 @media (max-width: 760px) {
   .co-split .cols-4, .co-split .co-trio { grid-template-columns: minmax(0, 1fr); }
 }
+
+.co-note { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.co-stack { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+
+/* Workflow diagram: one SVG that scales to its card. Edge labels need room, so they go on narrow cards. */
+.co-diagram { min-width: 0; }
+.co-diagram-svg { display: block; width: 100%; height: auto; overflow: hidden; }
+.co-edge { stroke: var(--border-color); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.co-edge.is-live { stroke: var(--blue-primary); stroke-opacity: 0.55; }
+.co-edge-label { font-size: 9.5px; fill: var(--text-muted); paint-order: stroke; stroke: var(--bg-card); stroke-width: 4px; stroke-linejoin: round; }
+.co-tile rect { fill: var(--bg-card); stroke: var(--border-color); stroke-width: 1; }
+.co-tile { color: var(--blue-text); }
+.co-tile.is-centre rect { fill: var(--blue-primary); stroke: var(--blue-primary); }
+.co-tile.is-centre { color: #fff; }
+.co-tile.is-centre .co-tile-name, .co-tile.is-centre .co-tile-state { fill: #fff; }
+.co-tile.is-dim { opacity: 0.62; }
+.co-tile-name { font-size: 12px; font-weight: 600; fill: var(--text-primary); }
+.co-tile.is-centre .co-tile-name { font-size: 13px; }
+.co-tile-state { font-size: 9.5px; fill: var(--text-secondary); }
+.co-tile-dot { fill: var(--text-muted); }
+.co-tile-dot.is-on { fill: var(--green-emerald); }
+.co-dotpulse { fill: var(--blue-primary); stroke: var(--bg-card); stroke-width: 2; pointer-events: none; }
+
+.co-approvals .co-item { padding: 0; }
+.co-approval { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 9px 0; }
+.co-approval-what { display: flex; flex-direction: column; gap: 2px; flex: 1 1 200px; min-width: 0; }
+.co-approval-link { text-align: left; padding: 0; background: none; border: 0; color: var(--text-primary); cursor: pointer; }
+.co-approval-link:hover { color: var(--blue-text); text-decoration: underline; }
+.co-approval-link:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 2px; }
+.co-approval-meta { font-size: var(--fs-sm); color: var(--text-muted); }
+.co-approval-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.co-reassign { max-width: 440px; }
+.co-reassign-title { margin: 0; font-size: var(--fs-lg, 16px); }
+.co-reassign-body { display: flex; flex-direction: column; gap: 12px; }
+.co-reassign-what { margin: 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+.co-item.co-rule { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; }
+.co-rule.is-dim { opacity: 0.6; }
+.co-rule-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.co-rule-label { font-weight: 500; }
+.co-rule-desc, .co-rule-note { font-size: var(--fs-sm); color: var(--text-muted); }
+.co-rule-note { color: var(--text-secondary); }
+.co-rule-error { font-size: var(--fs-sm); color: var(--red-dark); }
+.co-rules-foot { margin: 6px 0 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.switch-label input:disabled + .switch-slider { cursor: not-allowed; opacity: 0.6; }
+.switch-label input:focus-visible + .switch-slider { outline: 2px solid var(--blue-primary); outline-offset: 2px; }
+
+.co-ask-form { display: flex; gap: 8px; }
+.co-ask-input { flex: 1 1 auto; min-width: 0; }
+.co-ask-send { flex: none; width: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.co-ask-hint { margin: 6px 0 0; font-size: var(--fs-xs); color: var(--text-muted); overflow-wrap: anywhere; }
+.co-ask-out:not(:empty) { margin-top: 8px; }
+.co-ask-wait { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.co-answer { display: flex; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
+.co-answer-text { margin: 0; flex: 1 1 240px; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .co-newwrap { position: relative; }
 .co-newwrap .btn-sm { gap: 4px; white-space: nowrap; }

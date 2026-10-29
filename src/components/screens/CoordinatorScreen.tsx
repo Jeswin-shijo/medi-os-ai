@@ -5,7 +5,7 @@ import { coordinatorService } from '../../services';
 import { useCoordinatorList, useCoordinatorOverview, useCoordinatorStream } from '../../hooks/useCoordinator';
 import { REQUEST_ROLES, followRequest } from '../../utils/beds';
 import { cols, split } from '../../utils/layout';
-import type { CoordinatorCardData, CoordinatorCardKey, CoordinatorSeriesPoint, RequestType, SnapshotRange } from '../../types';
+import type { CoordinatorCardData, CoordinatorCardKey, CoordinatorEvent, CoordinatorSeriesPoint, RequestType, SnapshotRange } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
 import { StatCard } from '../beds/StatCard';
@@ -14,12 +14,18 @@ import { CoordinationQueue } from '../agents/CoordinationQueue';
 import { AgentStatusTable } from '../agents/AgentStatusTable';
 import { DecisionsLog } from '../agents/DecisionsLog';
 import { CaseDetail } from '../agents/CaseDetail';
+import { WorkflowDiagram, LEG_MS, type DiagramPulse } from '../agents/WorkflowDiagram';
+import { ApprovalsList } from '../agents/ApprovalsList';
+import { RulesPanel } from '../agents/RulesPanel';
+import { AskBox } from '../agents/AskBox';
 
 const RANGES: { id: SnapshotRange; label: string }[] = [
   { id: '24h', label: 'Last 24 hours' },
   { id: '7d', label: 'Last 7 days' }
 ];
 const LOG_LIMIT = 50;
+/** Dots on the diagram at once; more are dropped (the lists still show every message). */
+const MAX_PULSES = 6;
 const CARD_FIELD: Record<CoordinatorCardKey, keyof Omit<CoordinatorSeriesPoint, 'at'>> = {
   activeWorkflows: 'activeWorkflows',
   agentsCoordinated: 'agentsOnline',
@@ -31,7 +37,7 @@ const CARD_FIELD: Record<CoordinatorCardKey, keyof Omit<CoordinatorSeriesPoint, 
 function bucket(points: CoordinatorSeriesPoint[], field: keyof Omit<CoordinatorSeriesPoint, 'at'>): (number | null)[] {
   const out: (number | null)[] = [];
   for (let i = 0; i < points.length; i += 4) {
-    const known = points.slice(i, i + 4).map((p) => p[field]).filter((v): v is number => v !== null);
+    const known = points.slice(i, i + 4).map((p) => p[field]).filter((v): v is number => typeof v === 'number');
     out.push(known.length ? known.reduce((a, b) => a + b, 0) / known.length : null);
   }
   return out;
@@ -41,7 +47,17 @@ function bucket(points: CoordinatorSeriesPoint[], field: keyof Omit<CoordinatorS
 export const CoordinatorScreen: React.FC = () => {
   const { user, showToast, refreshAlertCount } = useApp();
   const role = user?.role ?? '';
-  const { version, live } = useCoordinatorStream();
+  const [pulses, setPulses] = useState<DiagramPulse[]>([]);
+  const pulseSeq = useRef(0);
+  const onEvent = useCallback((event: CoordinatorEvent) => {
+    if (event.kind !== 'message' || !event.from || !event.to?.length) return;
+    const from = event.from;
+    const fresh = event.to.map((to) => ({ id: `p${++pulseSeq.current}`, from, to }));
+    setPulses((prev) => [...prev, ...fresh].slice(-MAX_PULSES));
+    // A dot takes up to two legs; clear it from the list shortly after.
+    window.setTimeout(() => setPulses((prev) => prev.filter((p) => !fresh.some((f) => f.id === p.id))), LEG_MS * 2 + 200);
+  }, []);
+  const { version, live } = useCoordinatorStream({ onEvent });
   const { overview, error } = useCoordinatorOverview(version);
   const fetchOpen = useCallback(() => coordinatorService.messages({ openWork: true }), []);
   const fetchLog = useCallback(() => coordinatorService.messages({ limit: LOG_LIMIT }), []);
@@ -50,30 +66,39 @@ export const CoordinatorScreen: React.FC = () => {
   // 24 hours uses each card's own sparkline; 7 days uses the hourly history in 4-hour averages. Trend % stays the 24 h one.
   const [range, setRange] = useState<SnapshotRange>('24h');
   const [week, setWeek] = useState<CoordinatorSeriesPoint[] | null>(null);
+  const [weekFailed, setWeekFailed] = useState(false);
+  const hasWeek = useRef(false);
   useEffect(() => {
     if (range !== '7d') return;
     let alive = true;
-    const timer = window.setTimeout(() => {
-      coordinatorService
-        .snapshots('7d')
-        .then((r) => alive && setWeek(r.points))
-        .catch(() => undefined);
-    }, week === null ? 0 : 300);
+    const timer = window.setTimeout(
+      () => {
+        coordinatorService
+          .snapshots('7d')
+          .then((r) => {
+            if (!alive) return;
+            hasWeek.current = true;
+            setWeek(r.points);
+            setWeekFailed(false);
+          })
+          .catch(() => alive && setWeekFailed(true));
+      },
+      hasWeek.current ? 300 : 0
+    );
     return () => {
       alive = false;
       window.clearTimeout(timer);
     };
-    // `week` is only read to skip the wait on the first fetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range, version]);
   const card = (key: CoordinatorCardKey): CoordinatorCardData | undefined => {
     const base = overview?.cards[key];
-    if (!base || range !== '7d' || !week) return base;
+    if (!base || range !== '7d' || !week || weekFailed) return base;
     return { ...base, spark: bucket(week, CARD_FIELD[key]) };
   };
   const [caseId, setCaseId] = useState<string | null>(null);
   const [requestTypes, setRequestTypes] = useState<RequestType[]>([]);
   const [requesting, setRequesting] = useState(false);
+  const [prefill, setPrefill] = useState<{ id: string; uhid: string } | undefined>(undefined);
   const caseRef = useRef<HTMLDivElement>(null);
 
   const canRequest = REQUEST_ROLES.includes(role);
@@ -105,6 +130,7 @@ export const CoordinatorScreen: React.FC = () => {
           Showing the last figures loaded. {error}
         </p>
       )}
+      {range === '7d' && weekFailed && <p className="co-note">7-day history unavailable</p>}
       {cards ? (
         <div className="cols-4 bagent-grid">
           <StatCard icon={Workflow} tone="blue" title="Active workflows" data={card('activeWorkflows') ?? cards.activeWorkflows} />
@@ -126,26 +152,41 @@ export const CoordinatorScreen: React.FC = () => {
           selectedCaseId={caseId}
           onOpenCase={openCase}
           requestTypes={canRequest ? requestTypes : []}
-          onNewRequest={() => setRequesting(true)}
+          onNewRequest={() => {
+            setPrefill(undefined);
+            setRequesting(true);
+          }}
         />
-        <section className="medios-card bagent-card co-card co-slot" aria-label="Workflow diagram">
+        <section className="medios-card bagent-card co-card" aria-label="Workflow diagram">
           <div className="card-header-row">
             <h3 className="card-title">Workflow diagram</h3>
           </div>
-          <p className="data-empty">The agent diagram arrives in the next update.</p>
+          {overview ? (
+            <WorkflowDiagram agents={overview.agents} pulses={pulses} />
+          ) : (
+            <p className="data-empty" role={error ? 'alert' : undefined}>
+              {error ?? 'Loading the diagram…'}
+            </p>
+          )}
         </section>
-        <AgentStatusTable agents={overview?.agents ?? null} error={error} />
+        <div className="co-stack">
+          <AgentStatusTable agents={overview?.agents ?? null} error={error} />
+          <RulesPanel version={version} />
+        </div>
       </div>
 
       <div className="cols-2 bagent-grid bagent-pair-always">
         <DecisionsLog messages={log.items} loaded={!log.loading} error={log.error} selectedCaseId={caseId} onOpenCase={openCase} />
-        <section className="medios-card bagent-card co-card co-slot" aria-label="Approvals">
-          <div className="card-header-row">
-            <h3 className="card-title">Approvals</h3>
-          </div>
-          <p className="data-empty">Approvals arrive in the next update.</p>
-        </section>
+        <ApprovalsList version={version} onOpenCase={openCase} />
       </div>
+
+      <AskBox
+        onOpenCase={openCase}
+        onOpenRequestForm={(patient) => {
+          setPrefill(patient);
+          setRequesting(true);
+        }}
+      />
     </div>
   );
 
@@ -179,7 +220,11 @@ export const CoordinatorScreen: React.FC = () => {
 
       {requesting && (
         <RequestBedDialog
-          onClose={() => setRequesting(false)}
+          initialPatient={prefill}
+          onClose={() => {
+            setRequesting(false);
+            setPrefill(undefined);
+          }}
           onSubmitted={(r) => {
             followRequest(r.id, { showToast, refreshAlertCount }, r.patientName);
             open.reload();

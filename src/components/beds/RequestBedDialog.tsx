@@ -11,6 +11,8 @@ import { AdmitStepNeeds, type AdmitForm } from './AdmitStepNeeds';
 interface RequestBedDialogProps {
   /** Request a bed for this patient (the patient field is then fixed). */
   patient?: Patient;
+  /** Pre-select this patient but leave the patient field changeable (used by the Coordinator's Ask box). */
+  initialPatient?: { id: string; uhid: string };
   /** Move an admitted patient out of this bed: pre-filled from the admission. */
   transferFrom?: { bedId: string; admission: BedAdmission };
   onClose(): void;
@@ -21,7 +23,7 @@ interface RequestBedDialogProps {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** One short form: who, the needs and a priority. The Bed Agent picks the bed, with no one to approve it. */
-export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, transferFrom, onClose, onSubmitted }) => {
+export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, initialPatient, transferFrom, onClose, onSubmitted }) => {
   const { patients } = useApp();
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
@@ -38,7 +40,10 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, tra
           notes: moving.notes,
           stay: String(moving.expectedStayDays)
         }
-      : { patientId: patient?.id ?? '', doctor: patient?.doctor ?? '', department: patient?.department ?? '', roomClass: null, needs: [], notes: '', stay: '3' }
+      : (() => {
+          const start = patient ?? (initialPatient ? (patients.find((p) => p.id === initialPatient.id) ?? patients.find((p) => p.uhid === initialPatient.uhid)) : undefined);
+          return { patientId: start?.id ?? initialPatient?.id ?? '', doctor: start?.doctor ?? '', department: start?.department ?? '', roomClass: null, needs: [], notes: '', stay: '3' };
+        })()
   );
   const [priority, setPriority] = useState<BedRequestPriority>('medium');
   const [busy, setBusy] = useState(false);

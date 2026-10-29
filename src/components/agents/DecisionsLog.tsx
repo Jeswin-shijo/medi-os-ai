@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { AgentMessage } from '../../types';
 import { dayAndTime } from '../../utils/beds';
 import { agentName, agentNames, typeLabel } from '../../utils/coordinator';
@@ -25,7 +25,12 @@ const newest = (ms: AgentMessage[]) => ms.reduce((max, m) => (m.createdAt > max 
 export const DecisionsLog: React.FC<DecisionsLogProps> = ({ messages, loaded, error, selectedCaseId, onOpenCase }) => {
   // Only rows newer than what the first load showed slide in (240 ms); the first page just appears.
   const [baseline, setBaseline] = useState<string | null>(null);
-  if (loaded && baseline === null) setBaseline(newest(messages));
+  useEffect(() => {
+    if (!loaded || baseline !== null) return;
+    // Set from a frame callback, not synchronously, so the first page is never marked new.
+    const frame = window.requestAnimationFrame(() => setBaseline(newest(messages)));
+    return () => window.cancelAnimationFrame(frame);
+  }, [loaded, baseline, messages]);
   const isNew = (m: AgentMessage) => baseline !== null && m.createdAt > baseline;
 
   return (
