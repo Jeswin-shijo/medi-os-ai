@@ -2,10 +2,15 @@ import React, { useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useLab } from '../../hooks/useLab';
-import { canOrderLab, canReadLab } from '../../utils/lab';
+import { canCollectLab, canOrderLab, canReadLab } from '../../utils/lab';
+import type { LabRequestView } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
 import { LabOverview } from '../lab/LabOverview';
+import { LabOrders } from '../lab/LabOrders';
+import { LabCollection } from '../lab/LabCollection';
+import { LabLabels } from '../lab/LabLabels';
+import { NewLabOrderDialog } from '../lab/NewLabOrderDialog';
 
 type Tab = 'overview' | 'orders' | 'collection' | 'processing' | 'results' | 'critical';
 
@@ -48,6 +53,9 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
   const lab = useLab();
   const [tab, setTabState] = useState<Tab>(readTab);
   const tabsId = useId();
+  const [ordering, setOrdering] = useState(false);
+  const [printing, setPrinting] = useState<{ id: string; number: string } | null>(null);
+  const printRequest = (r: LabRequestView) => setPrinting({ id: r.id, number: r.number });
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
 
   const setTab = (next: Tab) => {
@@ -75,8 +83,7 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
         subtitle="Coordinates lab orders, sample collection, testing, result validation and reporting."
         actions={
           canOrderLab(role) && (
-            // Ordering opens here in the next step.
-            <button type="button" className="btn-primary">
+            <button type="button" className="btn-primary" onClick={() => setOrdering(true)}>
               <Plus size={15} aria-hidden="true" />
               New order
             </button>
@@ -117,6 +124,10 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
             onRetry={lab.reload}
             onSeeCollection={() => setTab('collection')}
           />
+        ) : tab === 'orders' ? (
+          <LabOrders refresh={lab.requests} onChanged={lab.reload} onPrint={printRequest} />
+        ) : tab === 'collection' ? (
+          <LabCollection collection={lab.collection} error={lab.error} canCollect={canCollectLab(role)} onRetry={lab.reload} onChanged={lab.reload} />
         ) : (
           <section className="medios-card lab-next" aria-label="Comes next">
             <h3 className="card-title">Comes next</h3>
@@ -124,6 +135,16 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
           </section>
         )}
       </div>
+
+      {ordering && (
+        <NewLabOrderDialog
+          canPrint={canCollectLab(role)}
+          onClose={() => setOrdering(false)}
+          onOrdered={() => lab.reload()}
+          onPrint={printRequest}
+        />
+      )}
+      {printing && <LabLabels requestId={printing.id} requestNumber={printing.number} onClose={() => setPrinting(null)} />}
     </div>
   );
 };
