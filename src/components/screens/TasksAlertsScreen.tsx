@@ -220,9 +220,9 @@ export const TasksAlertsScreen: React.FC = () => {
     ) : null;
   const ackButton = (task: TaskAlertItem) =>
     task.status === 'Completed' ? null : (
-    <button type="button" className="btn-outline-blue cs-ack" style={{ height: 30, padding: '0 12px' }} disabled={acking === task.id} onClick={() => void acknowledge(task)}>
-      {acking === task.id ? 'Acknowledging…' : 'Acknowledge'}
-    </button>
+      <button type="button" className="btn-outline-blue cs-ack" style={{ height: 30, padding: '0 12px' }} disabled={acking === task.id} onClick={() => void acknowledge(task)}>
+        {acking === task.id ? 'Acknowledging…' : 'Acknowledge'}
+      </button>
     );
 
   const toggleSuggestion = (text: string) =>
@@ -577,7 +577,7 @@ export const TasksAlertsScreen: React.FC = () => {
                         </td>
                         <td style={cell}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 22, paddingLeft: 6 }}>
-                            {task.escalation ? null : rowAction(task)}
+                            {task.escalation && !requestId(task) ? null : rowAction(task)}
                             <button style={{ color: 'var(--text-primary)', display: 'inline-flex', padding: 2 }} aria-label="More actions" onClick={() => showToast(`More actions for "${task.title}"`, 'info')}>
                               <EllipsisVertical size={16} />
                             </button>

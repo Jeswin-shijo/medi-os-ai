@@ -152,7 +152,8 @@ const TitleRow: React.FC<{ title: DutyTitle; staff: StaffUser[]; onSaved: () => 
     setError(null);
     try {
       await coordinatorService.saveTitle({ key: title.key, label: label.trim(), holders });
-      setSaved(JSON.stringify([label, [...holders].sort()]));
+      setLabel(label.trim());
+      setSaved(JSON.stringify([label.trim(), [...holders].sort()]));
       showToast(`${label.trim()} saved`, 'success');
       onSaved();
     } catch (err) {
@@ -256,10 +257,11 @@ export const CoordinatorSettings: React.FC = () => {
         <p className="co-note">Who holds each title right now. An alert for a title nobody holds goes to admins.</p>
         <ul className="cs-titles">
           {titles.map((t) => (
-            <TitleRow key={t.key} title={t} staff={staff} onSaved={() => undefined} />
+            <TitleRow key={t.key} title={t} staff={staff} onSaved={() => load()} />
           ))}
         </ul>
       </section>
+      {/* Settings has no live stream, so the panel refreshes only on its own saves. */}
       <RulesPanel version={0} />
     </div>
   );
