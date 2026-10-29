@@ -4,7 +4,7 @@ import { Patient } from '../../types';
 import { patientService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { usePatientChart, labHighlightsOf } from '../../hooks/usePatientChart';
-import { displayDate } from '../../utils/clinicDate';
+import { ageFromDobInput, displayDate, dobFromInput, isoDay } from '../../utils/clinicDate';
 import { StudyThumb } from '../common/StudyThumb';
 import { ConditionBadge } from '../common/ConditionBadge';
 import { CONDITION_TONES, conditionStyle } from '../common/conditionStyles';
@@ -203,6 +203,8 @@ export const PatientsScreen: React.FC = () => {
   // New Patient Form State
   const [newName, setNewName] = useState('');
   const [newAge, setNewAge] = useState('');
+  /** A date input's value ("1992-03-14"); sent as "14 Mar 1992". */
+  const [newDob, setNewDob] = useState('');
   const [newGender, setNewGender] = useState<'Male' | 'Female' | 'Other'>('Male');
   const [newPhone, setNewPhone] = useState('');
   const [newBloodGroup, setNewBloodGroup] = useState('');
@@ -257,6 +259,7 @@ export const PatientsScreen: React.FC = () => {
         age,
         gender: newGender,
         phone: newPhone.trim(),
+        ...(newDob && { dob: dobFromInput(newDob) }),
         bloodGroup: newBloodGroup,
         visitType: 'OPD',
         status: 'Today',
@@ -658,6 +661,12 @@ export const PatientsScreen: React.FC = () => {
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 9px', fontSize: 12.5, color: 'var(--text-primary)', marginTop: 5, whiteSpace: 'nowrap' }}>
                   <span>{selectedPatient.age} years</span>
+                  {selectedPatient.dob && (
+                    <>
+                      <span className="patient-meta-sep" />
+                      <span>Born {selectedPatient.dob}</span>
+                    </>
+                  )}
                   <span className="patient-meta-sep" />
                   <span>{selectedPatient.gender}</span>
                   <span className="patient-meta-sep" />
@@ -1021,11 +1030,34 @@ export const PatientsScreen: React.FC = () => {
                   <input type="text" required className="input-field" placeholder="e.g. Arun Kumar" value={newName} onChange={(e) => setNewName(e.target.value)} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="cols-2" style={{ gap: 12 }}>
                   <div>
-                    <label className="form-label">Age *</label>
-                    <input type="number" required className="input-field" placeholder="e.g. 34" value={newAge} onChange={(e) => setNewAge(e.target.value)} />
+                    <label className="form-label" htmlFor="np-dob">Date of birth</label>
+                    <input
+                      id="np-dob"
+                      type="date"
+                      className="input-field"
+                      min="1900-01-01"
+                      max={isoDay()}
+                      value={newDob}
+                      aria-describedby="np-dob-hint"
+                      onChange={(e) => {
+                        setNewDob(e.target.value);
+                        const age = ageFromDobInput(e.target.value);
+                        if (age !== null) setNewAge(String(age));
+                      }}
+                    />
+                    <p id="np-dob-hint" style={{ marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      Optional. Lets the AI phone line verify the patient.
+                    </p>
                   </div>
+                  <div>
+                    <label className="form-label" htmlFor="np-age">Age *</label>
+                    <input id="np-age" type="number" required className="input-field" placeholder="e.g. 34" value={newAge} onChange={(e) => setNewAge(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="cols-2" style={{ gap: 12 }}>
                   <div>
                     <label className="form-label">Gender *</label>
                     <select className="form-select" value={newGender} onChange={(e) => setNewGender(e.target.value as 'Male' | 'Female' | 'Other')}>
@@ -1034,13 +1066,13 @@ export const PatientsScreen: React.FC = () => {
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label className="form-label">Phone Number *</label>
                     <input type="tel" required className="input-field" placeholder="+91 98765 43210" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
                   </div>
+                </div>
+
+                <div className="cols-2" style={{ gap: 12 }}>
                   <div>
                     <label className="form-label">Blood Group</label>
                     <select className="form-select" value={newBloodGroup} onChange={(e) => setNewBloodGroup(e.target.value)}>
@@ -1050,17 +1082,16 @@ export const PatientsScreen: React.FC = () => {
                       ))}
                     </select>
                   </div>
-                </div>
-
-                <div>
-                  <label className="form-label">Department</label>
-                  <select className="form-select" value={newDepartment} onChange={(e) => setNewDepartment(e.target.value)}>
-                    <option>General Medicine</option>
-                    <option>Cardiology</option>
-                    <option>Endocrinology</option>
-                    <option>Surgery</option>
-                    <option>Pediatrics</option>
-                  </select>
+                  <div>
+                    <label className="form-label">Department</label>
+                    <select className="form-select" value={newDepartment} onChange={(e) => setNewDepartment(e.target.value)}>
+                      <option>General Medicine</option>
+                      <option>Cardiology</option>
+                      <option>Endocrinology</option>
+                      <option>Surgery</option>
+                      <option>Pediatrics</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>

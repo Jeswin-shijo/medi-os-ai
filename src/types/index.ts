@@ -39,6 +39,8 @@ export interface Patient {
   age: number;
   gender: 'Male' | 'Female' | 'Other';
   phone: string;
+  /** "14 Mar 1992"; optional. Checked when the patient phones the hospital's AI line. */
+  dob?: string;
   avatar?: string;
   bloodGroup: string;
   visitType: 'OPD' | 'IPD';
