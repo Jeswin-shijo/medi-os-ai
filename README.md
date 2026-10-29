@@ -97,6 +97,21 @@ Beds:
 - **Nurses and front desk** cannot admit. They discharge, **Mark cleaned**, **Block** and **Unblock** from the bed panel. Admins have the **Allocate beds automatically** switch in Settings; when it is off, new requests wait for someone to assign a bed by hand.
 - **AI** wording shows a **SAMPLE** label while the API runs in sample mode; if the AI is off or slow, the rule-based choice is used with no error. Settings → AI Assistant has the on/off switch and **Check connection** (admin).
 
+AI Agents and the Coordinator:
+- **AI Agents** is a group in the sidebar (admin, doctor, nurse and front desk; not pharmacist or lab). It lists the Coordinator Agent, ER, Bed, Lab, Pharmacy, Discharge, Scheduling, Revenue and Patient Support. Only the Coordinator and Bed Agent are built. The other seven open a placeholder page that says which agent is coming. The group can be collapsed.
+- **Coordinator Agent** page, live through the API's `/coordinator/stream` (a **LIVE** badge; it reloads every 30 seconds if the stream drops):
+  - four cards: active workflows, agents coordinated, tasks routed today, escalations, with a 24-hour or 7-day range;
+  - **Coordination queue**: the latest requests between agents, filtered by priority. **New request** (roles that may raise one) opens a short form;
+  - **Workflow diagram**: the agents and the links between them. A link pulses when a message passes;
+  - **Agent status** and **Coordination rules**. Admins switch rules on and off. Two are locked on (emergency first, escalate overdue). Rules for agents not built yet show "Coming with the … Agent";
+  - **Decisions log**: what each agent decided and why;
+  - **Approvals**: things that need a person (for example, a ward-changing need the Bed Agent could not decide). Only the roles an approval names can act or reassign it. **Open** goes to the request itself;
+  - **Case view**: pick any row to see one patient's case: its number, steps, messages, clocks and approvals, until every agent's close check passes. Opening and closing times also appear on the patient's **Timeline**.
+- **Ask box** at the foot of the page answers questions about the hospital's activity ("Pending approvals", "Show agent workload"). It only answers: it never creates, changes or sends anything. Names, UHIDs, phones and database ids are replaced on the server before any text goes to the AI, and are put back only in the answer you see. With the AI off or slow, a plain rule-based answer is shown.
+- **Settings → Coordinator** (admin only): escalation ladders (which duty title is told, step by step, and how many minutes to wait), duty titles and who holds each one, and the rules. A title nobody holds goes to every admin.
+- **Acknowledge** on escalation alerts: when a clock runs out (for example a bed request waiting too long) the alert goes to the holders of the ladder's duty title, else to admins, and shows in the header bell and **Tasks & Alerts**. **Acknowledge** stops the ladder from moving up. If nobody does, it goes to the next step.
+- **Who sees what:** admin, doctor, nurse and front desk see the Coordinator page, cases and the Ask box. Admin only: Settings → Coordinator. Pharmacist and lab have no access.
+
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.
 - Missing clinical values render as "—", never as a typical reading.
