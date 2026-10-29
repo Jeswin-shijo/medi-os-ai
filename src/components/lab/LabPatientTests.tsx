@@ -110,6 +110,14 @@ export const LabPatientTests: React.FC<LabPatientTestsProps> = ({ patientId, sin
       {requests === null ? (
         <p className="er-hint" role={error ? 'alert' : undefined}>
           {error ?? 'Loading tests…'}
+          {error && (
+            <>
+              {' '}
+              <button type="button" className="btn-secondary btn-sm" onClick={() => { setError(null); setManual((n) => n + 1); }}>
+                Try again
+              </button>
+            </>
+          )}
         </p>
       ) : rows.length === 0 ? (
         <p className="er-hint">No tests ordered{since ? ' for this visit' : ''}.</p>

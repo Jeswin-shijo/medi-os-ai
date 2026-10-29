@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ScanLine } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, Printer, ScanLine } from 'lucide-react';
 import { labAgentService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useErAction } from '../er/useErAction';
@@ -18,47 +18,70 @@ interface LabCollectionProps {
   onRetry(): void;
   /** After a sample is collected or a request marked not collected. */
   onChanged(): void;
+  /** Open the label sheet for a request (the same path as the Orders tab). */
+  onPrint(request: { id: string; number: string }): void;
 }
 
 interface Group {
   key: string;
   title: string;
-  requests: { requestId: string; requestNumber: string; patientName: string; patientUhid: string; samples: LabCollectionItem[] }[];
+  requests: { requestId: string; requestNumber: string; patientName: string; patientUhid: string; location: string; samples: LabCollectionItem[] }[];
 }
 
+/** A repeat that is not yet due: its notBefore is still in the future. */
+const isLater = (s: LabCollectionItem, now: number): boolean => !!s.notBefore && new Date(s.notBefore).getTime() > now;
+const dueTime = (s: LabCollectionItem): string => displayTime(new Date(s.scheduledFor ?? s.notBefore ?? s.collectBy));
+
 /** The Collection tab: samples still to be collected, grouped by location, with a scanner field. */
-export const LabCollection: React.FC<LabCollectionProps> = ({ collection, error, canCollect, onRetry, onChanged }) => {
+export const LabCollection: React.FC<LabCollectionProps> = ({ collection, error, canCollect, onRetry, onChanged, onPrint }) => {
   const uid = useId();
   const [area, setArea] = useState<LabArea | ''>('');
   const [now, setNow] = useState(() => Date.now());
+  const [laterOpen, setLaterOpen] = useState(false);
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(t);
   }, []);
 
-  const groups = useMemo<Group[]>(() => {
+  const { groups, later } = useMemo<{ groups: Group[]; later: Group['requests'] }>(() => {
     const byLoc = new Map<string, { area: LabArea; ward: string; items: LabCollectionItem[] }>();
+    const laterItems: LabCollectionItem[] = [];
     for (const s of collection ?? []) {
       if (area && s.location.area !== area) continue;
+      if (isLater(s, now)) {
+        laterItems.push(s);
+        continue;
+      }
       const key = `${s.location.area}|${s.location.ward ?? ''}`;
       const g = byLoc.get(key) ?? { area: s.location.area, ward: s.location.ward ?? '', items: [] };
       g.items.push(s);
       byLoc.set(key, g);
     }
-    return [...byLoc.entries()]
+    const toRequests = (items: LabCollectionItem[]): Group['requests'] => {
+      const reqs = new Map<string, Group['requests'][number]>();
+      for (const s of [...items].sort((a, b) => new Date(a.scheduledFor ?? a.collectBy).getTime() - new Date(b.scheduledFor ?? b.collectBy).getTime())) {
+        const r = reqs.get(s.requestId) ?? { requestId: s.requestId, requestNumber: s.requestNumber, patientName: s.patientName, patientUhid: s.patientUhid, location: locationText(s.location), samples: [] };
+        r.samples.push(s);
+        reqs.set(s.requestId, r);
+      }
+      return [...reqs.values()];
+    };
+    const sorted = [...byLoc.entries()]
       .sort(([, a], [, b]) => AREA_ORDER[a.area] - AREA_ORDER[b.area] || a.ward.localeCompare(b.ward))
       .map(([key, g]) => {
         const reqs = new Map<string, Group['requests'][number]>();
         for (const s of [...g.items].sort((a, b) => new Date(a.collectBy).getTime() - new Date(b.collectBy).getTime())) {
-          const r = reqs.get(s.requestId) ?? { requestId: s.requestId, requestNumber: s.requestNumber, patientName: s.patientName, patientUhid: s.patientUhid, samples: [] };
+          const r = reqs.get(s.requestId) ?? { requestId: s.requestId, requestNumber: s.requestNumber, patientName: s.patientName, patientUhid: s.patientUhid, location: '', samples: [] };
           r.samples.push(s);
           reqs.set(s.requestId, r);
         }
         return { key, title: locationText({ area: g.area, ward: g.ward || undefined }), requests: [...reqs.values()] };
       });
-  }, [collection, area]);
+    return { groups: sorted, later: toRequests(laterItems) };
+  }, [collection, area, now]);
 
   const total = groups.reduce((n, g) => n + g.requests.reduce((m, r) => m + r.samples.length, 0), 0);
+  const laterCount = later.reduce((n, r) => n + r.samples.length, 0);
 
   return (
     <div className="bagent-overview lab-body">
@@ -91,19 +114,39 @@ export const LabCollection: React.FC<LabCollectionProps> = ({ collection, error,
           ) : (
             <p className="data-empty">Loading the collection list…</p>
           )
-        ) : groups.length === 0 ? (
+        ) : groups.length === 0 && laterCount === 0 ? (
           <p className="data-empty">{area ? `No samples are waiting in ${area}.` : 'No samples are waiting to be collected.'}</p>
         ) : (
-          groups.map((g) => (
-            <section key={g.key} className="lab-loc" aria-label={g.title}>
-              <h4 className="lab-loc-title">{g.title}</h4>
-              <ul className="lab-coll">
-                {g.requests.map((r) => (
-                  <RequestRows key={r.requestId} request={r} now={now} canCollect={canCollect} onChanged={onChanged} />
-                ))}
-              </ul>
-            </section>
-          ))
+          <>
+            {groups.length === 0 && <p className="data-empty">{area ? `No samples are due in ${area}.` : 'No samples are due now.'}</p>}
+            {groups.map((g) => (
+              <section key={g.key} className="lab-loc" aria-label={g.title}>
+                <h4 className="lab-loc-title">{g.title}</h4>
+                <ul className="lab-coll">
+                  {g.requests.map((r) => (
+                    <RequestRows key={r.requestId} request={r} now={now} canCollect={canCollect} onChanged={onChanged} onPrint={onPrint} />
+                  ))}
+                </ul>
+              </section>
+            ))}
+            {laterCount > 0 && (
+              <section className="lab-loc" aria-label="Later">
+                <h4 className="lab-loc-title">
+                  <button type="button" className="lab-later-toggle" aria-expanded={laterOpen} onClick={() => setLaterOpen((o) => !o)}>
+                    {laterOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                    Later <span className="er-hint">({laterCount})</span>
+                  </button>
+                </h4>
+                {laterOpen && (
+                  <ul className="lab-coll">
+                    {later.map((r) => (
+                      <RequestRows key={r.requestId} request={r} now={now} canCollect={canCollect} onChanged={onChanged} onPrint={onPrint} showLocation />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+          </>
         )}
       </section>
     </div>
@@ -170,7 +213,7 @@ const ScanField: React.FC<{ onChanged(): void }> = ({ onChanged }) => {
   );
 };
 
-const RequestRows: React.FC<{ request: Group['requests'][number]; now: number; canCollect: boolean; onChanged(): void }> = ({ request: r, now, canCollect, onChanged }) => {
+const RequestRows: React.FC<{ request: Group['requests'][number]; now: number; canCollect: boolean; onChanged(): void; onPrint: LabCollectionProps['onPrint']; showLocation?: boolean }> = ({ request: r, now, canCollect, onChanged, onPrint, showLocation }) => {
   const uid = useId();
   const { busy, error, setError, run } = useErAction();
   const [asking, setAsking] = useState(false);
@@ -207,8 +250,13 @@ const RequestRows: React.FC<{ request: Group['requests'][number]; now: number; c
       <div className="lab-coll-head">
         <span className="lab-num">{r.requestNumber}</span>
         <span className="lab-coll-patient">
-          <span className="er-name">{r.patientName}</span> <span className="er-sub">{r.patientUhid}</span>
+          <span className="er-name">{r.patientName}</span> <span className="er-sub">{r.patientUhid}{showLocation && r.location ? ` · ${r.location}` : ''}</span>
         </span>
+        {canCollect && (
+          <button type="button" className="btn-secondary btn-sm" aria-label={`Print labels for ${r.requestNumber}`} onClick={() => onPrint({ id: r.requestId, number: r.requestNumber })}>
+            <Printer size={13} aria-hidden="true" /> Print labels
+          </button>
+        )}
         {canCollect && !asking && (
           <button type="button" className="btn-danger-soft btn-sm" aria-label={`Mark ${r.requestNumber} not collected`} onClick={() => { setAsking(true); setError(null); }}>
             Not collected
@@ -235,6 +283,7 @@ const RequestRows: React.FC<{ request: Group['requests'][number]; now: number; c
         {r.samples.map((s) => {
           const left = minutesUntil(s.collectBy, now);
           const late = left < 0;
+          const waiting = isLater(s, now);
           return (
             <li key={s.sampleId} className={`lab-sample${late ? ' is-late' : ''}`}>
               <span className="lab-num">{s.sampleNumber}</span>
@@ -242,8 +291,12 @@ const RequestRows: React.FC<{ request: Group['requests'][number]; now: number; c
               <span className="lab-tests lab-sample-tests" data-tip={s.tests.join(', ')}>{s.tests.join(', ')}</span>
               <span className={`status-pill sm ${PRIORITY_TONE[s.priority]}`}>{PRIORITY_LABEL[s.priority]}</span>
               <span className="lab-sample-due">
-                <span className="lab-time">{displayTime(new Date(s.collectBy))}</span>{' '}
-                {late ? (
+                {waiting ? (
+                  <span className="lab-time">Due {dueTime(s)}</span>
+                ) : (
+                  <span className="lab-time">{displayTime(new Date(s.collectBy))}</span>
+                )}{' '}
+                {waiting ? null : late ? (
                   <span className="status-pill sm red lab-delayed">
                     <AlertTriangle size={12} aria-hidden="true" />
                     {-left} min late
@@ -253,9 +306,11 @@ const RequestRows: React.FC<{ request: Group['requests'][number]; now: number; c
                 )}
               </span>
               {canCollect && (
-                <button type="button" className="btn-primary btn-sm" disabled={rowBusy !== null} aria-label={`Mark ${s.sampleNumber} collected`} onClick={() => void collectOne(s)}>
-                  {rowBusy === s.sampleId ? 'Saving…' : 'Collected'}
-                </button>
+                <span {...(waiting ? { 'data-tip': `Due at ${dueTime(s)}` } : {})}>
+                  <button type="button" className="btn-primary btn-sm" disabled={rowBusy !== null || waiting} aria-label={`Mark ${s.sampleNumber} collected`} onClick={() => void collectOne(s)}>
+                    {rowBusy === s.sampleId ? 'Saving…' : 'Collected'}
+                  </button>
+                </span>
               )}
             </li>
           );

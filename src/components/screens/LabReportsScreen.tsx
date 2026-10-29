@@ -167,7 +167,7 @@ const TrendChart: React.FC<{ series: TrendSeries; count: number; height?: number
 };
 
 const RELATED_ACTIONS: { label: string; icon: LucideIcon; toast: string }[] = [
-  { label: 'Order Follow-up Test', icon: ClipboardPen, toast: 'Lab ordering is not connected yet' },
+  { label: 'Order Follow-up Test', icon: ClipboardPen, toast: 'Order tests from Patients or the Lab Agent' },
   { label: 'Compare with Previous', icon: SquareCheckBig, toast: 'See the Previous Reports tab for this patient\'s earlier results' },
   { label: 'Explain this Result', icon: Compass, toast: 'AI explanations are not connected yet' },
   { label: 'Add to Clinical Note', icon: SquarePen, toast: 'Copy findings into the note from the EMR screen' }
@@ -324,6 +324,11 @@ export const LabReportsScreen: React.FC = () => {
                       {rep.testName}
                     </div>
                   </div>
+                  {rep.amended && (
+                    <span className="status-pill orange" style={{ height: 20, fontSize: 'var(--fs-xs)' }} data-tip={rep.amendedAt ? `Amended ${rep.amendedAt}` : 'Amended'}>
+                      Amended
+                    </span>
+                  )}
                   <span className={`status-pill ${rep.status === 'Abnormal' ? 'red' : rep.status === 'Pending' ? 'orange' : 'green'}`} style={{ height: 20, fontSize: 'var(--fs-xs)' }}>
                     {rep.status}
                   </span>
@@ -362,6 +367,11 @@ export const LabReportsScreen: React.FC = () => {
                 <span className={`status-pill ${currentReport.status === 'Abnormal' ? 'red' : 'green'}`} style={{ height: 19, fontSize: 'var(--fs-xs)' }}>
                   {currentReport.status}
                 </span>
+                {currentReport.amended && (
+                  <span className="status-pill orange" style={{ height: 19, fontSize: 'var(--fs-xs)' }}>
+                    Amended{currentReport.amendedAt ? ` ${currentReport.amendedAt}` : ''}
+                  </span>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -442,12 +452,15 @@ export const LabReportsScreen: React.FC = () => {
                               onClick={() => showToast(`${param.name}: ${param.result} ${param.unit} (ref ${param.referenceRange})`, 'info')}
                             >
                               <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{param.name}</td>
-                              <td style={{ padding: '3px 6px', fontWeight: 700, color: abnormal ? 'var(--red-rose)' : 'var(--green-dark)' }}>{param.result}</td>
+                              <td style={{ padding: '3px 6px', fontWeight: 700, color: abnormal || param.critical ? 'var(--red-rose)' : 'var(--green-dark)' }}>
+                                {param.result}
+                                {param.comment && <span style={{ fontWeight: 400, color: 'var(--text-secondary)', overflowWrap: 'anywhere' }}> · {param.comment}</span>}
+                              </td>
                               <td style={{ padding: '3px 6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{param.referenceRange}</td>
                               <td style={{ padding: '3px 6px', whiteSpace: 'nowrap' }}>{param.unit}</td>
                               <td style={{ padding: '3px 6px' }}>
-                                <span className={`status-pill ${abnormal ? 'red' : 'green'}`} style={{ height: 19, padding: '0 7px', fontSize: 11 }}>
-                                  {param.status}
+                                <span className={`status-pill ${abnormal || param.critical ? 'red' : 'green'}`} style={{ height: 19, padding: '0 7px', fontSize: 11 }}>
+                                  {param.critical ? `Critical ${param.status.toLowerCase()}`.replace(/ (normal|abnormal)$/, '') : param.status}
                                 </span>
                               </td>
                               <td style={{ padding: '3px 6px 3px 10px' }}>

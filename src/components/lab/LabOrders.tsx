@@ -130,7 +130,7 @@ const OrderCard: React.FC<{ request: LabRequestView; userId: string; role: strin
         <span className={`status-pill sm ${PRIORITY_TONE[r.priority]}`}>{PRIORITY_LABEL[r.priority]}</span>
         <span className={`status-pill sm ${st.tone}`}>{st.label}</span>
         <span className="lab-order-patient">
-          <span className="er-name">{r.patientName}</span> <span className="er-sub">{r.patientUhid} · {locationText(r.location)}</span>
+          <span className="er-name">{r.patientName}</span> <span className="er-sub">{r.patientUhid}{r.done ? '' : ` · ${locationText(r.location)}`}</span>
         </span>
         <span className="er-hint lab-order-meta">
           {r.orderedBy.name} · {displayTime(new Date(r.orderedAt))}
@@ -158,7 +158,11 @@ const Line: React.FC<{ line: LabLineView; request: LabRequestView; mayCancel: bo
   const { busy, error, setError, run } = useErAction();
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState('');
-  const sample = r.samples.find((s) => s.lines.includes(l.id));
+  // A recollected line has an older rejected sample too: the newest sample is shown, the rejected one only in the tooltip.
+  const mine = r.samples.filter((s) => s.lines.includes(l.id));
+  const live = mine.filter((s) => !s.rejected);
+  const sample = live.length ? live[live.length - 1] : mine[mine.length - 1];
+  const earlier = mine.filter((s) => s !== sample && s.rejected);
   const canCancel = mayCancel && l.status !== 'released' && l.status !== 'cancelled';
   const critical = !!l.critical?.active && l.status !== 'cancelled';
 
@@ -187,7 +191,11 @@ const Line: React.FC<{ line: LabLineView; request: LabRequestView; mayCancel: bo
             Critical
           </span>
         )}
-        {sample && <span className="er-hint">Sample {sample.number} · {sample.rejected ? 'rejected' : sample.collected ? 'collected' : 'not collected'}</span>}
+        {sample && (
+          <span className="er-hint" {...(earlier.length ? { 'data-tip': earlier.map((s) => `${s.number} rejected: ${s.rejected?.reason ?? ''}`).join('; ') } : {})}>
+            Sample {sample.number} · {sample.rejected ? 'rejected' : sample.collected ? 'collected' : 'not collected'}
+          </span>
+        )}
         {l.status === 'cancelled' && l.cancelled && <span className="er-hint">Cancelled: {l.cancelled.reason}</span>}
         {canCancel && !asking && (
           <button type="button" className="btn-danger-soft btn-sm lab-line-action" aria-label={`Cancel ${l.label} on ${r.number}`} onClick={() => { setAsking(true); setError(null); }}>

@@ -15,82 +15,118 @@ interface CoordinatorStreamOptions {
   onEvent?: (event: CoordinatorEvent) => void;
 }
 
+interface StreamSub {
+  /** A live event arrived. */
+  event(e: CoordinatorEvent, parsed: boolean): void;
+  /** The stream (re)connected: anything may have been missed. */
+  caughtUp(): void;
+  state(live: boolean): void;
+}
+
+// One connection serves every screen that is mounted at the same time (a Lab list inside the ER panel,
+// the Lab page, the Coordinator page): it opens with the first subscriber and closes with the last.
+const subs = new Set<StreamSub>();
+let hub: { stop(): void } | null = null;
+let hubLive = false;
+
+function startHub(): { stop(): void } {
+  const controller = new AbortController();
+  let retry: number | undefined;
+  let delay = FIRST_RETRY_MS;
+  let connected = false;
+  const connect = async () => {
+    try {
+      await streamEvents(
+        '/coordinator/stream',
+        (event, data) => {
+          if (!connected) {
+            connected = true;
+            hubLive = true;
+            delay = FIRST_RETRY_MS;
+            subs.forEach((sub) => sub.state(true));
+            subs.forEach((sub) => sub.caughtUp());
+          }
+          if (event !== 'coordinator') return;
+          let parsed: CoordinatorEvent | null = null;
+          try {
+            parsed = JSON.parse(data) as CoordinatorEvent;
+          } catch {
+            // A malformed event is skipped; the version bump still refreshes the screens.
+          }
+          subs.forEach((sub) => sub.event(parsed as CoordinatorEvent, parsed !== null));
+        },
+        controller.signal
+      );
+    } catch {
+      // Falls through to the reconnect below.
+    }
+    connected = false;
+    hubLive = false;
+    if (controller.signal.aborted) return;
+    subs.forEach((sub) => sub.state(false));
+    retry = window.setTimeout(connect, delay);
+    delay = Math.min(delay * 2, MAX_RETRY_MS);
+  };
+  void connect();
+  return {
+    stop() {
+      controller.abort();
+      window.clearTimeout(retry);
+      hubLive = false;
+    }
+  };
+}
+
 /**
- * One live connection to the Coordinator. `version` goes up on every event, so screens can refetch
- * with it. `sync` goes up only when everything may be stale (the stream (re)connected, the tab came
- * back, or a poll while the stream is down), for lists that otherwise refetch on their own event kinds.
- * Reconnects with a growing delay when the stream drops; `live` is true while connected.
+ * The live connection to the Coordinator (shared by every screen mounted at once). `version` goes up on every
+ * event, so screens can refetch with it. `sync` goes up only when everything may be stale (the stream
+ * (re)connected, the tab came back, or a poll while the stream is down), for lists that otherwise refetch on
+ * their own event kinds. Reconnects with a growing delay when the stream drops; `live` is true while connected.
  */
 export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { version: number; sync: number; live: boolean } {
   const [version, setVersion] = useState(0);
   const [sync, setSync] = useState(0);
-  const [live, setLive] = useState(false);
+  const [live, setLive] = useState(hubLive);
   const onEvent = useRef(opts.onEvent);
   useEffect(() => {
     onEvent.current = opts.onEvent;
   }, [opts.onEvent]);
 
   useEffect(() => {
-    let alive = true;
-    const controller = new AbortController();
-    let connected = false;
-    let retry: number | undefined;
-    let delay = FIRST_RETRY_MS;
-
-    const connect = async () => {
-      try {
-        await streamEvents(
-          '/coordinator/stream',
-          (event, data) => {
-            if (!connected) {
-              connected = true;
-              delay = FIRST_RETRY_MS;
-              setLive(true);
-              // Anything missed while the stream was down.
-              setVersion((v) => v + 1);
-              setSync((v) => v + 1);
-            }
-            if (event !== 'coordinator') return;
-            setVersion((v) => v + 1);
-            try {
-              onEvent.current?.(JSON.parse(data) as CoordinatorEvent);
-            } catch {
-              // A malformed event is skipped; the version bump already refreshes the screens.
-            }
-          },
-          controller.signal
-        );
-      } catch {
-        // Falls through to the reconnect below.
-      }
-      connected = false;
-      if (alive) setLive(false);
-      if (controller.signal.aborted) return;
-      retry = window.setTimeout(connect, delay);
-      delay = Math.min(delay * 2, MAX_RETRY_MS);
+    const bumpAll = () => {
+      setVersion((v) => v + 1);
+      setSync((v) => v + 1);
     };
-    void connect();
+    const sub: StreamSub = {
+      event: (e, parsed) => {
+        setVersion((v) => v + 1);
+        if (parsed) onEvent.current?.(e);
+      },
+      caughtUp: bumpAll,
+      state: setLive
+    };
+    subs.add(sub);
+    if (!hub) hub = startHub();
 
     // A visible tab always catches up after being hidden.
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      setVersion((v) => v + 1);
-      setSync((v) => v + 1);
+      if (document.visibilityState === 'visible') bumpAll();
     };
     document.addEventListener('visibilitychange', onVisible);
     // While the stream is down, poll so the lists still catch up.
     const poll = window.setInterval(() => {
-      if (connected || document.visibilityState !== 'visible') return;
-      setVersion((v) => v + 1);
-      setSync((v) => v + 1);
+      if (hubLive || document.visibilityState !== 'visible') return;
+      bumpAll();
     }, FALLBACK_POLL_MS);
 
     return () => {
       window.clearInterval(poll);
-      alive = false;
-      controller.abort();
-      window.clearTimeout(retry);
       document.removeEventListener('visibilitychange', onVisible);
+      subs.delete(sub);
+      if (subs.size === 0) {
+        hub?.stop();
+        hub = null;
+      }
     };
   }, []);
 

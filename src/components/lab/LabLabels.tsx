@@ -54,6 +54,12 @@ export const LabLabels: React.FC<LabLabelsProps> = ({ requestId, requestNumber, 
     };
   }, [requestId]);
 
+  // The print rule hides the rest of the page only while the label sheet is mounted.
+  useEffect(() => {
+    document.body.classList.add('lab-printing');
+    return () => document.body.classList.remove('lab-printing');
+  }, []);
+
   useEffect(() => {
     boxRef.current?.querySelector<HTMLElement>('button.btn-primary, button')?.focus();
     return () => {

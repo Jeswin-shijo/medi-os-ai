@@ -13,12 +13,28 @@ const MAX_MIN = 4320;
 type TargetDraft = Record<string, { stat: string; routine: string }>;
 const targetDraft = (t: LabTargets): TargetDraft => Object.fromEntries(Object.entries(t).map(([k, v]) => [k, { stat: String(v.stat), routine: String(v.routine) }]));
 
+/** A load error with a Try again button; while loading, the loading words. */
+const LoadState: React.FC<{ error: string | null; loading: string; onRetry(): void }> = ({ error, loading, onRetry }) => (
+  <p className="data-empty" role={error ? 'alert' : undefined}>
+    {error ?? loading}
+    {error && (
+      <>
+        {' '}
+        <button type="button" className="btn-secondary btn-sm" onClick={onRetry}>
+          Try again
+        </button>
+      </>
+    )}
+  </p>
+);
+
 const TargetsCard: React.FC<{ catalogue: LabCatalogue }> = ({ catalogue }) => {
   const { showToast } = useApp();
   const [values, setValues] = useState<TargetDraft | null>(null);
   const [saved, setSaved] = useState<TargetDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tries, setTries] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -33,14 +49,10 @@ const TargetsCard: React.FC<{ catalogue: LabCatalogue }> = ({ catalogue }) => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tries]);
 
   if (!values || !saved) {
-    return (
-      <p className="data-empty" role={error ? 'alert' : undefined}>
-        {error ?? 'Loading targets…'}
-      </p>
-    );
+    return <LoadState error={error} loading="Loading targets…" onRetry={() => { setError(null); setTries((n) => n + 1); }} />;
   }
   const changedKeys = Object.keys(values).filter((k) => values[k].stat !== saved[k]?.stat || values[k].routine !== saved[k]?.routine);
   const edit = (test: string, side: 'stat' | 'routine', v: string) => {
@@ -90,9 +102,9 @@ const TargetsCard: React.FC<{ catalogue: LabCatalogue }> = ({ catalogue }) => {
             <span className="ls-row-name">{t.label}</span>
             <span className="ls-inputs">
               <label htmlFor={`lt-${t.key}-stat`}>STAT</label>
-              <input id={`lt-${t.key}-stat`} className="input-field" type="number" inputMode="numeric" min={1} max={MAX_MIN} step={1} value={values[t.key]?.stat ?? ''} onChange={(e) => edit(t.key, 'stat', e.target.value)} />
+              <input id={`lt-${t.key}-stat`} aria-label={`${t.label} STAT target minutes`} className="input-field" type="number" inputMode="numeric" min={1} max={MAX_MIN} step={1} value={values[t.key]?.stat ?? ''} onChange={(e) => edit(t.key, 'stat', e.target.value)} />
               <label htmlFor={`lt-${t.key}-routine`}>Routine</label>
-              <input id={`lt-${t.key}-routine`} className="input-field" type="number" inputMode="numeric" min={1} max={MAX_MIN} step={1} value={values[t.key]?.routine ?? ''} onChange={(e) => edit(t.key, 'routine', e.target.value)} />
+              <input id={`lt-${t.key}-routine`} aria-label={`${t.label} Routine target minutes`} className="input-field" type="number" inputMode="numeric" min={1} max={MAX_MIN} step={1} value={values[t.key]?.routine ?? ''} onChange={(e) => edit(t.key, 'routine', e.target.value)} />
               min
             </span>
           </li>
@@ -123,6 +135,7 @@ const LimitsCard: React.FC<{ catalogue: LabCatalogue }> = ({ catalogue }) => {
   const [saved, setSaved] = useState<LimitDraft>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tries, setTries] = useState(0);
 
   const load = (l: LabLimits) => {
     setData(l);
@@ -138,14 +151,10 @@ const LimitsCard: React.FC<{ catalogue: LabCatalogue }> = ({ catalogue }) => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tries]);
 
   if (!data) {
-    return (
-      <p className="data-empty" role={error ? 'alert' : undefined}>
-        {error ?? 'Loading limits…'}
-      </p>
-    );
+    return <LoadState error={error} loading="Loading limits…" onRetry={() => { setError(null); setTries((n) => n + 1); }} />;
   }
   const get = (src: LimitDraft, key: string) => src[key] ?? { low: '', high: '' };
   const changedKeys = Object.keys({ ...saved, ...values }).filter((k) => get(values, k).low !== get(saved, k).low || get(values, k).high !== get(saved, k).high);
@@ -269,6 +278,7 @@ const fmt = (v: unknown): string => {
 const EscalationRule: React.FC = () => {
   const [rule, setRule] = useState<RuleView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     let alive = true;
     coordinatorService
@@ -278,16 +288,14 @@ const EscalationRule: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tries]);
   return (
     <section className="medios-card cs-card" aria-label="Escalation rule">
       <div className="card-header-row">
         <h3 className="card-title">Escalation</h3>
       </div>
       {!rule ? (
-        <p className="data-empty" role={error ? 'alert' : undefined}>
-          {error ?? 'Loading…'}
-        </p>
+        <LoadState error={error} loading="Loading…" onRetry={() => { setError(null); setTries((n) => n + 1); }} />
       ) : (
         <div className="es-rule">
           <span className="co-rule-text">
@@ -307,6 +315,7 @@ const EscalationRule: React.FC = () => {
 export const LabSettings: React.FC = () => {
   const [catalogue, setCatalogue] = useState<LabCatalogue | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
   useEffect(() => {
     let alive = true;
     labAgentService
@@ -316,14 +325,12 @@ export const LabSettings: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tries]);
   return (
     <div className="cs-wrap">
       <EscalationRule />
       {!catalogue ? (
-        <p className="data-empty" role={error ? 'alert' : undefined}>
-          {error ?? 'Loading the test list…'}
-        </p>
+        <LoadState error={error} loading="Loading the test list…" onRetry={() => { setError(null); setTries((n) => n + 1); }} />
       ) : (
         <div className="cols-2 es-pair">
           <TargetsCard catalogue={catalogue} />

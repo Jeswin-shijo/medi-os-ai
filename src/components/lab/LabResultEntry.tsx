@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ClipboardPen } from 'lucide-react';
 import { labAgentService } from '../../services';
 import { errorMessage } from '../../services/api';
@@ -37,6 +37,16 @@ export const LabResultEntry: React.FC<LabResultEntryProps> = ({ line, amend = fa
   const [tries, setTries] = useState(0);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries((line.initial ?? []).map((r) => [r.param, String(r.value)])));
   const [reason, setReason] = useState('');
+  // An optional note for a text result (blood culture: the organism), keyed by the text parameter.
+  const [comments, setComments] = useState<Record<string, string>>(() => Object.fromEntries((line.initial ?? []).filter((r) => r.comment).map((r) => [r.param, r.comment as string])));
+  const listRef = useRef<HTMLUListElement>(null);
+  /** Only a blood culture's text result takes an organism / comment. */
+  const hasComment = (p: { text: boolean }): boolean => p.text && line.test === 'blood-culture';
+
+  // Focus goes to the first field once the fields have loaded (the dialog's own focus trap stays).
+  useEffect(() => {
+    if (def) listRef.current?.querySelector<HTMLElement>('input, select')?.focus();
+  }, [def]);
 
   useEffect(() => {
     let alive = true;
@@ -76,7 +86,10 @@ export const LabResultEntry: React.FC<LabResultEntryProps> = ({ line, amend = fa
     if (!def || !complete || !reasonOk) return;
     const payload: Record<string, number | string> = {};
     for (const p of def.parameters) payload[p.name] = p.text ? values[p.name].trim() : Number(values[p.name]);
-    const ok = await run('save', () => (amend ? labAgentService.amend(line.lineId, payload, reason.trim()) : labAgentService.enterResults(line.lineId, payload)));
+    const notes: Record<string, string> = {};
+    for (const p of def.parameters) if (hasComment(p) && comments[p.name]?.trim()) notes[p.name] = comments[p.name].trim();
+    const extra = Object.keys(notes).length ? notes : undefined;
+    const ok = await run('save', () => (amend ? labAgentService.amend(line.lineId, payload, reason.trim(), extra) : labAgentService.enterResults(line.lineId, payload, extra)));
     if (!ok) return;
     onSaved();
     onClose();
@@ -111,7 +124,7 @@ export const LabResultEntry: React.FC<LabResultEntryProps> = ({ line, amend = fa
               <p className="data-empty">Loading the test…</p>
             )
           ) : (
-            <ul className="lab-entry">
+            <ul ref={listRef} className="lab-entry">
               {def.parameters.map((p) => {
                 const f = flags[p.name];
                 const unit = unitText(p.unit);
@@ -122,27 +135,63 @@ export const LabResultEntry: React.FC<LabResultEntryProps> = ({ line, amend = fa
                       {p.name}
                     </label>
                     <div className="lab-entry-field">
-                      <input
-                        id={id}
-                        className="input-field"
-                        type={p.text ? 'text' : 'number'}
-                        inputMode={p.text ? 'text' : 'decimal'}
-                        step={p.text ? undefined : 'any'}
-                        maxLength={p.text ? 200 : undefined}
-                        autoComplete="off"
-                        value={values[p.name] ?? ''}
-                        aria-describedby={`${id}-info`}
-                        onChange={(e) => {
-                          setError(null);
-                          setValues((v) => ({ ...v, [p.name]: e.target.value }));
-                        }}
-                      />
+                      {p.text && p.options?.length ? (
+                        <select
+                          id={id}
+                          className="form-select"
+                          value={p.options.find((o) => o.toLowerCase() === (values[p.name] ?? '').trim().toLowerCase()) ?? ''}
+                          aria-describedby={`${id}-info`}
+                          onChange={(e) => {
+                            setError(null);
+                            setValues((v) => ({ ...v, [p.name]: e.target.value }));
+                          }}
+                        >
+                          <option value="">Choose…</option>
+                          {p.options.map((o) => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          id={id}
+                          className="input-field"
+                          type={p.text ? 'text' : 'number'}
+                          inputMode={p.text ? 'text' : 'decimal'}
+                          step={p.text ? undefined : 'any'}
+                          maxLength={p.text ? 200 : undefined}
+                          autoComplete="off"
+                          value={values[p.name] ?? ''}
+                          aria-describedby={`${id}-info`}
+                          onChange={(e) => {
+                            setError(null);
+                            setValues((v) => ({ ...v, [p.name]: e.target.value }));
+                          }}
+                        />
+                      )}
                       {unit && <span className="lab-entry-unit">{unit}</span>}
                     </div>
                     <div id={`${id}-info`} className="lab-entry-info">
-                      <span className="er-hint">{p.text ? 'Nil, Negative or No growth is normal' : p.range ? `Range ${p.range}` : ''}</span>
+                      <span className="er-hint">{p.text ? `${p.range || 'Nil'} is normal` : p.range ? `Range ${p.range}` : ''}</span>
                       <span aria-live="polite">{f && <span className={`status-pill sm ${flagTone(f.flag, f.critical)}`}>{flagLabel(f.flag, f.critical)}</span>}</span>
                     </div>
+                    {hasComment(p) && (
+                      <div className="lab-entry-comment">
+                        <label className="form-label" htmlFor={`${id}-comment`}>
+                          Organism / comment (optional)
+                        </label>
+                        <input
+                          id={`${id}-comment`}
+                          className="input-field"
+                          maxLength={200}
+                          autoComplete="off"
+                          placeholder="For example: E. coli"
+                          value={comments[p.name] ?? ''}
+                          onChange={(e) => setComments((c) => ({ ...c, [p.name]: e.target.value }))}
+                        />
+                      </div>
+                    )}
                   </li>
                 );
               })}

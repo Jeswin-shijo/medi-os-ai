@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useLab } from '../../hooks/useLab';
 import { useLabWorklist } from '../../hooks/useLabWorklist';
-import { canAckLab, canBenchLab, canCollectLab, canOrderLab, canReadLab } from '../../utils/lab';
+import { LAB_TAB_KEY, canAckLab, canBenchLab, canCollectLab, canOrderLab, canReadLab } from '../../utils/lab';
 import type { LabRequestView } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
@@ -27,7 +27,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'critical', label: 'Critical' }
 ];
 
-const TAB_KEY = 'mediosLabTab';
+const TAB_KEY = LAB_TAB_KEY;
 const readTab = (): Tab => {
   try {
     const saved = sessionStorage.getItem(TAB_KEY);
@@ -140,7 +140,7 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
         ) : tab === 'orders' ? (
           <LabOrders refresh={lab.requests} onChanged={lab.reload} onPrint={printRequest} />
         ) : tab === 'collection' ? (
-          <LabCollection collection={lab.collection} error={lab.error} canCollect={canCollectLab(role)} onRetry={lab.reload} onChanged={lab.reload} />
+          <LabCollection collection={lab.collection} error={lab.error} canCollect={canCollectLab(role)} onRetry={lab.reload} onChanged={lab.reload} onPrint={(r) => setPrinting(r)} />
         ) : tab === 'processing' ? (
           <LabProcessing canBench={canBench} worklist={bench.worklist} error={bench.error} onRetry={bench.retry} onChanged={changed} />
         ) : tab === 'results' ? (
@@ -155,7 +155,11 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
           canPrint={canCollectLab(role)}
           onClose={() => setOrdering(false)}
           onOrdered={() => lab.reload()}
-          onPrint={printRequest}
+          onPrint={(r) => {
+            // The order dialog closes and the label sheet opens; Orders keeps its own Print labels button.
+            setOrdering(false);
+            printRequest(r);
+          }}
         />
       )}
       {printing && <LabLabels requestId={printing.id} requestNumber={printing.number} onClose={() => {

@@ -48,17 +48,10 @@ export const LabResults: React.FC<LabResultsProps> = ({ canBench, worklist, requ
     return out.sort((a, b) => realReleased(b.line) - realReleased(a.line));
   }, [requests, now]);
 
-  if (!canBench) {
-    return (
-      <section className="medios-card bagent-card lab-card" aria-label="Results">
-        <h3 className="card-title">Results</h3>
-        <p className="data-empty">Lab staff only. Results are validated and released by the lab.</p>
-      </section>
-    );
-  }
-
   return (
     <div className="bagent-overview lab-body">
+      {!canBench && <p className="er-hint lab-readonly">You can see the released results. The lab validates and amends them.</p>}
+      {canBench && (
       <section className="medios-card bagent-card lab-card" aria-label="Awaiting validation">
         <div className="card-header-row">
           <div className="bagent-title-group">
@@ -87,6 +80,7 @@ export const LabResults: React.FC<LabResultsProps> = ({ canBench, worklist, requ
           </ul>
         )}
       </section>
+      )}
 
       <section className="medios-card bagent-card lab-card" aria-label="Recently released">
         <div className="card-header-row">
@@ -112,6 +106,7 @@ export const LabResults: React.FC<LabResultsProps> = ({ canBench, worklist, requ
                       {l.version > 1 ? ' · amended' : ''}
                     </span>
                   </span>
+                  {canBench && (
                   <span className="lab-work-actions">
                     <button
                       type="button"
@@ -122,6 +117,7 @@ export const LabResults: React.FC<LabResultsProps> = ({ canBench, worklist, requ
                       Amend
                     </button>
                   </span>
+                  )}
                 </div>
                 <LabResultValues results={l.results} />
               </li>
@@ -170,6 +166,7 @@ const ValidateRow: React.FC<{ line: LabWorklistLine; onChanged(): void }> = ({ l
             {l.enteredAt ? ` at ${displayTime(new Date(l.enteredAt))}` : ''}
           </span>
         </span>
+        {l.amendment && <span className="status-pill sm orange">Amended</span>}
         {l.critical && (
           <span className="status-pill sm red lab-delayed">
             <AlertTriangle size={12} aria-hidden="true" />
@@ -178,7 +175,12 @@ const ValidateRow: React.FC<{ line: LabWorklistLine; onChanged(): void }> = ({ l
         )}
         <span className={`status-pill sm ${PRIORITY_TONE[l.priority]}`}>{PRIORITY_LABEL[l.priority]}</span>
       </div>
-      <LabResultValues results={l.results} />
+      {l.amendment && (
+        <p className="lab-sentback">
+          <strong>Amendment:</strong> {l.amendment.reason}
+        </p>
+      )}
+      <LabResultValues results={l.results} previous={l.amendment?.previous} />
       {!sending && (
         <div className="lab-work-foot">
           <span {...(own ? { 'data-tip': 'Someone else must validate this result' } : {})}>

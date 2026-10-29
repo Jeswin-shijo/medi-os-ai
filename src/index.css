@@ -4075,6 +4075,8 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .lab-readonly { margin: 0 0 8px; }
 .lab-loc { margin-top: 12px; }
 .lab-loc-title { margin: 0 0 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.lab-later-toggle { display: inline-flex; align-items: center; gap: 4px; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; padding: 2px 0; }
+.lab-tag { margin-left: 6px; }
 .lab-coll { display: flex; flex-direction: column; gap: 8px; }
 .lab-coll-req { border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 12px; min-width: 0; }
 .lab-coll-head .btn-sm { margin-left: auto; }
@@ -4099,7 +4101,7 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .lab-label-foot { color: #333; font-size: 10px; flex-wrap: wrap; }
 @media print {
   @page { margin: 8mm; }
-  body > *:not(.lab-print-root) { display: none !important; }
+  body.lab-printing > *:not(.lab-print-root) { display: none !important; }
   .lab-print-root { position: static !important; inset: auto !important; background: none !important; backdrop-filter: none !important; padding: 0 !important; display: block !important; animation: none !important; }
   .lab-print-root .modal-content-box { position: static !important; max-width: none !important; width: auto !important; max-height: none !important; box-shadow: none !important; border: 0 !important; background: none !important; overflow: visible !important; animation: none !important; transform: none !important; }
   .lab-print-root .admit-body { overflow: visible !important; padding: 0 !important; }
@@ -4129,6 +4131,10 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .lab-entry-name { margin: 0; }
 .lab-entry-field { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .lab-entry-field .input-field { flex: 1 1 auto; min-width: 0; }
+.lab-entry-field .form-select { flex: 1 1 auto; min-width: 0; }
+.lab-entry-comment { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.lab-was { color: var(--text-secondary); font-size: var(--fs-sm); }
+.lab-comment { color: var(--text-secondary); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .lab-entry-unit { flex: none; color: var(--text-secondary); font-size: var(--fs-sm); white-space: nowrap; }
 .lab-entry-info { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; min-height: 22px; }
 .lab-entry-info .status-pill { white-space: nowrap; }
