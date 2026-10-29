@@ -360,15 +360,15 @@ export const LabReportsScreen: React.FC = () => {
         {/* Center: report detail */}
         <div className="medios-card" style={{ padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <h3 style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '-0.01em' }}>{currentReport.testName}</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>
-                <span>{currentReport.date} | {currentReport.time}</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px', marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>
+                <span style={{ whiteSpace: 'nowrap' }}>{currentReport.date} | {currentReport.time}</span>
                 <span className={`status-pill ${currentReport.status === 'Abnormal' ? 'red' : 'green'}`} style={{ height: 19, fontSize: 'var(--fs-xs)' }}>
                   {currentReport.status}
                 </span>
                 {currentReport.amended && (
-                  <span className="status-pill orange" style={{ height: 19, fontSize: 'var(--fs-xs)' }}>
+                  <span className="status-pill orange" style={{ height: 19, fontSize: 'var(--fs-xs)', whiteSpace: 'nowrap' }}>
                     Amended{currentReport.amendedAt ? ` ${currentReport.amendedAt}` : ''}
                   </span>
                 )}
