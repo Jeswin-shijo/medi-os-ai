@@ -34,6 +34,7 @@ import { MessagesScreen } from './components/screens/MessagesScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 import { CoordinatorScreen } from './components/screens/CoordinatorScreen';
 import { ErAgentScreen } from './components/screens/ErAgentScreen';
+import { LabAgentScreen } from './components/screens/LabAgentScreen';
 import { AgentPlaceholderScreen } from './components/screens/AgentPlaceholderScreen';
 import { LoginScreen } from './components/screens/LoginScreen';
 
@@ -61,7 +62,7 @@ const MainLayout: React.FC = () => {
       case 'er-agent':
         return <ErAgentScreen />;
       case 'lab-agent':
-        return <AgentPlaceholderScreen agent="lab" />;
+        return <LabAgentScreen />;
       case 'pharmacy-agent':
         return <AgentPlaceholderScreen agent="pharmacy" />;
       case 'discharge-agent':

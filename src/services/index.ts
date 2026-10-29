@@ -55,6 +55,20 @@ import {
   CoordinatorMessageQuery,
   CoordinatorOverview,
   ErBoard,
+  LabCatalogue,
+  LabCollectionItem,
+  LabCriticalRow,
+  LabLimits,
+  LabOrderInput,
+  LabOverview,
+  LabRequestQuery,
+  LabRequestView,
+  LabSampleLabel,
+  LabSeriesPoint,
+  LabTargets,
+  LabWorklist,
+  LabArea,
+  LabRejectReason,
   ErOverview,
   ErSeriesPoint,
   ErBay,
@@ -473,4 +487,37 @@ export const erService = {
   disposition: (id: string, kind: ErDispositionKind, notes?: string) => api<ErVisit>(`/er/visits/${enc(id)}/disposition`, { method: 'POST', body: { kind, notes } }),
   handoverDraft: (id: string) => api<{ text: string; sample: boolean }>(`/er/visits/${enc(id)}/handover-draft`),
   saveHandover: (id: string, note: string) => api<ErVisit>(`/er/visits/${enc(id)}/handover`, { method: 'PUT', body: { note } })
+};
+
+// The Lab Agent (named apart from `labService` above, which reads a patient's lab reports).
+export const labAgentService = {
+  catalogue: () => api<LabCatalogue>('/lab/catalogue'),
+  overview: () => api<LabOverview>('/lab/overview'),
+  /** Hourly counts, oldest first. */
+  snapshots: (range: SnapshotRange) => api<{ range: SnapshotRange; points: LabSeriesPoint[] }>(`/lab/snapshots?range=${range}`),
+  requests: (q: LabRequestQuery = {}) => api<{ requests: LabRequestView[] }>('/lab/requests', { query: { ...q } }).then((r) => r.requests),
+  request: (id: string) => api<LabRequestView>(`/lab/requests/${enc(id)}`),
+  labels: (id: string) => api<{ labels: LabSampleLabel[] }>(`/lab/requests/${enc(id)}/labels`).then((r) => r.labels),
+  patientRequests: (patientId: string) => api<{ requests: LabRequestView[] }>(`/lab/patients/${enc(patientId)}/requests`).then((r) => r.requests),
+  /** Admin and doctor. A repeat order answers with two requests. */
+  order: (body: LabOrderInput) => api<{ requests: LabRequestView[] }>('/lab/requests', { method: 'POST', body }).then((r) => r.requests),
+  cancelLine: (lineId: string, reason: string) => api<LabRequestView>(`/lab/lines/${enc(lineId)}/cancel`, { method: 'POST', body: { reason } }),
+  notCollected: (requestId: string, reason: string) => api<LabRequestView>(`/lab/requests/${enc(requestId)}/not-collected`, { method: 'POST', body: { reason } }),
+  collection: (area?: LabArea) => api<{ samples: LabCollectionItem[] }>('/lab/collection', { query: { area } }).then((r) => r.samples),
+  collect: (sampleNumber: string) => api<{ ok: boolean }>('/lab/samples/collect', { method: 'POST', body: { sampleNumber } }),
+  receive: (sampleId: string) => api<{ ok: boolean }>(`/lab/samples/${enc(sampleId)}/receive`, POST),
+  reject: (sampleId: string, reason: LabRejectReason, note?: string) => api<{ ok: boolean }>(`/lab/samples/${enc(sampleId)}/reject`, { method: 'POST', body: { reason, note } }),
+  worklist: () => api<LabWorklist>('/lab/worklist'),
+  enterResults: (lineId: string, values: Record<string, number | string>) => api<{ ok: boolean }>(`/lab/lines/${enc(lineId)}/results`, { method: 'PUT', body: { values } }),
+  sendBack: (lineId: string, reason: string) => api<{ ok: boolean }>(`/lab/lines/${enc(lineId)}/send-back`, { method: 'POST', body: { reason } }),
+  release: (lineId: string) => api<{ ok: boolean }>(`/lab/lines/${enc(lineId)}/release`, POST),
+  amend: (lineId: string, values: Record<string, number | string>, reason: string) => api<{ ok: boolean }>(`/lab/lines/${enc(lineId)}/amend`, { method: 'POST', body: { values, reason } }),
+  critical: () => api<{ critical: LabCriticalRow[] }>('/lab/critical').then((r) => r.critical),
+  acknowledge: (lineId: string, note?: string) => api<{ ok: boolean }>(`/lab/lines/${enc(lineId)}/acknowledge`, { method: 'POST', body: { note } }),
+  targets: () => api<{ targets: LabTargets }>('/lab/targets').then((r) => r.targets),
+  /** Admin only: an object of "<test>": { stat, routine }. Answers with the saved targets. */
+  saveTargets: (targets: Partial<Record<string, { stat?: number; routine?: number }>>) => api<{ targets: LabTargets }>('/lab/targets', { method: 'PUT', body: targets }).then((r) => r.targets),
+  limits: () => api<LabLimits>('/lab/limits'),
+  /** Admin only: an object of "<test>.<parameter>": { low, high } (null clears a side). */
+  saveLimits: (limits: Record<string, { low?: number | null; high?: number | null }>) => api<LabLimits>('/lab/limits', { method: 'PUT', body: limits })
 };

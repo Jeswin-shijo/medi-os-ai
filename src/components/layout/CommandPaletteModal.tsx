@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { AiSparkle, Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
+import { canReadLab } from '../../utils/lab';
 
 interface ModuleItem {
   id: ScreenId;
@@ -57,7 +58,7 @@ const MODULES: ModuleItem[] = [
   { id: 'coordinator', label: 'Coordinator Agent', hint: 'Cases, clocks & approvals', icon: Network },
   { id: 'er-agent', label: 'ER Agent', hint: 'Not built yet', icon: Siren },
   { id: 'bed-agent', label: 'Bed Agent', hint: 'Bed requests & allocation', icon: Bot },
-  { id: 'lab-agent', label: 'Lab Agent', hint: 'Not built yet', icon: FlaskRound },
+  { id: 'lab-agent', label: 'Lab Agent', hint: 'Orders, samples & results', icon: FlaskRound },
   { id: 'pharmacy-agent', label: 'Pharmacy Agent', hint: 'Not built yet', icon: Pill },
   { id: 'discharge-agent', label: 'Discharge Agent', hint: 'Not built yet', icon: CalendarCheck2 },
   { id: 'scheduling-agent', label: 'Scheduling Agent', hint: 'Not built yet', icon: CalendarClock },
@@ -85,7 +86,8 @@ const MODULES: ModuleItem[] = [
 
 /** Pharmacists and lab staff have no access to the bed pages or the AI Agents (as the sidebar and the API). */
 const AGENT_SCREENS: ScreenId[] = ['beds', 'bed-agent', 'coordinator', 'er-agent', 'lab-agent', 'pharmacy-agent', 'discharge-agent', 'scheduling-agent', 'revenue-agent', 'patient-support-agent'];
-const hiddenFor = (id: ScreenId, role?: string) => AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab');
+const hiddenFor = (id: ScreenId, role?: string) =>
+  id === 'lab-agent' ? !canReadLab(role ?? '') : AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab');
 
 type Entry =
   | { kind: 'ai' }

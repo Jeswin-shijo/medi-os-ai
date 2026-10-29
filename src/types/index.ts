@@ -1088,7 +1088,7 @@ export const AGENT_LIST: AgentInfo[] = [
     job: 'Turns test orders into sample tasks, tracks turnaround, delivers results, reports critical values, times repeat tests',
     owns: 'Lab orders and results',
     neverDoes: 'Interpret a result for the doctor',
-    built: false
+    built: true
   },
   {
     key: 'pharmacy',
@@ -1495,3 +1495,210 @@ export interface ErTriageSuggestion {
   explanation: string;
   sample: boolean;
 }
+
+// ----- Lab Agent: mirrors the backend views field by field -----
+
+export type LabPriority = 'stat' | 'urgent' | 'routine';
+export type LabArea = 'ER' | 'Ward' | 'OPD';
+export type LabLineStatus = 'ordered' | 'collected' | 'received' | 'awaiting-validation' | 'released' | 'cancelled';
+export type LabRejectReason = 'haemolysed' | 'clotted' | 'wrong-tube' | 'unlabelled' | 'insufficient' | 'other';
+export type LabCardKey = 'ordersToday' | 'samplesCollected' | 'inProcessing' | 'resultsCompleted' | 'criticalResults';
+
+export interface LabResultRow {
+  param: string;
+  value: string | number;
+  unit: string;
+  flag: 'normal' | 'low' | 'high' | 'abnormal';
+  critical: boolean;
+}
+
+export interface LabLineView {
+  id: string;
+  test: string;
+  label: string;
+  status: LabLineStatus;
+  tatDueAt: string;
+  results: LabResultRow[];
+  version: number;
+  enteredAt: string | null;
+  releasedAt: string | null;
+  cancelled: { by: string; reason: string; at: string } | null;
+  critical: { active: boolean; ackBy: string | null; ackAt: string | null; ackNote: string | null } | null;
+}
+
+export interface LabSampleView {
+  id: string;
+  number: string;
+  tube: string;
+  tubeLabel: string;
+  lines: string[];
+  status: string;
+  collectBy: string;
+  collected: { by: string; at: string } | null;
+  received: { by: string; at: string } | null;
+  rejected: { by: string; reason: string; note: string; at: string } | null;
+}
+
+export interface LabRequestView {
+  id: string;
+  number: string;
+  patientId: string;
+  patientUhid: string;
+  patientName: string;
+  caseId: string;
+  orderedBy: { id: string; name: string };
+  priority: LabPriority;
+  note: string;
+  orderedAt: string;
+  collectBy: string;
+  repeatOf: string | null;
+  scheduledFor: string | null;
+  location: { area: LabArea; ward?: string };
+  lines: LabLineView[];
+  samples: LabSampleView[];
+  done: boolean;
+}
+
+export interface LabRequestQuery {
+  status?: 'open' | 'done';
+  search?: string;
+  area?: LabArea;
+}
+
+export interface LabSampleLabel {
+  sampleNumber: string;
+  tubeLabel: string;
+  tests: string[];
+  patientUhid: string;
+  requestNumber: string;
+  priority: LabPriority;
+  orderedAt: string;
+}
+
+export interface LabCollectionItem {
+  sampleId: string;
+  sampleNumber: string;
+  tube: string;
+  tubeLabel: string;
+  tests: string[];
+  requestId: string;
+  requestNumber: string;
+  priority: LabPriority;
+  patientName: string;
+  patientUhid: string;
+  location: { area: LabArea; ward?: string };
+  collectBy: string;
+  overdue: boolean;
+}
+
+export interface LabWorklistSample {
+  sampleId: string;
+  sampleNumber: string;
+  tube: string;
+  tubeLabel: string;
+  tests: string[];
+  requestId: string;
+  requestNumber: string;
+  priority: LabPriority;
+  patientName: string;
+  patientUhid: string;
+  collectedAt: string | null;
+  collectedBy: string | null;
+}
+
+export interface LabWorklistLine {
+  lineId: string;
+  test: string;
+  label: string;
+  requestId: string;
+  requestNumber: string;
+  priority: LabPriority;
+  patientName: string;
+  patientUhid: string;
+  tatDueAt: string;
+  results: LabResultRow[];
+  critical: boolean;
+  enteredBy: { name: string } | null;
+  enteredAt: string | null;
+  sentBack: { by: string; reason: string; at: string } | null;
+}
+
+export interface LabWorklist {
+  toReceive: LabWorklistSample[];
+  toEnter: LabWorklistLine[];
+  toValidate: LabWorklistLine[];
+  sentBack: LabWorklistLine[];
+}
+
+export interface LabCatalogueTest {
+  key: string;
+  label: string;
+  tube: string;
+  tubeLabel: string;
+  category: string;
+  parameters: { name: string; unit: string; low: number | null; high: number | null; text: boolean; range: string }[];
+  targets: { stat: number; routine: number };
+}
+
+export interface LabCatalogue {
+  tests: LabCatalogueTest[];
+  priorities: { key: LabPriority; collectWithinMinutes: number }[];
+  tubes: { key: string; label: string }[];
+  rejectionReasons: LabRejectReason[];
+}
+
+export interface LabOrderInput {
+  patientId: string;
+  tests: string[];
+  priority: LabPriority;
+  note?: string;
+  repeatAfterHours?: number;
+}
+
+export type LabTargets = Record<string, { stat: number; routine: number }>;
+export type LabLimit = { low?: number; high?: number; anyAbnormalText?: true };
+export interface LabLimits {
+  limits: Record<string, LabLimit>;
+  history: { by: string; at: string; changes: { key: string; from: unknown; to: unknown }[] }[];
+}
+
+export interface LabTatRow {
+  test: string;
+  label: string;
+  count: number;
+  avgMin: number | null;
+  targetMin: number;
+  onTime: boolean | null;
+}
+
+export interface LabCriticalRow {
+  lineId: string;
+  requestNumber: string;
+  test: string;
+  label: string;
+  parameter: string;
+  value: string;
+  unit: string;
+  orderedBy: string;
+  releasedAt: string | null;
+  ackBy: string | null;
+  ackAt: string | null;
+  /** From the running critical clock; null once acknowledged. */
+  dueAt: string | null;
+}
+
+export interface LabOverview {
+  at: string;
+  cards: Record<LabCardKey, StatCardData>;
+  tatByTest: LabTatRow[];
+  performance: {
+    avgTatMin: number | null;
+    onTimePct: number | null;
+    collectionOnTimePct: number | null;
+    rejectionRate: number | null;
+    ordersByHour: number[];
+  };
+  critical: LabCriticalRow[];
+}
+
+export type LabSeriesPoint = { at: string } & Record<LabCardKey, number | null>;

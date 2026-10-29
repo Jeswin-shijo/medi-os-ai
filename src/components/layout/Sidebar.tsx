@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
+import { canReadLab } from '../../utils/lab';
 
 /** The bed pages, and the roles that cannot open them (as the API). */
 const BED_SCREENS: ScreenId[] = ['beds'];
@@ -45,7 +46,7 @@ const AGENT_NAV: { id: ScreenId; label: string; icon: LucideIcon; built: boolean
   { id: 'coordinator', label: 'Coordinator Agent', icon: Network, built: true },
   { id: 'er-agent', label: 'ER Agent', icon: Siren, built: true },
   { id: 'bed-agent', label: 'Bed Agent', icon: Bot, built: true },
-  { id: 'lab-agent', label: 'Lab Agent', icon: FlaskRound, built: false },
+  { id: 'lab-agent', label: 'Lab Agent', icon: FlaskRound, built: true },
   { id: 'pharmacy-agent', label: 'Pharmacy Agent', icon: Pill, built: false },
   { id: 'discharge-agent', label: 'Discharge Agent', icon: CalendarCheck2, built: false },
   { id: 'scheduling-agent', label: 'Scheduling Agent', icon: CalendarClock, built: false },
@@ -91,7 +92,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       return !c;
     });
   };
-  const showAgents = !NO_BED_ACCESS.includes(user?.role ?? '');
+  const role = user?.role ?? '';
+  // Pharmacists and lab staff see only the Lab Agent in the group; front desk does not see it.
+  const agentItems = AGENT_NAV.filter((a) => (a.id === 'lab-agent' ? canReadLab(role) : !NO_BED_ACCESS.includes(role)));
+  const showAgents = agentItems.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -157,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
           <ChevronDown className="nav-group-chevron" size={16} strokeWidth={2} aria-hidden="true" />
         </button>
         <div id="nav-agents-list" className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`}>
-          {AGENT_NAV.map((a) => renderItem({ id: a.id, label: a.label, icon: a.icon, soon: !a.built }, activeScreen === a.id))}
+          {agentItems.map((a) => renderItem({ id: a.id, label: a.label, icon: a.icon, soon: !a.built }, activeScreen === a.id))}
         </div>
       </div>
     );
@@ -179,7 +183,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       <nav className="sidebar-nav" ref={navRef}>
         {navItems.map((item) => {
           const isActive = activeScreen === item.id;
-          const group = item.id === 'beds' ? renderGroup() : null;
+          // The group follows Beds & Rooms; roles without that item get it after the Token Queue.
+          const group = item.id === (NO_BED_ACCESS.includes(role) ? 'queue' : 'beds') ? renderGroup() : null;
           return (
             <React.Fragment key={item.id}>
               {renderItem(item, isActive)}
