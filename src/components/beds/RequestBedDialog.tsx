@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BedDouble, X } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
@@ -17,6 +17,8 @@ interface RequestBedDialogProps {
   initialValues?: { priority?: BedRequestPriority; department?: string; doctor?: string; notes?: string };
   /** Move an admitted patient out of this bed: pre-filled from the admission. */
   transferFrom?: { bedId: string; admission: BedAdmission };
+  /** Keep the patient field fixed to `initialPatient` (the ER admit: the bed must go to this visit's patient). */
+  lockPatient?: boolean;
   onClose(): void;
   /** Called once the request is sent; the Bed Agent takes it from there. */
   onSubmitted(request: BedRequest): void;
@@ -25,7 +27,7 @@ interface RequestBedDialogProps {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** One short form: who, the needs and a priority. The Bed Agent picks the bed, with no one to approve it. */
-export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, initialPatient, initialValues, transferFrom, onClose, onSubmitted }) => {
+export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, initialPatient, initialValues, lockPatient, transferFrom, onClose: requestClose, onSubmitted }) => {
   const { patients } = useApp();
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,14 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
   );
   const [priority, setPriority] = useState<BedRequestPriority>(initialValues?.priority ?? 'medium');
   const [busy, setBusy] = useState(false);
+  // While the request is being sent the dialog stays open: Escape, the backdrop and Cancel wait.
+  const busyRef = useRef(false);
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+  const onClose = useCallback(() => {
+    if (!busyRef.current) requestClose();
+  }, [requestClose]);
   const [error, setError] = useState<string | null>(null);
   /** The control that opened the dialog, read during the first render: before autoFocus moves focus into the dialog. */
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
@@ -107,6 +117,8 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
 
   const fixedPatient = moving
     ? { name: moving.patient.name, detail: `${moving.patient.uhid} · ${moving.patient.age} yrs · ${moving.patient.gender}` }
+    : lockPatient && initialPatient
+      ? { name: initialPatient.name ?? selected?.name ?? initialPatient.uhid, detail: `${initialPatient.uhid}${(selected?.age ?? initialPatient.age) !== undefined ? ` · ${selected?.age ?? initialPatient.age} yrs` : ''}${selected?.gender ? ` · ${selected.gender}` : ''}` }
     : patient
       ? { name: patient.name, detail: `${patient.uhid} · ${patient.age} yrs · ${patient.gender}` }
       : !selected && initialPatient?.name && form.patientId === initialPatient.id
@@ -133,7 +145,7 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
         priority
       });
       onSubmitted(request);
-      onClose();
+      requestClose();
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -148,7 +160,7 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
             <BedDouble size={18} color="var(--blue-text)" aria-hidden="true" />
             {transferFrom ? 'Transfer patient' : 'Admit patient'}
           </h3>
-          <button type="button" onClick={onClose} style={{ color: 'var(--text-muted)' }} aria-label="Close">
+          <button type="button" onClick={onClose} disabled={busy} style={{ color: 'var(--text-muted)' }} aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -174,7 +186,7 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
             </p>
           )}
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={busy}>

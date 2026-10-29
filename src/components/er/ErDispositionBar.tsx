@@ -30,6 +30,7 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
   /** A bed request that was made but whose "admitted" mark failed: retry marks it without a second request. */
   const [markFailed, setMarkFailed] = useState<{ request: BedRequest; message: string } | null>(null);
   const [marking, setMarking] = useState(false);
+  const [wrongPatient, setWrongPatient] = useState<string | null>(null);
 
   const done = visit.disposition;
   if (done || visit.status === 'left') {
@@ -73,6 +74,12 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
   };
 
   const onRequestSent = (request: BedRequest) => {
+    if (request.patientId !== visit.patientId) {
+      setMarkFailed(null);
+      setWrongPatient(`The bed request was made for ${request.patientName}, not for ${visit.patientName}. This ER visit was not marked as admitted.`);
+      follow(request);
+      return;
+    }
     void (async () => {
       await markAdmitted(request);
       follow(request);
@@ -141,6 +148,11 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
           </div>
         </div>
       )}
+      {wrongPatient && (
+        <p className="er-error" role="alert">
+          {wrongPatient}
+        </p>
+      )}
       {error && (
         <p className="er-error" role="alert">
           {error}
@@ -155,6 +167,7 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
             notes: admitForm.notes,
             doctor: user?.role === 'doctor' ? user.name : undefined
           }}
+          lockPatient
           onClose={() => setAdmitForm(null)}
           onSubmitted={onRequestSent}
         />

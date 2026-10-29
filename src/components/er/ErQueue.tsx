@@ -70,13 +70,11 @@ export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, onRetry, compla
       ) : shown.length === 0 ? (
         <p className="data-empty">{sorted.length ? 'Nobody in the ER at this colour.' : 'Nobody is in the ER. New arrivals show up here.'}</p>
       ) : (
-        <div className="table-scroll" style={tableMin(760)}>
+        <div className="table-scroll" style={tableMin(560)}>
           <table className="data-table er-table">
             <thead>
               <tr>
-                <th scope="col">Time</th>
                 <th scope="col">Patient</th>
-                <th scope="col">Age/sex</th>
                 <th scope="col">Complaint</th>
                 <th scope="col">Triage</th>
                 <th scope="col">Status</th>
@@ -91,15 +89,17 @@ export const ErQueue: React.FC<ErQueueProps> = ({ visits, error, onRetry, compla
                 const selected = v.id === selectedId;
                 return (
                   <tr key={v.id} className={`er-row${selected ? ' selected' : ''}${late ? ' is-late' : ''}`} onClick={() => onSelect(v)}>
-                    <td className="er-time">{displayTime(new Date(v.arrivedAt))}</td>
                     <td>
                       <button type="button" className="er-select" aria-pressed={selected} onClick={(e) => { e.stopPropagation(); onSelect(v); }}>
                         <span className="er-name">{v.patientName}</span>
                         {v.detailsPending && <span className="status-pill sm gray er-pending">Details pending</span>}
-                        {!v.detailsPending && <span className="er-sub">{v.patientUhid}</span>}
+                        <span className="er-sub">
+                          {displayTime(new Date(v.arrivedAt))}
+                          {ageSex(v) !== '—' ? ` · ${ageSex(v)}` : ''}
+                          {!v.detailsPending ? ` · ${v.patientUhid}` : ''}
+                        </span>
                       </button>
                     </td>
-                    <td>{ageSex(v)}</td>
                     <td className="er-complaint">{v.complaintText || complaintLabels[v.complaint] || v.complaint}</td>
                     <td>
                       {v.colour ? <span className={`tri-pill ${v.colour}`}>{COLOUR_LABEL[v.colour]}</span> : <span className="tri-pill none">Not triaged</span>}

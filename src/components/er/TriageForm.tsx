@@ -106,6 +106,8 @@ export const TriageForm: React.FC<TriageFormProps> = ({ visit, complaints, onDon
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputKey]);
 
+  // Invalid readings stop any check in flight, so it cannot show as still running.
+  const showChecking = checking && problemCount === 0;
   const lower = colour !== null && suggestion !== null && COLOUR_RANK[colour] > COLOUR_RANK[suggestion.colour];
   const canSave = !!complaint && !!colour && problemCount === 0 && (!lower || reason.trim().length > 0);
 
@@ -175,12 +177,12 @@ export const TriageForm: React.FC<TriageFormProps> = ({ visit, complaints, onDon
         </div>
       </div>
 
-      <div className="er-suggest" aria-live="polite" aria-busy={checking}>
+      <div className="er-suggest" aria-live="polite" aria-busy={showChecking}>
         <div className="er-suggest-head">
           <span className="form-label" style={{ margin: 0 }}>Suggested colour</span>
           {suggestion && <span className={`tri-pill ${suggestion.colour}`}>{COLOUR_LABEL[suggestion.colour]}</span>}
           {suggestion?.sample && <SampleBadge />}
-          {checking && <span className="er-hint">Checking…</span>}
+          {showChecking && <span className="er-hint">Checking…</span>}
         </div>
         {suggestError && <p className="er-field-error">{suggestError}</p>}
         {suggestion ? (

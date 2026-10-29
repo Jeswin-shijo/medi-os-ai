@@ -63,12 +63,13 @@ export const ErPathwaySteps: React.FC<ErPathwayStepsProps> = ({ visit, info, now
                   <li key={st.key} className={`er-step${done ? ' is-done' : ''}`}>
                     <input
                       type="checkbox"
+                      data-tip={byDoctorButton ? 'Ticked by Seen by doctor' : undefined}
                       id={`step-${visit.id}-${p.key}-${st.key}`}
                       checked={done}
                       disabled={!canEdit || closed || done || byDoctorButton || busy !== null}
                       onChange={() => void act(`step-${st.key}`, () => erService.tickStep(visit.id, st.key))}
                     />
-                    <label htmlFor={`step-${visit.id}-${p.key}-${st.key}`}>{st.label}</label>
+                    <label htmlFor={`step-${visit.id}-${p.key}-${st.key}`} data-tip={byDoctorButton ? 'Ticked by Seen by doctor' : undefined}>{st.label}</label>
                     {done ? (
                       <span className="er-hint er-push">
                         {rec?.byName ?? 'Staff'}, {displayTime(new Date(rec!.doneAt!))}
