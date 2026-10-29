@@ -1,4 +1,4 @@
-import type { LabLineStatus, LabPriority, LabRequestView } from '../types';
+import type { LabLimit, LabLineStatus, LabPriority, LabRejectReason, LabRequestView } from '../types';
 
 // The same role sets as the API (lab.controller.ts). Front desk has no access.
 /** Reads. */
@@ -77,3 +77,47 @@ export const minutesUntil = (iso: string, now: number): number => Math.floor((ne
 
 /** A unit for printing after a value: empty for a missing or dash-only unit (INR and pH have none). */
 export const unitText = (unit?: string): string => (!unit || /^[\s\-–—]*$/.test(unit) ? '' : unit);
+
+export const REJECT_LABEL: Record<LabRejectReason, string> = {
+  haemolysed: 'Haemolysed',
+  clotted: 'Clotted',
+  'wrong-tube': 'Wrong tube',
+  unlabelled: 'Unlabelled',
+  insufficient: 'Insufficient sample',
+  other: 'Other'
+};
+
+export interface ParamDef {
+  name: string;
+  low: number | null;
+  high: number | null;
+  text: boolean;
+}
+
+export type ValueFlag = 'normal' | 'low' | 'high' | 'abnormal';
+
+const NORMAL_TEXT = ['nil', 'negative', 'no growth'];
+
+/**
+ * The same rules as the API's flagValue, so the form can flag a value while it is typed. Numbers: below the low
+ * bound is Low, above the high bound is High, a value on a bound is normal. Critical: below the critical low or
+ * above the critical high. Text is normal only for Nil, Negative or No growth; `anyAbnormalText` makes any other
+ * text critical. The server stays authoritative.
+ */
+export function flagValue(test: string, param: ParamDef, value: number | string, limits: Record<string, LabLimit>): { flag: ValueFlag; critical: boolean } {
+  const limit = limits[`${test}.${param.name}`];
+  if (param.text) {
+    const flag: ValueFlag = NORMAL_TEXT.includes(String(value).trim().toLowerCase()) ? 'normal' : 'abnormal';
+    return { flag, critical: flag === 'abnormal' && limit?.anyAbnormalText === true };
+  }
+  const n = Number(value);
+  let flag: ValueFlag = 'normal';
+  if (param.low !== null && n < param.low) flag = 'low';
+  else if (param.high !== null && n > param.high) flag = 'high';
+  const critical = !!limit && ((limit.low != null && n < limit.low) || (limit.high != null && n > limit.high));
+  return { flag, critical };
+}
+
+/** The words for a flag: shown beside the colour, never colour alone. */
+export const flagLabel = (flag: ValueFlag, critical: boolean): string => (critical ? 'Critical' : flag === 'normal' ? 'Normal' : flag === 'low' ? 'Low' : flag === 'high' ? 'High' : 'Abnormal');
+export const flagTone = (flag: ValueFlag, critical: boolean): string => (critical ? 'red' : flag === 'normal' ? 'green' : 'orange');

@@ -2,7 +2,8 @@ import React, { useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useLab } from '../../hooks/useLab';
-import { canCollectLab, canOrderLab, canReadLab } from '../../utils/lab';
+import { useLabWorklist } from '../../hooks/useLabWorklist';
+import { canAckLab, canBenchLab, canCollectLab, canOrderLab, canReadLab } from '../../utils/lab';
 import type { LabRequestView } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
@@ -10,6 +11,9 @@ import { LabOverview } from '../lab/LabOverview';
 import { LabOrders } from '../lab/LabOrders';
 import { LabCollection } from '../lab/LabCollection';
 import { LabLabels } from '../lab/LabLabels';
+import { LabProcessing } from '../lab/LabProcessing';
+import { LabResults } from '../lab/LabResults';
+import { LabCritical } from '../lab/LabCritical';
 import { NewLabOrderDialog } from '../lab/NewLabOrderDialog';
 
 type Tab = 'overview' | 'orders' | 'collection' | 'processing' | 'results' | 'critical';
@@ -51,7 +55,15 @@ export const LabAgentScreen: React.FC = () => {
 
 const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
   const lab = useLab();
+  const { refreshAlertCount } = useApp();
   const [tab, setTabState] = useState<Tab>(readTab);
+  const canBench = canBenchLab(role);
+  const bench = useLabWorklist(lab.requests, canBench && (tab === 'processing' || tab === 'results'));
+  // After an action of this person's own: the Lab lists reload and the header bell recounts (criticals and acknowledgements move it).
+  const changed = () => {
+    lab.reload();
+    void refreshAlertCount();
+  };
   const tabsId = useId();
   const newOrderRef = useRef<HTMLButtonElement>(null);
   const [ordering, setOrdering] = useState(false);
@@ -129,11 +141,12 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
           <LabOrders refresh={lab.requests} onChanged={lab.reload} onPrint={printRequest} />
         ) : tab === 'collection' ? (
           <LabCollection collection={lab.collection} error={lab.error} canCollect={canCollectLab(role)} onRetry={lab.reload} onChanged={lab.reload} />
+        ) : tab === 'processing' ? (
+          <LabProcessing canBench={canBench} worklist={bench.worklist} error={bench.error} onRetry={bench.retry} onChanged={changed} />
+        ) : tab === 'results' ? (
+          <LabResults canBench={canBench} worklist={bench.worklist} requests={lab.requests} error={bench.error} onRetry={bench.retry} onChanged={changed} />
         ) : (
-          <section className="medios-card lab-next" aria-label="Comes next">
-            <h3 className="card-title">Comes next</h3>
-            <p className="data-empty">The {TABS.find((t) => t.id === tab)?.label} tab is not built yet. It arrives in the next steps of the Lab Agent.</p>
-          </section>
+          <LabCritical rows={lab.critical} requests={lab.requests} error={lab.error} canAck={canAckLab(role)} onRetry={lab.reload} onChanged={changed} />
         )}
       </div>
 
