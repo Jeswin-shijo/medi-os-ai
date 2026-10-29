@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { AgentMessage } from '../../types';
-import { dayAndTime } from '../../utils/beds';
-import { agentName, agentNames, typeLabel } from '../../utils/coordinator';
+import { agentName, agentNames, realDayAndTime, typeLabel } from '../../utils/coordinator';
 
 const ResultPill: React.FC<{ m: AgentMessage }> = ({ m }) => {
   if (m.resolvedAt) return <span className="status-pill sm green">Resolved</span>;
@@ -52,7 +51,7 @@ export const DecisionsLog: React.FC<DecisionsLogProps> = ({ messages, loaded, er
           {messages.map((m) => {
             const body = (
               <>
-                <span className="co-log-time">{dayAndTime(m.createdAt)}</span>
+                <span className="co-log-time">{realDayAndTime(m.createdAt)}</span>
                 <span className="co-log-what">
                   <span className="co-summary">{m.summary}</span>
                   <span className="co-log-action">

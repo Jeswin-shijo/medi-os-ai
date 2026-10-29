@@ -14,6 +14,28 @@ export const clinicNow = (): Date => {
   return now;
 };
 
+/** Whole calendar days from the real date to the clinic's date: 0 when VITE_CLINIC_DATE is unset. */
+const clinicDayShift = (): number => {
+  if (!pinned) return 0;
+  const real = new Date();
+  real.setHours(12, 0, 0, 0);
+  const clinic = clinicNow();
+  clinic.setHours(12, 0, 0, 0);
+  return Math.round((clinic.getTime() - real.getTime()) / 86_400_000);
+};
+
+/**
+ * A real-clock time (agent messages, clocks, escalations, approvals) moved onto the clinic's calendar by
+ * whole days, keeping the time of day, so a pinned demo reads "Today" for what happened today. As ISO.
+ */
+export const toClinicClock = (iso: string): string => {
+  const shift = clinicDayShift();
+  const d = new Date(iso);
+  if (!shift || Number.isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + shift);
+  return d.toISOString();
+};
+
 /** "2026-09-26" — appointments and day queries use ISO days. */
 export const isoDay = (d: Date = clinicNow()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 

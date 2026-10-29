@@ -17,10 +17,13 @@ interface CoordinatorStreamOptions {
 
 /**
  * One live connection to the Coordinator. `version` goes up on every event, so screens can refetch
- * with it. Reconnects with a growing delay when the stream drops; `live` is true while connected.
+ * with it. `sync` goes up only when everything may be stale (the stream (re)connected, the tab came
+ * back, or a poll while the stream is down), for lists that otherwise refetch on their own event kinds.
+ * Reconnects with a growing delay when the stream drops; `live` is true while connected.
  */
-export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { version: number; live: boolean } {
+export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { version: number; sync: number; live: boolean } {
   const [version, setVersion] = useState(0);
+  const [sync, setSync] = useState(0);
   const [live, setLive] = useState(false);
   const onEvent = useRef(opts.onEvent);
   useEffect(() => {
@@ -43,7 +46,9 @@ export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { ver
               connected = true;
               delay = FIRST_RETRY_MS;
               setLive(true);
-              setVersion((v) => v + 1); // anything missed while the stream was down
+              // Anything missed while the stream was down.
+              setVersion((v) => v + 1);
+              setSync((v) => v + 1);
             }
             if (event !== 'coordinator') return;
             setVersion((v) => v + 1);
@@ -68,12 +73,16 @@ export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { ver
 
     // A visible tab always catches up after being hidden.
     const onVisible = () => {
-      if (document.visibilityState === 'visible') setVersion((v) => v + 1);
+      if (document.visibilityState !== 'visible') return;
+      setVersion((v) => v + 1);
+      setSync((v) => v + 1);
     };
     document.addEventListener('visibilitychange', onVisible);
     // While the stream is down, poll so the lists still catch up.
     const poll = window.setInterval(() => {
-      if (!connected && document.visibilityState === 'visible') setVersion((v) => v + 1);
+      if (connected || document.visibilityState !== 'visible') return;
+      setVersion((v) => v + 1);
+      setSync((v) => v + 1);
     }, FALLBACK_POLL_MS);
 
     return () => {
@@ -85,7 +94,7 @@ export function useCoordinatorStream(opts: CoordinatorStreamOptions = {}): { ver
     };
   }, []);
 
-  return { version, live };
+  return { version, sync, live };
 }
 
 /** The Coordinator overview, refetched 300 ms after `version` changes (from `useCoordinatorStream`). */
@@ -130,6 +139,13 @@ export function useCoordinatorList<T>(
   const manualRef = useRef(false);
   // Callers of reload() that are waiting for the next fetch to finish.
   const waiters = useRef<(() => void)[]>([]);
+  // On unmount nothing will fetch again: let anyone still awaiting reload() carry on.
+  useEffect(() => {
+    const pending = waiters.current;
+    return () => {
+      pending.splice(0).forEach((done) => done());
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;

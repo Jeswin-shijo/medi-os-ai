@@ -226,7 +226,7 @@ export const followUpService = {
 
 // Tasks & Alerts Service
 export const taskService = {
-  getTasks: () => api<TaskAlertItem[]>('/tasks-alerts'),
+  getTasks: (query: { category?: TaskAlertItem['category']; status?: TaskAlertItem['status'] } = {}) => api<TaskAlertItem[]>('/tasks-alerts', { query }),
   /** Flips Pending <-> Completed and returns the updated task. */
   toggleTaskStatus: (id: string) => api<TaskAlertItem>(`/tasks-alerts/${id}/toggle`, { method: 'PATCH' }),
   updateStatus: (id: string, status: TaskAlertItem['status']) =>

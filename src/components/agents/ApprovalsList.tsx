@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
-import { coordinatorService } from '../../services';
+import { coordinatorService, taskService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useCoordinatorList } from '../../hooks/useCoordinator';
-import type { Approval, DutyTitle } from '../../types';
+import { useEscalationAck } from '../../hooks/useEscalationAck';
+import type { Approval, DutyTitle, TaskAlertItem } from '../../types';
 import { ago, agentName } from '../../utils/coordinator';
 
 const ROLE_TARGETS = [
@@ -161,16 +162,28 @@ const ReassignDialog: React.FC<ReassignDialogProps> = ({ approval, onClose, onDo
 };
 
 interface ApprovalsListProps {
+  /** Goes up on approval, escalation and message events (and when the stream reconnects). */
   version: number;
   onOpenCase(caseId: string): void;
 }
 
-/** Decisions waiting for a person: approve or reject in place, open the source, or hand it to someone else. */
+/** Open escalation alerts (the ones Tasks & Alerts shows with Acknowledge), newest first as the server lists them. */
+const fetchEscalations = async (): Promise<TaskAlertItem[]> =>
+  (await taskService.getTasks({ category: 'Critical' })).filter((t) => !!t.escalation && t.status !== 'Completed');
+
+/**
+ * What waits for a person: open escalations first (Acknowledge stops the ladder), then approvals to
+ * approve or reject in place, open at the source, or hand to someone else.
+ */
 export const ApprovalsList: React.FC<ApprovalsListProps> = ({ version, onOpenCase }) => {
   const { user, showToast, openBedRequest } = useApp();
   const role = user?.role ?? '';
   const fetchOpen = useCallback(() => coordinatorService.approvals('open'), []);
   const { items, loading, error, reload } = useCoordinatorList(fetchOpen, version);
+  const escalations = useCoordinatorList(fetchEscalations, version);
+  const { acking, ackErrors, acknowledge } = useEscalationAck(() => escalations.reload());
+  const waiting = escalations.items.length + items.length;
+  const listError = error ?? escalations.error;
   const [now, setNow] = useState(() => Date.now());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reassigning, setReassigning] = useState<Approval | null>(null);
@@ -195,23 +208,58 @@ export const ApprovalsList: React.FC<ApprovalsListProps> = ({ version, onOpenCas
   const close = useCallback(() => setReassigning(null), []);
 
   return (
-    <section className="medios-card bagent-card co-card" aria-label="Approvals">
+    <section className="medios-card bagent-card co-card" aria-label="Escalations and approvals">
       <div className="card-header-row">
         <div className="bagent-title-group">
-          <h3 className="card-title">Approvals</h3>
-          <span className="bagent-hint">{items.length ? `${items.length} waiting` : 'None waiting'}</span>
+          <h3 className="card-title">Escalations and approvals</h3>
+          <span className="bagent-hint">
+            {waiting ? [escalations.items.length && `${escalations.items.length} escalated`, items.length && `${items.length} waiting`].filter(Boolean).join(' · ') : 'None waiting'}
+          </span>
         </div>
       </div>
-      {loading ? (
-        <p className="data-empty" role={error ? 'alert' : undefined}>
-          {error ?? 'Loading approvals…'}
+      {loading || escalations.loading ? (
+        <p className="data-empty" role={listError ? 'alert' : undefined}>
+          {listError ?? 'Loading escalations and approvals…'}
         </p>
-      ) : items.length === 0 ? (
-        <p className="data-empty" role={error ? 'alert' : undefined}>
-          {error ?? 'Nothing is waiting for a decision.'}
+      ) : waiting === 0 ? (
+        <p className="data-empty" role={listError ? 'alert' : undefined}>
+          {listError ?? 'Nothing is waiting for a decision.'}
         </p>
       ) : (
         <ul className="co-list co-approvals">
+          {listError && (
+            <li className="co-item">
+              <p className="co-rule-error" role="alert">
+                Showing the last list loaded. {listError}
+              </p>
+            </li>
+          )}
+          {escalations.items.map((t) => {
+            const esc = t.escalation!;
+            return (
+              <li key={t.id} className="co-item co-esc">
+                <div className="co-approval">
+                  <div className="co-approval-what">
+                    <span className="co-summary">{t.title}</span>
+                    <span className="co-approval-meta">
+                      Step {esc.step + 1}: {esc.titleLabel} · {esc.holderNames.join(', ') || 'No one on duty'}
+                      {t.createdAt ? ` · ${ago(t.createdAt, now)}` : ''}
+                    </span>
+                    {ackErrors[t.id] && (
+                      <span className="cs-ack-err" role="alert">
+                        {ackErrors[t.id]}
+                      </span>
+                    )}
+                  </div>
+                  <div className="co-approval-actions">
+                    <button type="button" className="btn-primary btn-sm" disabled={acking === t.id} onClick={() => void acknowledge(t)}>
+                      {acking === t.id ? 'Acknowledging…' : 'Acknowledge'}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
           {items.map((a) => {
             const mayDecide = a.roles.includes(role);
             const mayReassign = mayDecide || role === 'admin';

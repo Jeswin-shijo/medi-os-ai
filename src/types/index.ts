@@ -323,6 +323,8 @@ export interface TaskAlertItem {
   link?: string;
   /** Present when the alert is a Coordinator escalation waiting for someone to acknowledge it. */
   escalation?: { id: string; ladder: string; step: number; titleKey: string; titleLabel: string; holderNames: string[] };
+  /** Real-clock ISO time the alert was stored. */
+  createdAt?: string;
 }
 
 export interface ChatMessage {
@@ -1326,4 +1328,6 @@ export interface CoordinatorMessageQuery {
   openWork?: boolean;
   limit?: number;
   before?: string;
+  /** 'priority' (the default): emergency first, for the queue. 'recent': newest first, for the log. */
+  sort?: 'priority' | 'recent';
 }

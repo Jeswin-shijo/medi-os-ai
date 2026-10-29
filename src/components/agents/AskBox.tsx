@@ -6,12 +6,14 @@ import { errorMessage } from '../../services/api';
 import type { ChatAnswer } from '../../types';
 
 interface AskBoxProps {
+  /** True for the roles that may raise a bed request (admin, doctor). */
+  canRequest: boolean;
   onOpenCase(caseId: string): void;
   onOpenRequestForm(patient: { id: string; uhid: string }): void;
 }
 
 /** Ask the Coordinator in plain words. It never acts by itself: an action shows as a button you press. */
-export const AskBox: React.FC<AskBoxProps> = ({ onOpenCase, onOpenRequestForm }) => {
+export const AskBox: React.FC<AskBoxProps> = ({ canRequest, onOpenCase, onOpenRequestForm }) => {
   const { openBedRequest } = useApp();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,6 +37,8 @@ export const AskBox: React.FC<AskBoxProps> = ({ onOpenCase, onOpenRequestForm })
   };
 
   const action = answer?.action;
+  // Only admins and doctors raise bed requests; everyone else is told who can.
+  const cannotOpen = action?.screen === 'bed-request-form' && !canRequest;
   const open = () => {
     if (!action) return;
     const p = action.params;
@@ -59,7 +63,7 @@ export const AskBox: React.FC<AskBoxProps> = ({ onOpenCase, onOpenRequestForm })
           <Send size={16} aria-hidden="true" />
         </button>
       </form>
-      <p className="co-ask-hint">e.g. "Allocate bed for MHK202500323" · "Show agent workload" · "Pending approvals"</p>
+      <p className="co-ask-hint">e.g. {canRequest ? '"Allocate bed for MHK202500323" · ' : ''}"Show agent workload" · "Pending approvals"</p>
       <div className="co-ask-out" aria-live="polite">
         {busy && <p className="co-ask-wait">Thinking…</p>}
         {error && (
@@ -71,11 +75,14 @@ export const AskBox: React.FC<AskBoxProps> = ({ onOpenCase, onOpenRequestForm })
           <div className="co-answer">
             {answer.sample && <span className="status-pill sm gray">SAMPLE</span>}
             <p className="co-answer-text">{answer.answer}</p>
-            {action && (
-              <button type="button" className="btn-secondary btn-sm" onClick={open}>
-                Open
-              </button>
-            )}
+            {action &&
+              (cannotOpen ? (
+                <p className="co-ask-note">A doctor or admin can raise this request.</p>
+              ) : (
+                <button type="button" className="btn-secondary btn-sm" onClick={open}>
+                  Open
+                </button>
+              ))}
           </div>
         )}
       </div>

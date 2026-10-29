@@ -3612,6 +3612,7 @@ button.stat-card-item:active {
 
 /* ===== Coordinator page ===== */
 .co-range { width: auto; min-width: 150px; }
+.co-page { min-width: 0; }
 .co-body { min-width: 0; }
 .co-split { align-items: start; }
 .co-card { min-width: 0; }
@@ -3659,6 +3660,8 @@ button.stat-card-item:active {
 .co-approval-link:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 2px; }
 .co-approval-meta { font-size: var(--fs-sm); color: var(--text-muted); }
 .co-approval-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.co-esc .co-approval { padding-left: 8px; box-shadow: inset 2px 0 0 var(--red-rose); }
+.co-esc .co-summary { white-space: normal; overflow-wrap: anywhere; }
 .co-reassign { max-width: 440px; }
 .co-reassign-title { margin: 0; font-size: var(--fs-lg, 16px); }
 .co-reassign-body { display: flex; flex-direction: column; gap: 12px; }
@@ -3683,6 +3686,7 @@ button.stat-card-item:active {
 .co-ask-wait { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
 .co-answer { display: flex; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
 .co-answer-text { margin: 0; flex: 1 1 240px; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.co-ask-note { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
 
 .co-newwrap { position: relative; }
 .co-newwrap .btn-sm { gap: 4px; white-space: nowrap; }
@@ -3738,8 +3742,18 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .co-agent-pct { text-align: right; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .co-agent-soon { grid-column: 2 / -1; font-size: var(--fs-sm); color: var(--text-muted); }
 
+/* The layout's main area is what scrolls; this page's body must not be a scroll box of its own, or the
+   sticky case panel would stick to a box that never scrolls. */
+.page-scroll-body.co-screen { overflow: visible; }
 .co-case { position: sticky; top: 8px; }
+/* Beside the page the panel follows the scroll (its column stretches to the page's height) and scrolls on its own when long. */
+@media (min-width: 1101px) {
+  .co-split > .co-detail { align-self: stretch; }
+  .co-case { max-height: calc(100dvh - 72px); overflow-y: auto; }
+}
 @media (max-width: 1100px) { .co-case { position: static; } }
+.co-case-title:focus { outline: none; }
+.co-case-title:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 2px; border-radius: 2px; }
 .co-case-patient { display: flex; flex-direction: column; margin: 0 0 8px; }
 .co-case-name { font-weight: 600; font-size: var(--fs-body); }
 .co-case-uhid { font-size: var(--fs-sm); color: var(--text-muted); }
@@ -3770,9 +3784,16 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .cs-ladders { margin-top: 10px; align-items: start; }
 .cs-card { min-width: 0; }
 .cs-steps, .cs-titles { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Duty titles side by side when there is room, one per row on narrow screens. */
+.cs-titles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); align-items: start; }
 .cs-step { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cs-step-n { width: 22px; height: 22px; border-radius: 50%; background: var(--blue-light, #e3edfd); color: var(--blue-text); font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .cs-title-sel { flex: 1 1 150px; min-width: 0; width: auto; height: 34px; }
+/* Phones: the title gets the whole first row ("Medical superintendent" fits); the wait and buttons wrap below. */
+@media (max-width: 480px) {
+  .cs-title-sel { flex-basis: calc(100% - 30px); }
+  .cs-wait { margin-left: 30px; }
+}
 .cs-wait { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-secondary); }
 .cs-wait .input-field { width: 64px; height: 34px; padding: 0 8px; }
 .cs-wait-none { color: var(--text-muted); min-width: 110px; }

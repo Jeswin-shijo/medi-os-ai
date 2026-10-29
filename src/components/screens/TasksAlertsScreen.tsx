@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { TaskAlertItem } from '../../types';
-import { taskService, coordinatorService } from '../../services';
+import { taskService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
+import { useEscalationAck } from '../../hooks/useEscalationAck';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
 import {
@@ -186,25 +187,7 @@ export const TasksAlertsScreen: React.FC = () => {
     }
   };
 
-  const [acking, setAcking] = useState<string | null>(null);
-  const [ackErrors, setAckErrors] = useState<Record<string, string>>({});
-  const acknowledge = async (task: TaskAlertItem) => {
-    const esc = task.escalation;
-    if (!esc || acking) return;
-    setAcking(task.id);
-    setAckErrors((e) => ({ ...e, [task.id]: '' }));
-    try {
-      await coordinatorService.acknowledge(esc.id);
-      showToast('Escalation acknowledged', 'success');
-      setTasks(await taskService.getTasks());
-    } catch (err) {
-      const message = errorMessage(err);
-      setAckErrors((e) => ({ ...e, [task.id]: message }));
-      showToast(message, 'error');
-    } finally {
-      setAcking(null);
-    }
-  };
+  const { acking, ackErrors, acknowledge } = useEscalationAck(async () => setTasks(await taskService.getTasks()));
   const escalationLine = (task: TaskAlertItem) =>
     task.escalation ? (
       <>
@@ -259,7 +242,10 @@ export const TasksAlertsScreen: React.FC = () => {
   };
 
   const q = search.toLowerCase();
-  const filteredTasks = tasks.filter((t) => {
+  // Open escalations are pinned first; everything else keeps the server's order (newest first).
+  const openEscalation = (t: TaskAlertItem) => !!t.escalation && t.status !== 'Completed';
+  const pinned = [...tasks.filter(openEscalation), ...tasks.filter((t) => !openEscalation(t))];
+  const filteredTasks = pinned.filter((t) => {
     if (q && !t.title.toLowerCase().includes(q) && !t.patientName.toLowerCase().includes(q)) return false;
     if (todayOnly && !t.dueDateTime.startsWith('Today')) return false;
     if (priorityFilter !== 'All' && t.priority !== priorityFilter) return false;
@@ -287,11 +273,13 @@ export const TasksAlertsScreen: React.FC = () => {
   const pageCount = Math.max(1, Math.ceil(filteredTasks.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageTasks = filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const allPageDone = pageTasks.length > 0 && pageTasks.every((t) => t.status === 'Completed');
+  // Escalation alerts close only through Acknowledge (their toggle returns 409), so the bulk toggle skips them.
+  const toggleable = pageTasks.filter((t) => !t.escalation);
+  const allPageDone = toggleable.length > 0 && toggleable.every((t) => t.status === 'Completed');
 
   const toggleAllOnPage = async () => {
     const status: TaskAlertItem['status'] = allPageDone ? 'Pending' : 'Completed';
-    const targets = pageTasks.filter((t) => t.status !== status);
+    const targets = toggleable.filter((t) => t.status !== status);
     try {
       replaceTasks(await Promise.all(targets.map((t) => taskService.updateStatus(t.id, status))));
       showToast(allPageDone ? 'Tasks marked as pending' : `${targets.length} tasks marked complete`);

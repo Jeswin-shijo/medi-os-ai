@@ -25,6 +25,8 @@ const RANGES: { id: SnapshotRange; label: string }[] = [
   { id: '7d', label: 'Last 7 days' }
 ];
 const LOG_LIMIT = 50;
+/** Hourly snapshots change slowly: the 7-day chart refetches this often while it is shown. */
+const WEEK_REFRESH_MS = 60_000;
 /** Dots on the diagram at once; more are dropped (the lists still show every message). */
 const MAX_PULSES = 6;
 const CARD_FIELD: Record<CoordinatorCardKey, keyof Omit<CoordinatorSeriesPoint, 'at'>> = {
@@ -55,20 +57,34 @@ export const CoordinatorScreen: React.FC = () => {
     const pending = timers.current;
     return () => pending.forEach((t) => window.clearTimeout(t));
   }, []);
+  // Lists that only change with some event kinds count those events, so other traffic does not refetch them.
+  const [ruleEvents, setRuleEvents] = useState(0);
+  const [approvalEvents, setApprovalEvents] = useState(0);
   const onEvent = useCallback((event: CoordinatorEvent) => {
+    if (event.kind === 'rule') setRuleEvents((n) => n + 1);
+    // An escalation or approval also shows up as a message (escalation.raised, approval.requested and decided).
+    if (event.kind === 'approval' || event.kind === 'escalation' || event.kind === 'message') setApprovalEvents((n) => n + 1);
     const isAgent = (k: unknown) => AGENT_LIST.some((a) => a.key === k);
     if (event.kind !== 'message' || !isAgent(event.from) || !Array.isArray(event.to)) return;
     const from = event.from as AgentKey;
     const fresh = event.to.filter(isAgent).map((to) => ({ id: `p${++pulseSeq.current}`, from, to }));
     if (!fresh.length) return;
     setPulses((prev) => [...prev, ...fresh].slice(-MAX_PULSES));
-    // A dot takes up to two legs; clear it from the list shortly after.
-    timers.current.push(window.setTimeout(() => setPulses((prev) => prev.filter((p) => !fresh.some((f) => f.id === p.id))), LEG_MS * 2 + 200));
+    // A dot takes up to two legs; clear it from the list shortly after, and forget the timer once it has run.
+    const timer = window.setTimeout(() => {
+      const at = timers.current.indexOf(timer);
+      if (at !== -1) timers.current.splice(at, 1);
+      setPulses((prev) => prev.filter((p) => !fresh.some((f) => f.id === p.id)));
+    }, LEG_MS * 2 + 200);
+    timers.current.push(timer);
   }, []);
-  const { version, live } = useCoordinatorStream({ onEvent });
+  const { version, sync, live } = useCoordinatorStream({ onEvent });
+  const ruleVersion = sync + ruleEvents;
+  const approvalVersion = sync + approvalEvents;
   const { overview, error } = useCoordinatorOverview(version);
   const fetchOpen = useCallback(() => coordinatorService.messages({ openWork: true }), []);
-  const fetchLog = useCallback(() => coordinatorService.messages({ limit: LOG_LIMIT }), []);
+  // The log is newest first; the queue keeps the API's emergency-first order.
+  const fetchLog = useCallback(() => coordinatorService.messages({ limit: LOG_LIMIT, sort: 'recent' }), []);
   const open = useCoordinatorList(fetchOpen, version);
   const log = useCoordinatorList(fetchLog, version);
   // 24 hours uses each card's own sparkline; 7 days uses the hourly history in 4-hour averages. Trend % stays the 24 h one.
@@ -76,6 +92,12 @@ export const CoordinatorScreen: React.FC = () => {
   const [week, setWeek] = useState<CoordinatorSeriesPoint[] | null>(null);
   const [weekFailed, setWeekFailed] = useState(false);
   const hasWeek = useRef(false);
+  const [weekTick, setWeekTick] = useState(0);
+  useEffect(() => {
+    if (range !== '7d') return;
+    const t = window.setInterval(() => setWeekTick((n) => n + 1), WEEK_REFRESH_MS);
+    return () => window.clearInterval(t);
+  }, [range]);
   useEffect(() => {
     if (range !== '7d') return;
     let alive = true;
@@ -97,7 +119,7 @@ export const CoordinatorScreen: React.FC = () => {
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [range, version]);
+  }, [range, weekTick]);
   const card = (key: CoordinatorCardKey): CoordinatorCardData | undefined => {
     const base = overview?.cards[key];
     if (!base || range !== '7d' || !week || weekFailed) return base;
@@ -108,6 +130,9 @@ export const CoordinatorScreen: React.FC = () => {
   const [requesting, setRequesting] = useState(false);
   const [prefill, setPrefill] = useState<{ id: string; uhid: string } | undefined>(undefined);
   const caseRef = useRef<HTMLDivElement>(null);
+  const caseHeading = useRef<HTMLHeadingElement>(null);
+  /** The row or button that opened the case: focus goes back to it when the case closes. */
+  const opener = useRef<HTMLElement | null>(null);
 
   const canRequest = REQUEST_ROLES.includes(role);
   useEffect(() => {
@@ -123,12 +148,24 @@ export const CoordinatorScreen: React.FC = () => {
   }, [canRequest]);
 
   const openCase = (id: string) => {
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     setCaseId(id);
-    // Stacked layout: the case sits below, so bring it into view.
-    if (window.matchMedia('(max-width: 1100px)').matches) {
-      window.requestAnimationFrame(() => caseRef.current?.scrollIntoView({ block: 'nearest' }));
-    }
   };
+  useEffect(() => {
+    if (!caseId) {
+      const back = opener.current;
+      opener.current = null;
+      if (back?.isConnected) back.focus();
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => caseHeading.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [caseId]);
+  // Stacked layout: the case sits below everything, so bring it into view once it has its height (loaded).
+  const onCaseShown = useCallback(() => {
+    if (window.matchMedia('(max-width: 1100px)').matches) caseRef.current?.scrollIntoView({ block: 'start' });
+  }, []);
   const cards = overview?.cards;
 
   const content = (
@@ -179,16 +216,17 @@ export const CoordinatorScreen: React.FC = () => {
         </section>
         <div className="co-stack">
           <AgentStatusTable agents={overview?.agents ?? null} error={error} />
-          <RulesPanel version={version} />
+          <RulesPanel version={ruleVersion} />
         </div>
       </div>
 
       <div className="cols-2 bagent-grid bagent-pair-always">
         <DecisionsLog messages={log.items} loaded={!log.loading} error={log.error} selectedCaseId={caseId} onOpenCase={openCase} />
-        <ApprovalsList version={version} onOpenCase={openCase} />
+        <ApprovalsList version={approvalVersion} onOpenCase={openCase} />
       </div>
 
       <AskBox
+        canRequest={canRequest}
         onOpenCase={openCase}
         onOpenRequestForm={(patient) => {
           setPrefill(patient);
@@ -199,7 +237,7 @@ export const CoordinatorScreen: React.FC = () => {
   );
 
   return (
-    <div className="page-scroll-body bagent">
+    <div className="page-scroll-body bagent co-screen">
       <ScreenHeader
         title="Coordinator Agent"
         badge={<LivePill live={live} />}
@@ -215,16 +253,16 @@ export const CoordinatorScreen: React.FC = () => {
         }
       />
 
-      {caseId ? (
-        <div className="split bagent-split co-split" style={split('minmax(320px, 380px)')}>
-          {content}
-          <div ref={caseRef} className="bagent-detail">
-            <CaseDetail key={caseId} caseId={caseId} version={version} onClose={() => setCaseId(null)} />
+      {/* One wrapper whatever the case state, with the page always its first child: opening or closing a case
+          never remounts the sections, so filters, the Ask answer and focus survive. */}
+      <div className={caseId ? 'co-page split bagent-split co-split' : 'co-page'} style={caseId ? split('minmax(320px, 380px)') : undefined}>
+        {content}
+        {caseId && (
+          <div ref={caseRef} className="bagent-detail co-detail">
+            <CaseDetail key={caseId} caseId={caseId} version={version} headingRef={caseHeading} onShown={onCaseShown} onClose={() => setCaseId(null)} />
           </div>
-        </div>
-      ) : (
-        content
-      )}
+        )}
+      </div>
 
       {requesting && (
         <RequestBedDialog

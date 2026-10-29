@@ -228,10 +228,11 @@ export const SettingsScreen: React.FC = () => {
     if (!settings) return;
     setSaving(true);
     try {
-      // The call agent and token queue sections, and the two Bed Agent switches, are saved where they are edited;
-      // never send back a stale copy of them.
+      // The call agent, token queue and Coordinator sections, and the two Bed Agent switches, are saved where
+      // they are edited; never send back a stale copy of them.
       const { bedAutoAllocate: _autoAllocate, bedSuggestions: _suggestions, ...ai } = settings.ai;
-      const saved = await settingsService.saveSettings({ ...settings, ai, callAgent: undefined, queue: undefined });
+      const { coordinator: _coordinator, ...rest } = settings as SettingsState & { coordinator?: unknown };
+      const saved = await settingsService.saveSettings({ ...rest, ai, callAgent: undefined, queue: undefined });
       setSettings(saved);
       setSessionTimeout(saved.security.sessionTimeout);
       setSavedSuccess(true);
@@ -931,9 +932,9 @@ export const SettingsScreen: React.FC = () => {
         </div>
       )}
 
-      {/* ===================== INTEGRATIONS ===================== */}
       {activeTab === 'coordinator' && user?.role === 'admin' && <CoordinatorSettings />}
 
+      {/* ===================== INTEGRATIONS ===================== */}
       {activeTab === 'integrations' && (
         <div className="medios-card" style={{ padding: '14px 18px 18px' }}>
           <SectionTitle icon={Share2} color="var(--blue-text)" title="External Healthcare Integrations" subtitle="Connect hospital subsystems, PACS/DICOM radiology servers, LIMS analyzers, and messaging gateways" />
