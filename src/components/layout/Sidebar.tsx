@@ -43,7 +43,7 @@ const NO_BED_ACCESS = ['pharmacist', 'lab'];
 /** The AI Agents group, in the client's order. Pharmacists and lab staff have no access to it (as the API). */
 const AGENT_NAV: { id: ScreenId; label: string; icon: LucideIcon; built: boolean }[] = [
   { id: 'coordinator', label: 'Coordinator Agent', icon: Network, built: true },
-  { id: 'er-agent', label: 'ER Agent', icon: Siren, built: false },
+  { id: 'er-agent', label: 'ER Agent', icon: Siren, built: true },
   { id: 'bed-agent', label: 'Bed Agent', icon: Bot, built: true },
   { id: 'lab-agent', label: 'Lab Agent', icon: FlaskRound, built: false },
   { id: 'pharmacy-agent', label: 'Pharmacy Agent', icon: Pill, built: false },

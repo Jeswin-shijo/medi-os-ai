@@ -66,6 +66,16 @@
   --red-light: #fde4e7;
   --red-border: #f8c8ce;
 
+  /* ER triage colours: solid fills with readable text (yellow takes dark text). */
+  --tri-red: #c0283a;
+  --tri-red-text: #ffffff;
+  --tri-orange: #c2570c;
+  --tri-orange-text: #ffffff;
+  --tri-yellow: #f6c82e;
+  --tri-yellow-text: #3a2c00;
+  --tri-green: #0f7b53;
+  --tri-green-text: #ffffff;
+
   --gray-pill-text: #3d4663;
   --gray-pill-bg: #edf1f7;
   --gray-pill-border: #dbe2ec;
@@ -3817,3 +3827,70 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .cs-ack { font-size: 12px; white-space: nowrap; flex-shrink: 0; }
 .cs-esc { display: block; font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
 .cs-ack-err { display: block; font-size: 11.5px; color: var(--red-dark); margin-top: 2px; }
+
+/* ===== ER Agent ===== */
+.tri-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--radius-xs);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tri-pill.red { background-color: var(--tri-red); color: var(--tri-red-text); }
+.tri-pill.orange { background-color: var(--tri-orange); color: var(--tri-orange-text); }
+.tri-pill.yellow { background-color: var(--tri-yellow); color: var(--tri-yellow-text); }
+.tri-pill.green { background-color: var(--tri-green); color: var(--tri-green-text); }
+.tri-pill.none { background-color: var(--gray-pill-bg); color: var(--text-secondary); }
+.tri-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.tri-dot.red { background-color: var(--tri-red); }
+.tri-dot.orange { background-color: var(--tri-orange); }
+.tri-dot.yellow { background-color: var(--tri-yellow); }
+.tri-dot.green { background-color: var(--tri-green); }
+.er-body { min-width: 0; }
+.er-colour { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; min-width: 0; }
+.er-colour.red { border-top: 3px solid var(--tri-red); }
+.er-colour.orange { border-top: 3px solid var(--tri-orange); }
+.er-colour.yellow { border-top: 3px solid var(--tri-yellow); }
+.er-colour.green { border-top: 3px solid var(--tri-green); }
+.er-colour-count { margin: 0; font-size: var(--fs-stat); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.er-colour-meta { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.45; }
+.er-split { gap: var(--gap); align-items: start; }
+.er-queue { min-width: 0; }
+.er-table tbody tr { cursor: pointer; }
+.er-table tbody tr.selected { background-color: var(--blue-light); }
+.er-table tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--blue-primary); }
+.er-table tbody tr.is-late td:last-child { color: var(--red-dark); }
+.er-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.er-select {
+  display: grid;
+  gap: 1px;
+  justify-items: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.er-select:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 2px; border-radius: var(--radius-xs); }
+.er-name { font-weight: 600; color: var(--text-primary); }
+.er-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+.er-pending { height: 18px; font-size: 10.5px; }
+.er-complaint { min-width: 140px; }
+.er-late { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; white-space: nowrap; color: var(--red-dark); }
+.er-ok { color: var(--text-muted); }
+.er-slot { min-width: 0; }
+.er-table th, .er-table td { padding-left: 8px; padding-right: 8px; }
+.er-table th:first-child, .er-table td:first-child { padding-left: 12px; }
+/* The four colour tiles stay two by two on a phone, so they take half the height. */
+@media (max-width: 640px) {
+  .er-colours.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .er-colour { padding: 10px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .er-table tbody tr { transition: none; }
+}

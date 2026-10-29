@@ -1077,7 +1077,7 @@ export const AGENT_LIST: AgentInfo[] = [
     job: 'Emergency registration, triage support, pathway timers (such as "ECG within 10 minutes"), the ER board and task list',
     owns: 'The ER visit',
     neverDoes: 'Read the ECG or diagnose',
-    built: false
+    built: true
   },
   { key: 'bed', name: 'Bed', job: 'Assigns beds, handles transfers and cleaning', owns: 'Beds and bed requests', neverDoes: 'Move a patient nobody asked to move', built: true },
   {
@@ -1330,4 +1330,153 @@ export interface CoordinatorMessageQuery {
   before?: string;
   /** 'priority' (the default): emergency first, for the queue. 'recent': newest first, for the log. */
   sort?: 'priority' | 'recent';
+}
+
+// ===== ER Agent (mirrors the backend ER views) =====
+
+export type TriageColour = 'red' | 'orange' | 'yellow' | 'green';
+export type ErMode = 'walk-in' | 'ambulance' | 'referred';
+export type ErStatus = 'waiting-triage' | 'waiting-doctor' | 'in-treatment' | 'waiting-bed' | 'left';
+export type ErDispositionKind = 'admit' | 'home' | 'transfer' | 'left-against-advice' | 'died';
+export type ErPathwayKey = 'chest-pain' | 'stroke' | 'sepsis';
+export type ErBayKind = 'resus' | 'bay' | 'stretcher';
+
+export interface ErVitals {
+  spo2?: number;
+  bpSystolic?: number;
+  bpDiastolic?: number;
+  heartRate?: number;
+  respiratoryRate?: number;
+  temperature?: number;
+}
+
+export interface ErVisit {
+  id: string;
+  number: string;
+  patientId: string;
+  patientUhid: string;
+  patientName: string;
+  mode: ErMode;
+  complaint: string;
+  complaintText: string;
+  arrivedAt: string;
+  /** The confirmed triage colour, or null while untriaged. */
+  colour: TriageColour | null;
+  triage: {
+    suggested: string;
+    reasons: string[];
+    colour: string;
+    byName: string;
+    at: string;
+    changeReason?: string;
+    history: { colour: string; byName: string; at: string; reason?: string; kind: 'triage' | 'retriage' }[];
+  } | null;
+  vitalsId: string | null;
+  vitals: ErVitals | null;
+  painScore: number | null;
+  bayId: string | null;
+  bayName: string | null;
+  status: ErStatus;
+  pathways: { key: ErPathwayKey; startedBy: 'rules' | 'staff'; startedByName?: string; cancelled: { byName: string; reason: string; at: string } | null }[];
+  steps: { key: string; doneAt: string | null; byName: string | null }[];
+  doctorSeenAt: string | null;
+  disposition: { kind: ErDispositionKind; byName: string; at: string; notes: string } | null;
+  leftAt: string | null;
+  leftReason: string | null;
+  handoverNote: string | null;
+  caseId: string;
+  /** Real clock; deadlines are worked out from it. */
+  createdAt: string;
+}
+
+export interface ErExpected {
+  id: string;
+  complaint: string;
+  ageSex: string;
+  mode: ErMode;
+  etaMinutes: number;
+  expectedAt: string;
+  phone: string | null;
+  patientId: string | null;
+  state: 'waiting' | 'arrived' | 'expired';
+}
+
+export interface ErBoard {
+  visits: ErVisit[];
+  expected: ErExpected[];
+}
+
+export type ErCardKey = 'patientsInEr' | 'critical' | 'avgTriageMin' | 'onTimePct';
+
+export interface ErOverview {
+  at: string;
+  cards: Record<ErCardKey, StatCardData>;
+  colours: { colour: TriageColour; count: number; targetMin: number; avgWaitMin: number | null }[];
+  performance: { avgTriageMin: number | null; onTimePct: number | null; avgStayMin: number | null; arrivalsByHour: number[] };
+}
+
+export interface ErSeriesPoint {
+  at: string;
+  patientsInEr: number | null;
+  critical: number | null;
+  avgTriageMin: number | null;
+  onTimePct: number | null;
+}
+
+export interface ErBay {
+  id: string;
+  name: string;
+  kind: ErBayKind;
+  order: number;
+  outOfUse: boolean;
+  visitId: string | null;
+  visitNumber: string | null;
+}
+
+export interface ErBayInput {
+  id?: string;
+  name: string;
+  kind: ErBayKind;
+  outOfUse: boolean;
+}
+
+export interface ErComplaintInfo {
+  complaints: { key: string; label: string }[];
+  pathways: { key: ErPathwayKey; label: string; steps: { key: string; label: string }[] }[];
+}
+
+export interface ErArrivalInput {
+  patientId?: string;
+  uhid?: string;
+  cardId?: string;
+  emergency?: { gender: 'Male' | 'Female' | 'Other'; approxAge: number; description: string };
+  mode: ErMode;
+  complaint: string;
+  complaintText?: string;
+  expectedId?: string;
+}
+
+export interface ErExpectedInput {
+  complaint: string;
+  ageSex: string;
+  mode: ErMode;
+  etaMinutes: number;
+  phone?: string;
+  patientId?: string;
+}
+
+export interface ErTriageInput {
+  complaint: string;
+  vitals?: ErVitals;
+  painScore?: number;
+  colour: TriageColour;
+  reason?: string;
+}
+
+export interface ErTriageSuggestion {
+  colour: TriageColour;
+  reasons: string[];
+  pathways: ErPathwayKey[];
+  explanation: string;
+  sample: boolean;
 }

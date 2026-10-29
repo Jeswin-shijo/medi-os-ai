@@ -13,13 +13,17 @@ interface StatCardProps {
   data: StatCardData;
   /** Whether a rise is good news (green). False for occupied and cleaning, where a rise is bad (red). */
   goodWhenUp?: boolean;
+  /** Shown in place of the number, such as "—" for a figure with no data yet. Existing cards leave it out. */
+  display?: string;
+  /** Written after the number, such as "min" or "%". */
+  unit?: string;
 }
 
 /**
  * A bed figure: a big tinted icon tile, the number (rolling when it changes) with "/ total", the change against
  * the same hour yesterday, the last 24 hours as a sparkline, and one line underneath.
  */
-export const StatCard: React.FC<StatCardProps> = ({ icon: Icon, tone, title, data, goodWhenUp = true }) => {
+export const StatCard: React.FC<StatCardProps> = ({ icon: Icon, tone, title, data, goodWhenUp = true, display, unit }) => {
   const { value, total, trendPct, spark, note } = data;
   const known = spark.filter((p): p is number => p !== null);
   const sparkLabel =
@@ -48,7 +52,8 @@ export const StatCard: React.FC<StatCardProps> = ({ icon: Icon, tone, title, dat
         <h3 className="bstat-title">{title}</h3>
         <p className="bstat-value">
           <span className="bstat-figure">
-            <RollingText value={value} className="bstat-number" />
+            <RollingText value={display ?? value} className="bstat-number" />
+            {unit && display === undefined && <span className="bstat-total">{unit}</span>}
             {total !== null && <span className="bstat-total">/ {total}</span>}
           </span>
           {trend}

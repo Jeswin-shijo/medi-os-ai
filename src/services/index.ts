@@ -54,6 +54,22 @@ import {
   CoordinatorCaseQuery,
   CoordinatorMessageQuery,
   CoordinatorOverview,
+  ErBoard,
+  ErOverview,
+  ErSeriesPoint,
+  ErBay,
+  ErBayInput,
+  ErComplaintInfo,
+  ErArrivalInput,
+  ErExpectedInput,
+  ErTriageInput,
+  ErTriageSuggestion,
+  ErVisit,
+  ErExpected,
+  ErVitals,
+  TriageColour,
+  ErPathwayKey,
+  ErDispositionKind,
   CoordinatorSeriesPoint,
   AgentMessage,
   DutyTitle,
@@ -426,4 +442,35 @@ export const coordinatorService = {
   requestTypes: () => api<RequestType[]>('/coordinator/request-types'),
   ask: (question: string) => api<ChatAnswer>('/coordinator/ask', { method: 'POST', body: { question } }),
   acknowledge: (escalationId: string) => api<{ ok: boolean }>(`/coordinator/escalations/${enc(escalationId)}/ack`, POST)
+};
+
+// The ER Agent: the board, arrivals, triage, pathways, bays and the doctor's decision.
+export const erService = {
+  board: () => api<ErBoard>('/er/board'),
+  complaints: () => api<ErComplaintInfo>('/er/complaints'),
+  overview: () => api<ErOverview>('/er/overview'),
+  /** Hourly counts, oldest first. */
+  snapshots: (range: SnapshotRange) => api<{ range: SnapshotRange; points: ErSeriesPoint[] }>(`/er/snapshots?range=${range}`),
+  bays: () => api<{ bays: ErBay[] }>('/er/bays').then((r) => r.bays),
+  suggestBay: (colour: TriageColour) => api<{ bay: ErBay | null }>(`/er/bays/suggest?colour=${colour}`).then((r) => r.bay),
+  /** Admin only. Sends the bare list; the answer is the saved list. */
+  saveBays: (bays: ErBayInput[]) => api<{ bays: ErBay[] }>('/er/bays', { method: 'PUT', body: bays }).then((r) => r.bays),
+  targets: () => api<{ targets: Record<string, number> }>('/er/targets').then((r) => r.targets),
+  /** Admin only: an object of "<pathway>.<step>": minutes. */
+  saveTargets: (targets: Record<string, number>) => api<{ targets: Record<string, number> }>('/er/targets', { method: 'PUT', body: targets }).then((r) => r.targets),
+  suggestTriage: (body: { complaint: string; vitals?: ErVitals; painScore?: number }) => api<ErTriageSuggestion>('/er/triage/suggest', { method: 'POST', body }),
+  arrive: (body: ErArrivalInput) => api<ErVisit>('/er/arrivals', { method: 'POST', body }),
+  addExpected: (body: ErExpectedInput) => api<ErExpected>('/er/expected', { method: 'POST', body }),
+  deleteExpected: (id: string) => api<{ ok: boolean }>(`/er/expected/${enc(id)}`, { method: 'DELETE' }),
+  visit: (id: string) => api<ErVisit>(`/er/visits/${enc(id)}`),
+  triage: (id: string, body: ErTriageInput) => api<ErVisit>(`/er/visits/${enc(id)}/triage`, { method: 'POST', body }),
+  retriage: (id: string, colour: TriageColour, reason: string) => api<ErVisit>(`/er/visits/${enc(id)}/retriage`, { method: 'POST', body: { colour, reason } }),
+  startPathway: (id: string, key: ErPathwayKey) => api<ErVisit>(`/er/visits/${enc(id)}/pathways/${enc(key)}`, POST),
+  cancelPathway: (id: string, key: ErPathwayKey, reason: string) => api<ErVisit>(`/er/visits/${enc(id)}/pathways/${enc(key)}/cancel`, { method: 'POST', body: { reason } }),
+  tickStep: (id: string, step: string) => api<ErVisit>(`/er/visits/${enc(id)}/steps/${enc(step)}`, POST),
+  doctorSeen: (id: string) => api<ErVisit>(`/er/visits/${enc(id)}/doctor-seen`, POST),
+  assignBay: (id: string, bayId: string | null) => api<ErVisit>(`/er/visits/${enc(id)}/bay`, { method: 'POST', body: { bayId } }),
+  disposition: (id: string, kind: ErDispositionKind, notes?: string) => api<ErVisit>(`/er/visits/${enc(id)}/disposition`, { method: 'POST', body: { kind, notes } }),
+  handoverDraft: (id: string) => api<{ text: string; sample: boolean }>(`/er/visits/${enc(id)}/handover-draft`),
+  saveHandover: (id: string, note: string) => api<ErVisit>(`/er/visits/${enc(id)}/handover`, { method: 'PUT', body: { note } })
 };
