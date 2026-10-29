@@ -22,7 +22,15 @@ export type ScreenId =
   | 'messages'
   | 'settings'
   | 'beds'
-  | 'bed-agent';
+  | 'bed-agent'
+  | 'coordinator'
+  | 'er-agent'
+  | 'lab-agent'
+  | 'pharmacy-agent'
+  | 'discharge-agent'
+  | 'scheduling-agent'
+  | 'revenue-agent'
+  | 'patient-support-agent';
 
 export interface Patient {
   id: string;
@@ -313,6 +321,8 @@ export interface TaskAlertItem {
   category: 'Critical' | 'Follow-up' | 'Lab' | 'Imaging' | 'Medication' | 'System';
   /** What the alert points at, e.g. 'bed-request:<id>'. */
   link?: string;
+  /** Present when the alert is a Coordinator escalation waiting for someone to acknowledge it. */
+  escalation?: { id: string; ladder: string; step: number; titleKey: string; titleLabel: string; holderNames: string[] };
 }
 
 export interface ChatMessage {
@@ -1032,4 +1042,288 @@ export interface SnapshotPoint {
   free: number | null;
   cleaning: number | null;
   blocked: number | null;
+}
+
+
+// ---- Coordinator (mirror the backend views in src/modules/coordinator) ----
+
+export type AgentKey = 'coordinator' | 'er' | 'bed' | 'lab' | 'pharmacy' | 'discharge' | 'scheduling' | 'revenue' | 'patient-support';
+
+export interface AgentInfo {
+  key: AgentKey;
+  name: string;
+  job: string;
+  owns: string;
+  neverDoes: string;
+  /** True only for the agents that exist today. */
+  built: boolean;
+}
+
+/** The nine agents in the client's order (job, ownership and limits from the agent plan). */
+export const AGENT_LIST: AgentInfo[] = [
+  {
+    key: 'coordinator',
+    name: 'Coordinator',
+    job: 'Opens and closes the case, routes messages between agents, runs the deadline clocks, escalates when something is stuck',
+    owns: 'The case and its timeline',
+    neverDoes: 'Make a clinical or money decision',
+    built: true
+  },
+  {
+    key: 'er',
+    name: 'ER',
+    job: 'Emergency registration, triage support, pathway timers (such as "ECG within 10 minutes"), the ER board and task list',
+    owns: 'The ER visit',
+    neverDoes: 'Read the ECG or diagnose',
+    built: false
+  },
+  { key: 'bed', name: 'Bed', job: 'Assigns beds, handles transfers and cleaning', owns: 'Beds and bed requests', neverDoes: 'Move a patient nobody asked to move', built: true },
+  {
+    key: 'lab',
+    name: 'Lab',
+    job: 'Turns test orders into sample tasks, tracks turnaround, delivers results, reports critical values, times repeat tests',
+    owns: 'Lab orders and results',
+    neverDoes: 'Interpret a result for the doctor',
+    built: false
+  },
+  {
+    key: 'pharmacy',
+    name: 'Pharmacy',
+    job: 'Checks every order (allergy, interactions, dose for weight and kidneys), queues it for the pharmacist, tracks stock, prepares take-home medicines',
+    owns: 'Medicine orders and stock',
+    neverDoes: 'Change a dose or swap a drug',
+    built: false
+  },
+  {
+    key: 'discharge',
+    name: 'Discharge',
+    job: 'Plans discharge from day one, runs the discharge checklist, drafts the summary for the doctor to sign',
+    owns: 'The discharge plan',
+    neverDoes: "Discharge anyone without a doctor's order",
+    built: false
+  },
+  {
+    key: 'scheduling',
+    name: 'Scheduling',
+    job: 'Books procedures, consults, tests and follow-ups; manages cath lab and OPD slots and the duty roster; feeds the token queue',
+    owns: 'Appointments, slots, roster',
+    neverDoes: 'Book over a clinical priority',
+    built: false
+  },
+  {
+    key: 'revenue',
+    name: 'Revenue',
+    job: 'Estimates, insurance pre-authorisation, charge capture, running bill, final bill, payment, claim',
+    owns: 'The bill and the claim',
+    neverDoes: 'Hold up emergency care for money',
+    built: false
+  },
+  {
+    key: 'patient-support',
+    name: 'Patient Support',
+    job: 'Talks to the patient and family: calls, messages, updates, reminders, check-up calls after going home',
+    owns: 'Conversations with patient and family',
+    neverDoes: 'Give medical advice outside scripts the doctors approved',
+    built: false
+  }
+];
+
+export type Priority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface AgentStatus {
+  key: AgentKey;
+  name: string;
+  job: string;
+  built: boolean;
+  online: boolean;
+  open: number;
+  capacity: number;
+  onTimePct: number | null;
+}
+
+export type CoordinatorCardKey = 'activeWorkflows' | 'agentsCoordinated' | 'tasksRouted' | 'escalations';
+
+export interface CoordinatorCardData {
+  value: number;
+  total: number | null;
+  /** Change against 24 hours ago, in percent; null without a snapshot from then. */
+  trendPct: number | null;
+  /** The last 24 hourly points, oldest first; null where there is no snapshot. */
+  spark: (number | null)[];
+  note: string;
+}
+
+export interface CoordinatorOverview {
+  /** ISO, clinic time. */
+  at: string;
+  cards: Record<CoordinatorCardKey, CoordinatorCardData>;
+  agents: AgentStatus[];
+  openApprovals: number;
+  runningClocks: number;
+}
+
+export interface CoordinatorSeriesPoint {
+  /** ISO. */
+  at: string;
+  activeWorkflows: number | null;
+  agentsOnline: number | null;
+  tasksToday: number | null;
+  escalations: number | null;
+}
+
+export interface CoordinatorCase {
+  id: string;
+  number: string;
+  patientId: string;
+  patientUhid: string;
+  patientName: string;
+  kind: string;
+  priority: Priority;
+  state: 'open' | 'closed';
+  openedAt?: string;
+  closedAt?: string;
+  closedReason?: string;
+  agents: AgentKey[];
+  refs: { bedRequestIds: string[]; admissionId?: string };
+  openedBy: string;
+}
+
+export interface AgentMessage {
+  id: string;
+  case: string | null;
+  from: AgentKey;
+  to: AgentKey[];
+  type: string;
+  priority: Priority;
+  summary: string;
+  payload: Record<string, unknown>;
+  dueBy: string | null;
+  needsPerson: boolean;
+  opensWork: boolean;
+  resolves: string | null;
+  causedBy: string | null;
+  hop: number;
+  state: 'pending' | 'delivered' | 'failed';
+  attempts: number;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+export type CoordinatorClockState = 'running' | 'met' | 'expired' | 'cancelled' | (string & {});
+
+/** A deadline clock on a case (backend ClockView). */
+export interface CoordinatorClock {
+  id: string;
+  def: string;
+  case: string | null;
+  startedBy: string;
+  startedAt: string;
+  dueAt: string;
+  state: CoordinatorClockState;
+  stoppedAt: string | null;
+  metMinutes: number | null;
+  escalation: string | null;
+}
+
+export interface CoordinatorCaseDetail {
+  case: CoordinatorCase;
+  timeline: AgentMessage[];
+  clocks: CoordinatorClock[];
+}
+
+export interface Approval {
+  id: string;
+  case: string | null;
+  type: string;
+  agent: string;
+  summary: string;
+  roles: string[];
+  primary: { kind: 'approve' | 'open'; label: string };
+  source: { kind: string; id: string } | null;
+  state: string;
+  assignedTo: { kind: 'title' | 'role'; key: string; label: string } | null;
+  notes: { byName: string; at: string; text: string }[];
+  decidedByName: string | null;
+  decidedAt: string | null;
+  createdAt: string | null;
+}
+
+export interface RuleView {
+  key: string;
+  agent: AgentKey;
+  label: string;
+  description: string;
+  value: boolean;
+  locked: boolean;
+  /** Set for rules that arrive with an agent that is not built yet. */
+  comingWith?: AgentKey;
+}
+
+export interface LadderStep {
+  /** A duty title key. */
+  title: string;
+  waitMinutes: number;
+}
+
+export interface Ladder {
+  key: string;
+  label: string;
+  steps: LadderStep[];
+}
+
+export interface DutyTitle {
+  key: string;
+  label: string;
+  /** User ids of the people who hold this title. */
+  holders: string[];
+}
+
+export interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface RequestType {
+  key: string;
+  label: string;
+  agent: AgentKey;
+}
+
+export interface ChatAction {
+  kind: 'open';
+  screen: 'bed-request-form' | 'case' | 'bed-agent-request';
+  params: Record<string, string>;
+}
+
+export interface ChatAnswer {
+  answer: string;
+  sample: boolean;
+  action?: ChatAction;
+}
+
+/** One live event from GET /coordinator/stream. */
+export interface CoordinatorEvent {
+  kind: 'message' | 'case' | 'clock' | 'escalation' | 'approval' | 'agent' | 'rule';
+  id: string;
+  caseId?: string;
+  from?: AgentKey;
+  to?: AgentKey[];
+  summary?: string;
+}
+
+export interface CoordinatorCaseQuery {
+  state?: 'open' | 'closed';
+  limit?: number;
+  before?: string;
+}
+
+export interface CoordinatorMessageQuery {
+  case?: string;
+  type?: string;
+  agent?: AgentKey;
+  openWork?: boolean;
+  limit?: number;
+  before?: string;
 }

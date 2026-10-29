@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { ScreenId } from '../../types';
 import {
@@ -22,14 +22,45 @@ import {
   BedDouble,
   Bot,
   Ticket,
+  Network,
+  Siren,
+  FlaskRound,
+  Pill,
+  CalendarCheck2,
+  CalendarClock,
+  CircleDollarSign,
+  HeartHandshake,
+  ChevronDown,
   type LucideIcon
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
 
 /** The bed pages, and the roles that cannot open them (as the API). */
-const BED_SCREENS: ScreenId[] = ['beds', 'bed-agent'];
+const BED_SCREENS: ScreenId[] = ['beds'];
 const NO_BED_ACCESS = ['pharmacist', 'lab'];
+
+/** The AI Agents group, in the client's order. Pharmacists and lab staff have no access to it (as the API). */
+const AGENT_NAV: { id: ScreenId; label: string; icon: LucideIcon; built: boolean }[] = [
+  { id: 'coordinator', label: 'Coordinator Agent', icon: Network, built: true },
+  { id: 'er-agent', label: 'ER Agent', icon: Siren, built: false },
+  { id: 'bed-agent', label: 'Bed Agent', icon: Bot, built: true },
+  { id: 'lab-agent', label: 'Lab Agent', icon: FlaskRound, built: false },
+  { id: 'pharmacy-agent', label: 'Pharmacy Agent', icon: Pill, built: false },
+  { id: 'discharge-agent', label: 'Discharge Agent', icon: CalendarCheck2, built: false },
+  { id: 'scheduling-agent', label: 'Scheduling Agent', icon: CalendarClock, built: false },
+  { id: 'revenue-agent', label: 'Revenue Agent', icon: CircleDollarSign, built: false },
+  { id: 'patient-support-agent', label: 'Patient Support Agent', icon: HeartHandshake, built: false }
+];
+
+const GROUP_KEY = 'mediosAgentsGroupCollapsed';
+const readCollapsed = () => {
+  try {
+    return localStorage.getItem(GROUP_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
 
 interface NavItem {
   id: ScreenId;
@@ -49,6 +80,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   const { activeScreen, setActiveScreen, unreadMessagesCount, user, signOut } = useApp();
   const name = user?.name ?? '';
   const navRef = useRef<HTMLElement>(null);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggleGroup = () => {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(GROUP_KEY, c ? '0' : '1');
+      } catch {
+        // Not remembered; the group still works.
+      }
+      return !c;
+    });
+  };
+  const showAgents = !NO_BED_ACCESS.includes(user?.role ?? '');
 
   useEffect(() => {
     if (!open) return;
@@ -64,7 +107,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { id: 'appointments', label: 'Appointments', icon: CalendarCheck },
     { id: 'queue', label: 'Token Queue', icon: Ticket },
     { id: 'beds', label: 'Beds & Rooms', icon: BedDouble },
-    { id: 'bed-agent', label: 'Bed Agent', icon: Bot },
     { id: 'call-agent', label: 'AI Call Agent', icon: PhoneCall },
     { id: 'consultation', label: 'Consultation', icon: UserRoundSearch },
     { id: 'emr', label: 'EMR / Clinical Notes', icon: FileAxis3d },
@@ -82,6 +124,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { id: 'settings', label: 'Settings', icon: Settings }
   ] as NavItem[]).filter((item) => !BED_SCREENS.includes(item.id) || !NO_BED_ACCESS.includes(user?.role ?? ''));
 
+  const renderItem = (item: NavItem & { soon?: boolean }, isActive: boolean) => {
+    const Icon = item.icon;
+    return (
+      <button
+        key={item.id}
+        className={`nav-item-btn ${isActive ? 'active' : ''}`}
+        aria-label={item.soon ? `${item.label}, coming soon` : item.badge ? `${item.label}, ${item.badge} unread` : item.label}
+        aria-current={isActive ? 'page' : undefined}
+        onClick={() => {
+          setActiveScreen(item.id);
+          onClose();
+        }}
+      >
+        {isActive && <span className="nav-active-bg" aria-hidden="true" />}
+        <span className="nav-item-icon">
+          <Icon size={22} strokeWidth={1.75} />
+          {item.dot && <span className="nav-item-dot" />}
+        </span>
+        <span className="nav-item-label">{item.label}</span>
+        {item.badge && item.badge > 0 ? <span className="nav-badge-pill">{item.badge}</span> : null}
+        {item.soon ? <span className="nav-soon-tag">Soon</span> : null}
+      </button>
+    );
+  };
+
+  const renderGroup = () =>
+    !showAgents ? null : (
+      <div className="nav-group" role="group" aria-label="AI Agents">
+        <button className="nav-group-btn" aria-expanded={!collapsed} aria-controls="nav-agents-list" onClick={toggleGroup}>
+          <span>AI Agents</span>
+          <ChevronDown className="nav-group-chevron" size={16} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <div id="nav-agents-list" className={`nav-group-items${collapsed ? ' is-collapsed' : ''}`}>
+          {AGENT_NAV.map((a) => renderItem({ id: a.id, label: a.label, icon: a.icon, soon: !a.built }, activeScreen === a.id))}
+        </div>
+      </div>
+    );
+
   return (
     <aside className={`app-sidebar${open ? ' is-open' : ''}`} aria-label="Main navigation">
       {/* Brand Header */}
@@ -98,29 +178,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
       {/* Navigation List */}
       <nav className="sidebar-nav" ref={navRef}>
         {navItems.map((item) => {
-          const Icon = item.icon;
           const isActive = activeScreen === item.id;
+          const group = item.id === 'beds' ? renderGroup() : null;
           return (
-            <button
-              key={item.id}
-              className={`nav-item-btn ${isActive ? 'active' : ''}`}
-              aria-label={item.badge ? `${item.label}, ${item.badge} unread` : item.label}
-              aria-current={isActive ? 'page' : undefined}
-              onClick={() => {
-                setActiveScreen(item.id);
-                onClose();
-              }}
-            >
-              {isActive && <span className="nav-active-bg" aria-hidden="true" />}
-              <span className="nav-item-icon">
-                <Icon size={22} strokeWidth={1.75} />
-                {item.dot && <span className="nav-item-dot" />}
-              </span>
-              <span className="nav-item-label">{item.label}</span>
-              {item.badge && item.badge > 0 ? (
-                <span className="nav-badge-pill">{item.badge}</span>
-              ) : null}
-            </button>
+            <React.Fragment key={item.id}>
+              {renderItem(item, isActive)}
+              {group}
+            </React.Fragment>
           );
         })}
       </nav>

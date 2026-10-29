@@ -45,7 +45,22 @@ import {
   Need,
   SuggestionResult,
   AiRefinement,
-  AiStatus
+  AiStatus,
+  AgentStatus,
+  Approval,
+  ChatAnswer,
+  CoordinatorCase,
+  CoordinatorCaseDetail,
+  CoordinatorCaseQuery,
+  CoordinatorMessageQuery,
+  CoordinatorOverview,
+  CoordinatorSeriesPoint,
+  AgentMessage,
+  DutyTitle,
+  Ladder,
+  RequestType,
+  RuleView,
+  StaffUser
 } from '../types';
 import { api, refreshSession, session, SessionPayload } from './api';
 import { displayDate, displayTime } from '../utils/clinicDate';
@@ -385,4 +400,30 @@ export const bedRequestService = {
   /** `confirm` true adds a need found in the notes; false dismisses it. */
   notesNeed: (id: string, need: Need, confirm: boolean) =>
     api<BedRequest>(`/beds/requests/${enc(id)}/notes-need`, { method: 'POST', body: { need, confirm } })
+};
+
+// The Coordinator: cases, agent messages, approvals, rules and escalations.
+export const coordinatorService = {
+  overview: () => api<CoordinatorOverview>('/coordinator/overview'),
+  /** Hourly counts, oldest first. */
+  snapshots: (range: SnapshotRange) => api<{ range: SnapshotRange; points: CoordinatorSeriesPoint[] }>(`/coordinator/snapshots?range=${range}`),
+  cases: (q: CoordinatorCaseQuery = {}) => api<CoordinatorCase[]>('/coordinator/cases', { query: { ...q } }),
+  case: (id: string) => api<CoordinatorCaseDetail>(`/coordinator/cases/${enc(id)}`),
+  messages: (q: CoordinatorMessageQuery = {}) => api<AgentMessage[]>('/coordinator/messages', { query: { ...q, openWork: q.openWork === undefined ? undefined : String(q.openWork) } }),
+  agents: () => api<AgentStatus[]>('/coordinator/agents'),
+  approvals: (state?: string) => api<Approval[]>('/coordinator/approvals', { query: { state } }),
+  act: (id: string, decision: 'approved' | 'rejected') => api<Approval>(`/coordinator/approvals/${enc(id)}/act`, { method: 'POST', body: { decision } }),
+  reassign: (id: string, target: { kind: 'title' | 'role'; key: string }, note: string) =>
+    api<Approval>(`/coordinator/approvals/${enc(id)}/reassign`, { method: 'POST', body: { target, note } }),
+  rules: () => api<RuleView[]>('/coordinator/rules'),
+  setRule: (key: string, value: boolean) => api<RuleView>(`/coordinator/rules/${enc(key)}`, { method: 'PUT', body: { value } }),
+  /** Admin only. */
+  ladders: () => api<Ladder[]>('/coordinator/ladders'),
+  saveLadder: (ladder: Ladder) => api<Ladder>('/coordinator/ladders', { method: 'PUT', body: ladder }),
+  titles: () => api<DutyTitle[]>('/coordinator/titles'),
+  saveTitle: (title: DutyTitle) => api<DutyTitle>('/coordinator/titles', { method: 'PUT', body: title }),
+  staff: () => api<StaffUser[]>('/coordinator/staff'),
+  requestTypes: () => api<RequestType[]>('/coordinator/request-types'),
+  ask: (question: string) => api<ChatAnswer>('/coordinator/ask', { method: 'POST', body: { question } }),
+  acknowledge: (escalationId: string) => api<{ ok: boolean }>(`/coordinator/escalations/${enc(escalationId)}/ack`, POST)
 };

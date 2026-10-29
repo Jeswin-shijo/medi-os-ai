@@ -27,7 +27,15 @@ import {
   PhoneCall,
   Ticket,
   BedDouble,
-  Bot
+  Bot,
+  Network,
+  Siren,
+  FlaskRound,
+  Pill,
+  CalendarCheck2,
+  CalendarClock,
+  CircleDollarSign,
+  HeartHandshake
 } from 'lucide-react';
 import { AiSparkle, Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
@@ -46,7 +54,15 @@ const MODULES: ModuleItem[] = [
   { id: 'appointments', label: 'Appointments', hint: 'Schedule & queue', icon: CalendarCheck },
   { id: 'queue', label: 'Token Queue', hint: 'Check-in tokens & waiting-room display', icon: Ticket },
   { id: 'beds', label: 'Beds & Rooms', hint: 'Live bed board', icon: BedDouble },
+  { id: 'coordinator', label: 'Coordinator Agent', hint: 'Cases, clocks & approvals', icon: Network },
+  { id: 'er-agent', label: 'ER Agent', hint: 'Not built yet', icon: Siren },
   { id: 'bed-agent', label: 'Bed Agent', hint: 'Bed requests & allocation', icon: Bot },
+  { id: 'lab-agent', label: 'Lab Agent', hint: 'Not built yet', icon: FlaskRound },
+  { id: 'pharmacy-agent', label: 'Pharmacy Agent', hint: 'Not built yet', icon: Pill },
+  { id: 'discharge-agent', label: 'Discharge Agent', hint: 'Not built yet', icon: CalendarCheck2 },
+  { id: 'scheduling-agent', label: 'Scheduling Agent', hint: 'Not built yet', icon: CalendarClock },
+  { id: 'revenue-agent', label: 'Revenue Agent', hint: 'Not built yet', icon: CircleDollarSign },
+  { id: 'patient-support-agent', label: 'Patient Support Agent', hint: 'Not built yet', icon: HeartHandshake },
   { id: 'call-agent', label: 'AI Call Agent', hint: 'Confirmation & booking calls', icon: PhoneCall },
   { id: 'consultation', label: 'Consultation', hint: 'SOAP workspace', icon: UserRoundSearch },
   { id: 'emr', label: 'EMR / Clinical Notes', hint: 'Medical records', icon: FileAxis3d },
@@ -67,8 +83,9 @@ const MODULES: ModuleItem[] = [
   { id: 'settings', label: 'Settings', hint: 'Hospital & AI settings', icon: Settings }
 ];
 
-/** Pharmacists and lab staff have no access to the bed pages (as the sidebar and the API). */
-const hiddenFor = (id: ScreenId, role?: string) => (id === 'beds' || id === 'bed-agent') && (role === 'pharmacist' || role === 'lab');
+/** Pharmacists and lab staff have no access to the bed pages or the AI Agents (as the sidebar and the API). */
+const AGENT_SCREENS: ScreenId[] = ['beds', 'bed-agent', 'coordinator', 'er-agent', 'lab-agent', 'pharmacy-agent', 'discharge-agent', 'scheduling-agent', 'revenue-agent', 'patient-support-agent'];
+const hiddenFor = (id: ScreenId, role?: string) => AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab');
 
 type Entry =
   | { kind: 'ai' }
