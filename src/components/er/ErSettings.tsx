@@ -114,10 +114,9 @@ const BaysEditor: React.FC = () => {
               ))}
             </select>
             <label className="es-check" title={b.holds ? `${b.holds} is in this bay` : undefined}>
-              <input type="checkbox" checked={b.outOfUse} disabled={b.holds !== null} onChange={(e) => edit(b.key, { outOfUse: e.target.checked })} />
-              Out of use
+              <input type="checkbox" checked={b.outOfUse} disabled={b.holds !== null} aria-label={`${b.name || `Bay ${i + 1}`} out of use`} onChange={(e) => edit(b.key, { outOfUse: e.target.checked })} />
+              {b.holds ? `${b.holds} here` : 'Out of use'}
             </label>
-            {b.holds && <span className="status-pill sm blue">{b.holds} here</span>}
             <button type="button" className="cs-ib es-bay-x" aria-label={`Remove ${b.name || `bay ${i + 1}`}`} disabled={b.holds !== null} onClick={() => remove(b.key)}>
               <X size={15} aria-hidden="true" />
             </button>

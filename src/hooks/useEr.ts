@@ -53,6 +53,13 @@ export function useEr(range: SnapshotRange = '24h'): UseEr {
   }, []);
   const { sync, live } = useCoordinatorStream({ onEvent });
   const version = sync + erEvents + manual;
+  // The side cards refetch on this, a little after a burst of events has ended.
+  const [settledEvents, setSettledEvents] = useState(0);
+  const eventVersion = sync + erEvents;
+  useEffect(() => {
+    const t = window.setTimeout(() => setSettledEvents(eventVersion), REFETCH_MS + 100);
+    return () => window.clearTimeout(t);
+  }, [eventVersion]);
 
   useEffect(() => {
     let alive = true;
@@ -112,5 +119,5 @@ export function useEr(range: SnapshotRange = '24h'): UseEr {
   }, []);
   const reloadSeries = useCallback(() => setSeriesTick((n) => n + 1), []);
 
-  return { board, overview, series, complaints, error, live, eventVersion: sync + erEvents, lastEvent, reload, reloadSeries };
+  return { board, overview, series, complaints, error, live, eventVersion: settledEvents, lastEvent, reload, reloadSeries };
 }

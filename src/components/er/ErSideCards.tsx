@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useApp } from '../../context/appContextCore';
 import { bedService, coordinatorService, erService } from '../../services';
 import { errorMessage } from '../../services/api';
-import type { AgentMessage, DutyTitle, ErBay, ErBayKind, ErOverview, StaffUser, TypeRow } from '../../types';
+import type { AgentMessage, DutyTitle, ErBay, ErBayKind, ErOverview, TypeRow } from '../../types';
 import { displayTime } from '../../utils/clinicDate';
 import { MeterBar } from '../beds/charts/MeterBar';
 
@@ -19,9 +18,7 @@ function useLoaded<T>(load: () => Promise<T>, refreshKey: number): { data: T | n
     return () => {
       alive = false;
     };
-    // `load` is a stable module-level call in each card.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
+  }, [load, refreshKey]);
   return state;
 }
 
@@ -92,36 +89,9 @@ const ON_DUTY = [
 ];
 const loadDuty = () => coordinatorService.titles();
 
-/**
- * Who holds the ER duty titles. Only an admin may read the staff list, so other roles see a name only for
- * themselves ("You") and a count for the rest.
- */
+/** Who holds the ER duty titles: the names come with the titles, so every ER role sees them. */
 export const ErStaffCard: React.FC<{ refreshKey: number }> = ({ refreshKey }) => {
-  const { user } = useApp();
-  const isAdmin = user?.role === 'admin';
   const { data: titles, error } = useLoaded<DutyTitle[]>(loadDuty, refreshKey);
-  const [staff, setStaff] = useState<StaffUser[]>([]);
-  useEffect(() => {
-    if (!isAdmin) return;
-    let alive = true;
-    coordinatorService
-      .staff()
-      .then((s) => alive && setStaff(s))
-      .catch(() => {
-        // Without names the card shows a count.
-      });
-    return () => {
-      alive = false;
-    };
-  }, [isAdmin]);
-  const byId = new Map(staff.map((s) => [s.id, s]));
-
-  const who = (holders: string[]): string => {
-    const named = holders.map((id) => (id === user?.id ? 'You' : byId.get(id)?.name)).filter((n): n is string => !!n);
-    const others = holders.length - named.length;
-    return [...named, ...(others > 0 ? [`${others} ${others === 1 ? 'person' : 'people'}`] : [])].join(', ');
-  };
-
   return (
     <section className="medios-card bagent-card er-side" aria-label="Staff on duty">
       <div className="card-header-row">
@@ -132,11 +102,12 @@ export const ErStaffCard: React.FC<{ refreshKey: number }> = ({ refreshKey }) =>
       ) : (
         <ul className="er-duty">
           {ON_DUTY.map(({ key, label }) => {
-            const holders = titles.find((t) => t.key === key)?.holders ?? [];
+            const title = titles.find((t) => t.key === key);
+            const names = title?.holderNames ?? [];
             return (
               <li key={key} className="er-duty-row">
-                <span className="er-cap-label">{titles.find((t) => t.key === key)?.label ?? label}</span>
-                {holders.length ? <span className="er-duty-who">{who(holders)}</span> : <span className="er-hint">Nobody assigned — alerts go to admins</span>}
+                <span className="er-cap-label">{title?.label ?? label}</span>
+                {names.length ? <span className="er-duty-who">{names.join(', ')}</span> : <span className="er-hint">Nobody assigned — alerts go to admins</span>}
               </li>
             );
           })}

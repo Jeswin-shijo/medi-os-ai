@@ -1280,6 +1280,8 @@ export interface DutyTitle {
   label: string;
   /** User ids of the people who hold this title. */
   holders: string[];
+  /** The active holders' names, in the same order. */
+  holderNames?: string[];
 }
 
 export interface StaffUser {
