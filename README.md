@@ -98,7 +98,7 @@ Beds:
 - **AI** wording shows a **SAMPLE** label while the API runs in sample mode; if the AI is off or slow, the rule-based choice is used with no error. Settings → AI Assistant has the on/off switch and **Check connection** (admin).
 
 AI Agents and the Coordinator:
-- **AI Agents** is a group in the sidebar (admin, doctor, nurse and front desk; not pharmacist or lab). It lists the Coordinator Agent, ER, Bed, Lab, Pharmacy, Discharge, Scheduling, Revenue and Patient Support. Only the Coordinator and Bed Agent are built. The other seven open a placeholder page that says which agent is coming. The group can be collapsed.
+- **AI Agents** is a group in the sidebar (admin, doctor, nurse and front desk; not pharmacist or lab). It lists the Coordinator Agent, ER, Bed, Lab, Pharmacy, Discharge, Scheduling, Revenue and Patient Support. Only the Coordinator, ER and Bed Agents are built. The other six open a placeholder page that says which agent is coming. The group can be collapsed.
 - **Coordinator Agent** page, live through the API's `/coordinator/stream` (a **LIVE** badge; it reloads every 30 seconds if the stream drops):
   - four cards: active workflows, agents coordinated, tasks routed today, escalations, with a 24-hour or 7-day range;
   - **Coordination queue**: open work waiting on an agent or a person, listed emergency first (critical, then high, medium, low; newest first within each), filtered by priority. **New request** (roles that may raise one) opens a short form;
@@ -111,6 +111,22 @@ AI Agents and the Coordinator:
 - **Settings → Coordinator** (admin only): escalation ladders (which duty title is told, step by step, and how many minutes to wait), duty titles and who holds each one, and the rules. A title nobody holds goes to every admin.
 - **Acknowledge** on escalation alerts: when a clock runs out (for example a bed request waiting too long) the alert goes to the holders of the ladder's duty title, else to admins, and shows in the header bell and **Tasks & Alerts**. **Acknowledge** stops the ladder from moving up. If nobody does, it goes to the next step.
 - **Who sees what:** admin, doctor, nurse and front desk see the Coordinator page, cases and the Ask box. Admin only: Settings → Coordinator. Pharmacist and lab have no access.
+
+ER Agent:
+- **ER Agent** page (AI Agents group; admin, doctor, nurse and front desk; not pharmacist or lab), live through the API's ER stream (a **LIVE** badge):
+  - four cards (patients in the ER, critical, average triage time, on-time doctor response) and a row of the four triage colours (red 10 min, orange 30, yellow 120, green 240 to the doctor) with counts and average waits;
+  - **Expected arrivals**: calls and ambulances on the way, each with a countdown and **Add**; they drop off two hours after the expected time or when the patient arrives;
+  - **ER queue**: everyone in the ER, red first, filtered by colour, with status, bay and a deadline (minutes left, or late). A patient with no name yet shows as `Unknown male, ER-0024` with a **Details pending** tag (also on the Patients list) until someone fills in the details;
+  - **Visit panel** (select a row; it opens below the queue on narrow screens): triage and **Re-triage**, bay, pathways and their steps, **Seen by doctor**, a handover note with **Draft with AI**, the disposition, and the triage history;
+  - **ER workflow** diagram, performance today, bay and bed capacity, staff on duty and recent ER events.
+- **New arrival**: search a registered patient, tap a card, or record an emergency with no ID (gender, approximate age, a description). Pick the complaint and how they came.
+- **Triage form** (admin, doctor, nurse): complaint, the vitals and pain, then a **suggested colour** with its reasons, from fixed rules (the AI only words the explanation; a **SAMPLE** label shows in sample mode). Choosing a colour lower than suggested needs a reason. **Re-triage** always needs a reason and is kept in the history.
+- **Bays**: after triage the panel suggests a bay (red goes to a resus bay when one is free). **Use** it or choose another.
+- **Pathways** (chest pain, stroke, sepsis) start by themselves from the complaint and vitals, or by hand. Each step has a deadline and is ticked off in the panel. A step that runs late raises a clock and goes up the `er` ladder: ER nurse in charge, then ER consultant, then the medical superintendent. **Acknowledge** it in Tasks & Alerts.
+- **Disposition** (admin and doctor): **Admit** opens the bed form; once the Bed Agent assigns a bed the patient leaves the ER and the case stays open. **Home**, **Transfer**, **Left against advice** and **Died** ask for an optional note; the visit leaves and the case closes once every agent's check passes.
+- **Settings → ER** (admin only): the bays and stretchers (name, kind, out of use; a bay with a patient cannot be removed), the pathway step targets (1 to 240 minutes) and the **Start pathways automatically** switch.
+- **Who can do what:** reads, arrivals and expected arrivals: admin, doctor, nurse and front desk. Triage, bays, steps and pathways: admin, doctor and nurse. Seen by doctor and disposition: admin and doctor. Re-triage: admin, doctor and nurse. Settings → ER and bay editing: admin only. Pharmacist and lab have no access.
+- The demo seed makes `nurse@medios.ai` the ER nurse in charge and `doctor@medios.ai` the ER consultant. Test copy for this branch: API on 4400, web on 5184, database `medios_er_dev`.
 
 Conventions:
 - Patient-scoped records are always fetched by UHID. A screen never shows one patient's data under another patient's name; panels show an empty state instead.
