@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { AiSparkle, Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
+import { canUseCallAgent } from '../../utils/callAgent';
 
 interface ModuleItem {
   id: ScreenId;
@@ -83,9 +84,10 @@ const MODULES: ModuleItem[] = [
   { id: 'settings', label: 'Settings', hint: 'Hospital & AI settings', icon: Settings }
 ];
 
-/** Pharmacists and lab staff have no access to the bed pages or the AI Agents (as the sidebar and the API). */
+/** Pharmacists and lab staff have no access to the bed pages, the AI Agents or the AI Call Agent (as the sidebar and the API). */
 const AGENT_SCREENS: ScreenId[] = ['beds', 'bed-agent', 'coordinator', 'er-agent', 'lab-agent', 'pharmacy-agent', 'discharge-agent', 'scheduling-agent', 'revenue-agent', 'patient-support-agent'];
-const hiddenFor = (id: ScreenId, role?: string) => AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab');
+const hiddenFor = (id: ScreenId, role?: string) =>
+  (AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab')) || (id === 'call-agent' && !canUseCallAgent(role));
 
 type Entry =
   | { kind: 'ai' }

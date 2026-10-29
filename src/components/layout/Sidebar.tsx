@@ -35,12 +35,11 @@ import {
 } from 'lucide-react';
 import { Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
+import { canUseCallAgent } from '../../utils/callAgent';
 
 /** The bed pages, and the roles that cannot open them (as the API). */
 const BED_SCREENS: ScreenId[] = ['beds'];
 const NO_BED_ACCESS = ['pharmacist', 'lab'];
-/** The call log holds patients' own words; these roles cannot open it (as the API). */
-const NO_CALL_LOG_ACCESS = ['pharmacist', 'lab'];
 
 /** The AI Agents group, in the client's order. Pharmacists and lab staff have no access to it (as the API). */
 const AGENT_NAV: { id: ScreenId; label: string; icon: LucideIcon; built: boolean }[] = [
@@ -127,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
   ] as NavItem[]).filter(
     (item) =>
       (!BED_SCREENS.includes(item.id) || !NO_BED_ACCESS.includes(user?.role ?? '')) &&
-      (item.id !== 'call-agent' || !NO_CALL_LOG_ACCESS.includes(user?.role ?? '')),
+      (item.id !== 'call-agent' || canUseCallAgent(user?.role)),
   );
 
   const renderItem = (item: NavItem & { soon?: boolean }, isActive: boolean) => {

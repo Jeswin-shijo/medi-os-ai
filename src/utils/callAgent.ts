@@ -5,6 +5,13 @@ import { AgentCall, CallOutcome } from '../types';
 
 export type Tone = 'green' | 'blue' | 'orange' | 'red' | 'gray' | 'purple';
 
+/**
+ * Who may use the AI call agent: its log, transcripts and calls (as the API's
+ * CALL_LOG_ROLES). Calls hold patients' own words, which pharmacy and lab don't need.
+ */
+const CALL_AGENT_ROLES = ['admin', 'doctor', 'nurse', 'staff'];
+export const canUseCallAgent = (role?: string) => CALL_AGENT_ROLES.includes(role ?? '');
+
 export const OUTCOME_META: Record<CallOutcome, { label: string; tone: Tone }> = {
   confirmed: { label: 'Confirmed', tone: 'green' },
   rescheduled: { label: 'Rescheduled', tone: 'blue' },
