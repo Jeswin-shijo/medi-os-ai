@@ -18,6 +18,10 @@ export interface UseEr {
   complaints: ErComplaintInfo | null;
   error: string | null;
   live: boolean;
+  /** Goes up on every change that matters to the ER (events from `er` or `bed`, and stream catch-ups): side cards refetch with it. */
+  eventVersion: number;
+  /** The latest ER or bed event, for the diagram's pulse; null until one arrives. */
+  lastEvent: CoordinatorEvent | null;
   /** Reload the board and overview now (after an action of this person's own). */
   reload: () => void;
   /** Reload the hourly series now. */
@@ -37,11 +41,15 @@ export function useEr(range: SnapshotRange = '24h'): UseEr {
   // Counts the changes that matter to the ER; the first load and every stream catch-up count too.
   const [erEvents, setErEvents] = useState(0);
   const [manual, setManual] = useState(0);
+  const [lastEvent, setLastEvent] = useState<CoordinatorEvent | null>(null);
   const [seriesTick, setSeriesTick] = useState(0);
   const manualRef = useRef(false);
 
   const onEvent = useCallback((event: CoordinatorEvent) => {
-    if (event.from === 'er' || event.from === 'bed') setErEvents((n) => n + 1);
+    if (event.from === 'er' || event.from === 'bed') {
+      setErEvents((n) => n + 1);
+      setLastEvent(event);
+    }
   }, []);
   const { sync, live } = useCoordinatorStream({ onEvent });
   const version = sync + erEvents + manual;
@@ -104,5 +112,5 @@ export function useEr(range: SnapshotRange = '24h'): UseEr {
   }, []);
   const reloadSeries = useCallback(() => setSeriesTick((n) => n + 1), []);
 
-  return { board, overview, series, complaints, error, live, reload, reloadSeries };
+  return { board, overview, series, complaints, error, live, eventVersion: sync + erEvents, lastEvent, reload, reloadSeries };
 }

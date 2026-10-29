@@ -11,12 +11,15 @@ import { StatCard } from '../beds/StatCard';
 import { ErQueue } from '../er/ErQueue';
 import { ErVisitPanel } from '../er/ErVisitPanel';
 import { NewArrivalDialog } from '../er/NewArrivalDialog';
+import { ErExpectedArrivals } from '../er/ErExpectedArrivals';
+import { ErWorkflowDiagram } from '../er/ErWorkflowDiagram';
+import { ErCapacityCard, ErEventsCard, ErPerformanceCard, ErStaffCard } from '../er/ErSideCards';
 
 /** The ER Agent: who is in the ER, how urgent, and whether the deadlines are being met. */
 export const ErAgentScreen: React.FC = () => {
   const { user } = useApp();
   const canArrive = ER_ROLES.includes(user?.role ?? '');
-  const { board, overview, complaints, error, live, reload } = useEr();
+  const { board, overview, complaints, error, live, eventVersion, lastEvent, reload } = useEr();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** A visit just made by this person, shown until the board reload brings it in. */
   const [fresh, setFresh] = useState<ErVisit | null>(null);
@@ -127,6 +130,8 @@ export const ErAgentScreen: React.FC = () => {
           </section>
         )}
 
+        <ErExpectedArrivals expected={board?.expected ?? []} canAdd={canArrive} onChanged={reload} />
+
         <div className="split er-split" style={split('minmax(320px, 380px)')}>
           <ErQueue
             visits={board?.visits ?? null}
@@ -149,16 +154,19 @@ export const ErAgentScreen: React.FC = () => {
           </section>
         </div>
 
-        {/* Task 12: side cards (bays, expected arrivals, charts) go here. */}
-        <div className="cols-2 bagent-grid er-side-slots">
-          <section className="medios-card er-slot" aria-label="Bays">
-            <h3 className="card-title">Bays</h3>
-            <p className="data-empty">Comes next.</p>
+        <div className="cols-2 bagent-grid er-lower">
+          <section className="medios-card bagent-card er-side" aria-label="Workflow">
+            <div className="card-header-row">
+              <h3 className="card-title">ER workflow</h3>
+            </div>
+            <ErWorkflowDiagram lastEvent={lastEvent} />
           </section>
-          <section className="medios-card er-slot" aria-label="Expected arrivals">
-            <h3 className="card-title">Expected arrivals</h3>
-            <p className="data-empty">Comes next.</p>
-          </section>
+          <ErPerformanceCard performance={perf} />
+        </div>
+        <div className="cols-3 bagent-grid er-lower">
+          <ErCapacityCard refreshKey={eventVersion} />
+          <ErStaffCard refreshKey={eventVersion} />
+          <ErEventsCard refreshKey={eventVersion} />
         </div>
       </div>
       {arriving && (

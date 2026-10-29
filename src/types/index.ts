@@ -64,6 +64,8 @@ export interface Patient {
   /** The AI call agent never calls a patient with this flag (wrong number, or asked not to be called). */
   doNotCall?: boolean;
   doNotCallReason?: string;
+  /** An unknown emergency patient whose details have not been filled in yet (made by the ER). */
+  detailsPending?: boolean;
 }
 
 export interface Vitals {

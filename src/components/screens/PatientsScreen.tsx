@@ -526,6 +526,7 @@ export const PatientsScreen: React.FC = () => {
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, lineHeight: '16px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{pat.name}</span>
+                              {pat.detailsPending && <span className="status-pill sm gray er-pending" style={{ flexShrink: 0 }}>Details pending</span>}
                               {ABHA_LINKED.has(pat.uhid) && (
                                 <span title="ABHA ID linked" style={{ display: 'inline-flex' }}>
                                   <BadgeCheck size={11} color="var(--blue-text)" />

@@ -9,6 +9,7 @@ import { ChangePasswordDialog } from '../common/ChangePasswordDialog';
 import { ActiveSessions } from '../common/ActiveSessions';
 import { BedAgentSettings } from '../beds/BedAgentSettings';
 import { CoordinatorSettings } from '../agents/CoordinatorSettings';
+import { ErSettings } from '../er/ErSettings';
 import {
   Settings as SettingsIcon,
   Building2,
@@ -17,6 +18,7 @@ import {
   ClipboardMinus,
   Diamond,
   BrainCircuit,
+  Siren,
   Workflow,
   Share2,
   Bell,
@@ -65,6 +67,7 @@ type SettingsTab =
   | 'clinical'
   | 'ai'
   | 'coordinator'
+  | 'er'
   | 'integrations'
   | 'notifications'
   | 'security'
@@ -81,6 +84,7 @@ const TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: 'clinical', label: 'Clinical Settings', icon: Diamond },
   { id: 'ai', label: 'AI Assistant', icon: BrainCircuit },
   { id: 'coordinator', label: 'Coordinator', icon: Workflow },
+  { id: 'er', label: 'ER', icon: Siren },
   { id: 'integrations', label: 'Integrations', icon: Share2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: ShieldCheck },
@@ -231,7 +235,7 @@ export const SettingsScreen: React.FC = () => {
       // The call agent, token queue and Coordinator sections, and the two Bed Agent switches, are saved where
       // they are edited; never send back a stale copy of them.
       const { bedAutoAllocate: _autoAllocate, bedSuggestions: _suggestions, ...ai } = settings.ai;
-      const { coordinator: _coordinator, ...rest } = settings as SettingsState & { coordinator?: unknown };
+      const { coordinator: _coordinator, er: _er, ...rest } = settings as SettingsState & { coordinator?: unknown; er?: unknown };
       const saved = await settingsService.saveSettings({ ...rest, ai, callAgent: undefined, queue: undefined });
       setSettings(saved);
       setSessionTimeout(saved.security.sessionTimeout);
@@ -342,13 +346,13 @@ export const SettingsScreen: React.FC = () => {
       <ScreenHeader
         title="Settings"
         subtitle="Manage your account, hospital settings, AI preferences and system configurations"
-        actions={activeTab === 'coordinator' ? undefined : activeTab === 'general' ? (savedBadge || undefined) : <>{savedBadge}{saveButton}</>}
+        actions={activeTab === 'coordinator' || activeTab === 'er' ? undefined : activeTab === 'general' ? (savedBadge || undefined) : <>{savedBadge}{saveButton}</>}
       />
 
       {/* Settings tabs */}
       <div className="medios-card" style={{ padding: 0, overflow: 'hidden', marginTop: -3 }}>
         <div className="page-tabs" style={{ gap: 2 }}>
-          {TABS.filter(tab => tab.id !== 'coordinator' || user?.role === 'admin').map(tab => {
+          {TABS.filter(tab => (tab.id !== 'coordinator' && tab.id !== 'er') || user?.role === 'admin').map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
@@ -933,6 +937,7 @@ export const SettingsScreen: React.FC = () => {
       )}
 
       {activeTab === 'coordinator' && user?.role === 'admin' && <CoordinatorSettings />}
+      {activeTab === 'er' && user?.role === 'admin' && <ErSettings />}
 
       {/* ===================== INTEGRATIONS ===================== */}
       {activeTab === 'integrations' && (
