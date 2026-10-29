@@ -4,7 +4,7 @@ import { callAgentService, settingsService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
 import { useCallRunner } from '../../hooks/useCallRunner';
-import { AgentCall, AgentScript, CallAgentConfig, CallAgentSettings, CallOutcome, CallPurpose, CallStats, SimulatedResponse } from '../../types';
+import { AgentCall, AgentScript, CallAgentConfig, CallAgentSettings, CallOutcome, CallPurpose, CallStats, ProviderCheck, SimulatedResponse } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { BookByCallDialog } from '../common/BookByCallDialog';
@@ -24,6 +24,9 @@ import {
   Check,
   Save,
   RefreshCw,
+  PlugZap,
+  CircleCheck,
+  CircleX,
   type LucideIcon
 } from 'lucide-react';
 import { split, tableMin } from '../../utils/layout';
@@ -72,6 +75,8 @@ export const CallAgentScreen: React.FC = () => {
   const [outcomeFilter, setOutcomeFilter] = useState<CallOutcome | ''>('');
   const [search, setSearch] = useState('');
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [check, setCheck] = useState<ProviderCheck | null>(null);
+  const [checking, setChecking] = useState(false);
   const [tick, setTick] = useState(0);
 
   const refresh = () => setTick((t) => t + 1);
@@ -137,7 +142,11 @@ export const CallAgentScreen: React.FC = () => {
     {
       label: 'Calls Today',
       value: stats?.callsToday ?? '—',
-      sub: stats ? `${stats.answeredToday} answered${stats.contactRate != null ? ` (${stats.contactRate}%)` : ''}` : '',
+      sub: stats
+        ? stats.inboundToday
+          ? `${stats.answeredToday} answered · ${stats.inboundToday} inbound`
+          : `${stats.answeredToday} answered${stats.contactRate != null ? ` (${stats.contactRate}%)` : ''}`
+        : '',
       icon: PhoneCall,
       tint: 'blue'
     },
@@ -177,6 +186,25 @@ export const CallAgentScreen: React.FC = () => {
                 {PROVIDER_LABEL[config.provider]}
               </span>
             )}
+            {canRunScheduler && config?.provider === 'snapserve' && (
+              <button
+                className="btn-outline-blue"
+                style={{ borderColor: 'var(--border-strong)', padding: '0 16px' }}
+                disabled={checking}
+                onClick={async () => {
+                  setChecking(true);
+                  try {
+                    setCheck(await callAgentService.checkProvider());
+                  } catch (err) {
+                    showToast(errorMessage(err), 'error');
+                  }
+                  setChecking(false);
+                }}
+              >
+                <PlugZap size={15} />
+                <span>{checking ? 'Checking…' : 'Check connection'}</span>
+              </button>
+            )}
             {canRunScheduler && (
               <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 16px' }} onClick={runDue} disabled={config?.provider === 'none'}>
                 <Play size={15} />
@@ -190,6 +218,8 @@ export const CallAgentScreen: React.FC = () => {
           </>
         }
       />
+
+      {check && <ConnectionReport check={check} onClose={() => setCheck(null)} />}
 
       {config?.provider === 'simulated' && (
         <AgentNotice tone="orange">
@@ -270,6 +300,7 @@ export const CallAgentScreen: React.FC = () => {
                 <option value="">All purposes</option>
                 <option value="confirmation">Confirmation</option>
                 <option value="booking">Booking</option>
+                <option value="inbound">Inbound</option>
               </select>
               <select className="form-select" aria-label="Outcome" style={{ height: 34, width: 160, fontSize: 'var(--fs-sm)' }} value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value as CallOutcome | '')}>
                 <option value="">All outcomes</option>
@@ -363,7 +394,7 @@ export const CallAgentScreen: React.FC = () => {
       )}
 
       {tab === 'Automation' && config && <AutomationPanel key={JSON.stringify(config.settings)} settings={config.settings} simulated={config.provider === 'simulated'} onSave={saveAgentSettings} />}
-      {tab === 'Agent Scripts' && <ScriptsPanel provider={config?.provider} />}
+      {tab === 'Agent Scripts' && <ScriptsPanel config={config} />}
 
       {bookingOpen && <BookByCallDialog onClose={() => setBookingOpen(false)} onSubmit={runCall} />}
     </div>
@@ -395,11 +426,12 @@ const CallDetail: React.FC<CallDetailProps> = ({ call, summary, blocked, onCance
   const c = call ?? summary;
   const chosen = c.result?.chosenSlot;
   const finished = !isLive(c);
+  const inbound = c.purpose === 'inbound';
   const facts: [string, string][] = [
-    ['Requested by', `${c.requestedBy || '—'} (${c.trigger})`],
+    inbound ? ['Direction', 'Patient called the hospital'] : ['Requested by', `${c.requestedBy || '—'} (${c.trigger})`],
     [c.status === 'scheduled' ? 'Will call at' : 'Started', callTime(c.status === 'scheduled' ? c.scheduledFor : c.startedAt)],
     ['Length', callDuration(c.durationSec)],
-    ['Phone', c.phone],
+    [inbound ? 'Caller' : 'Phone', c.phone],
     ['Provider', c.provider]
   ];
 
@@ -412,7 +444,7 @@ const CallDetail: React.FC<CallDetailProps> = ({ call, summary, blocked, onCance
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', alignItems: 'center', fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>
             <span>{c.uhid}</span>
             <PurposeBadge purpose={c.purpose} />
-            <span>Attempt {c.attempt}</span>
+            {c.purpose !== 'inbound' && <span>Attempt {c.attempt}</span>}
           </div>
         </div>
         <CallResultBadge call={c} />
@@ -489,7 +521,7 @@ const CallDetail: React.FC<CallDetailProps> = ({ call, summary, blocked, onCance
             Cancel call
           </button>
         )}
-        {finished && !blocked && c.status !== 'scheduled' && (
+        {finished && !blocked && !inbound && c.status !== 'scheduled' && (
           <button className="btn-outline-blue btn-sm" style={{ borderColor: 'var(--border-strong)' }} onClick={() => onCallAgain(c)}>
             <PhoneCall size={13} />
             Call again
@@ -500,10 +532,49 @@ const CallDetail: React.FC<CallDetailProps> = ({ call, summary, blocked, onCance
             Allow calls again
           </button>
         )}
-        <button className="btn-secondary btn-sm" onClick={() => onOpenPatient(c)}>
-          Open in Appointments
+        {c.uhid && (
+          <button className="btn-secondary btn-sm" onClick={() => onOpenPatient(c)}>
+            Open in Appointments
+          </button>
+        )}
+      </div>
+
+      {call?.rawResult && (
+        <details>
+          <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)' }}>What the provider sent (to check the outcome names)</summary>
+          <pre style={{ ...pre, marginTop: 6, maxHeight: 220, overflow: 'auto' }}>{JSON.stringify(call.rawResult, null, 2)}</pre>
+        </details>
+      )}
+    </div>
+  );
+};
+
+const CheckRow: React.FC<{ ok: boolean; title: string; detail: string }> = ({ ok, title, detail }) => (
+  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 'var(--fs-sm)' }}>
+    {ok ? <CircleCheck size={16} color="var(--green-emerald)" style={{ flexShrink: 0, marginTop: 1 }} /> : <CircleX size={16} color="var(--red-rose)" style={{ flexShrink: 0, marginTop: 1 }} />}
+    <span>
+      <strong>{title}</strong> <span style={{ color: 'var(--text-secondary)' }}>{detail}</span>
+    </span>
+  </div>
+);
+
+/** Result of "Check connection": each agent, and the wallet. */
+const ConnectionReport: React.FC<{ check: ProviderCheck; onClose: () => void }> = ({ check, onClose }) => {
+  return (
+    <div className="medios-card" style={{ padding: 14, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8, borderColor: check.ok ? 'var(--green-border)' : 'var(--orange-border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>{check.ok ? 'SnapServe is connected' : 'SnapServe needs attention'}</h3>
+        <button className="btn-secondary btn-sm" onClick={onClose}>
+          Close
         </button>
       </div>
+      {check.agents.map((a) => (
+        <CheckRow key={a.role} ok={a.ok && a.active !== false} title={`${a.role[0].toUpperCase()}${a.role.slice(1)} agent #${a.agentId}${a.name ? ` (${a.name})` : ''}:`} detail={a.detail} />
+      ))}
+      {check.wallet && (
+        <CheckRow ok={check.wallet.ok && (check.wallet.balanceInr ?? 1) > 0} title={`Wallet${check.wallet.balanceInr !== undefined ? ` ₹${check.wallet.balanceInr.toFixed(2)}` : ''}:`} detail={check.wallet.detail} />
+      )}
+      {check.detail && <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>{check.detail}</p>}
     </div>
   );
 };
@@ -646,6 +717,30 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
         )}
       </div>
 
+      <div className="medios-card" style={{ gridColumn: 'span 2', padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Calls to the hospital (inbound)</h3>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+          <span className="switch-label" style={{ flexShrink: 0 }}>
+            <input type="checkbox" checked={draft.inboundChanges} onChange={(e) => set('inboundChanges', e.target.checked)} aria-label="Let callers change appointments" />
+            <span className="switch-slider" />
+          </span>
+          <span>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>Let verified callers book, move and cancel appointments</span>
+            <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: 2 }}>
+              Callers are verified by their registered number and name, plus date of birth when it is on file. Switched off, the agent only tells them their appointments and takes
+              a message for the front desk.
+            </span>
+          </span>
+        </label>
+        <Field
+          label="Public address of this API"
+          htmlFor="ca-public"
+          hint="The https address SnapServe can reach (your server, or a tunnel while testing), e.g. https://medios.example.com. Used to show the webhook and tool URLs to paste into SnapServe."
+        >
+          <input id="ca-public" className="input-field" placeholder="https://" value={draft.publicApiUrl} onChange={(e) => set('publicApiUrl', e.target.value.trim())} />
+        </Field>
+      </div>
+
       <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
         <button className="btn-secondary" disabled={!dirty || saving} onClick={() => setDraft(settings)}>
           Discard changes
@@ -661,7 +756,7 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
 
 // ---------------------------------------------------------------- scripts
 
-const CopyButton: React.FC<{ text: string; label: string }> = ({ text, label }) => {
+const CopyButton: React.FC<{ text: string; label: string; caption?: string }> = ({ text, label, caption = 'Copy' }) => {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -679,7 +774,7 @@ const CopyButton: React.FC<{ text: string; label: string }> = ({ text, label }) 
       aria-label={`Copy ${label}`}
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? 'Copied' : caption}
     </button>
   );
 };
@@ -697,36 +792,84 @@ const pre: React.CSSProperties = {
   color: 'var(--text-primary)'
 };
 
-const ScriptsPanel: React.FC<{ provider?: CallAgentConfig['provider'] }> = ({ provider }) => {
+const SetupChip: React.FC<{ ok: boolean; children: React.ReactNode }> = ({ ok, children }) => (
+  <span className="badge-pill" style={{ backgroundColor: ok ? 'var(--green-light)' : 'var(--orange-light)', color: ok ? 'var(--green-dark)' : 'var(--orange-dark)' }}>
+    {ok ? <CircleCheck size={12} /> : <CircleX size={12} />}
+    {children}
+  </span>
+);
+
+const ScriptsPanel: React.FC<{ config: CallAgentConfig | null }> = ({ config }) => {
   const [scripts, setScripts] = useState<AgentScript[]>([]);
   useLoader(() => callAgentService.getScripts(), setScripts, []);
-  const apiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api').replace(/\/$/, '');
+  // The address SnapServe reaches this API on (set under Automation); a placeholder until then.
+  const base = config?.settings.publicApiUrl || '<public API address>';
+  const notifyUrl = `${base}/api/calls/webhook/snapserve?token=<CALL_WEBHOOK_SECRET>`;
+  const setup = config?.setup;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <AgentNotice tone="blue">
-        <span>
-          These scripts run on the voice provider. For SnapServe, create one agent per script, paste the welcome line and instructions, add the variables, outcomes and data fields exactly as
-          named, and set its post-call notify URL to <code>{apiUrl}/calls/webhook/snapserve?token=CALL_WEBHOOK_SECRET</code>
-          {provider === 'snapserve' ? '.' : ' (once CALL_PROVIDER=snapserve).'}
-        </span>
-      </AgentNotice>
+      <div className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Setting up SnapServe</h3>
+        <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          Create one SnapServe agent per script below. Paste the welcome line and instructions, and add the variables, outcomes and data fields exactly as named. Put each agent's
+          id in the server's <code>.env</code>. Then give every agent this <strong>post-call notify</strong> URL, with the server's <code>CALL_WEBHOOK_SECRET</code> in place of the
+          placeholder:
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <pre style={{ ...pre, flex: 1 }}>{notifyUrl}</pre>
+          <CopyButton text={notifyUrl} label="post-call notify URL" />
+        </div>
+        {!config?.settings.publicApiUrl && (
+          <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--orange-dark)' }}>Set the API's public address under Automation to fill in the URLs.</p>
+        )}
+        {setup && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <SetupChip ok={config?.provider === 'snapserve'}>{config?.provider === 'snapserve' ? 'CALL_PROVIDER=snapserve' : `CALL_PROVIDER=${config?.provider}`}</SetupChip>
+            <SetupChip ok={setup.webhookSecret}>Webhook secret {setup.webhookSecret ? 'set' : 'missing'}</SetupChip>
+            <SetupChip ok={setup.inboundAgent}>Inbound agent id {setup.inboundAgent ? 'set' : 'not set'}</SetupChip>
+            <SetupChip ok={setup.inboundTools}>Inbound tools {setup.inboundTools ? 'on (CALL_TOOLS_SECRET set)' : 'off (CALL_TOOLS_SECRET not set)'}</SetupChip>
+            <SetupChip ok={setup.signingSecret}>Signed webhooks {setup.signingSecret ? 'required' : 'optional'}</SetupChip>
+            {setup.testNumbers > 0 && (
+              <SetupChip ok={false}>
+                Test mode: calls only {setup.testNumbers} allowed number{setup.testNumbers === 1 ? '' : 's'}
+              </SetupChip>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="cols-2" style={{ gap: 12, alignItems: 'start' }}>
         {scripts.map((s) => (
-          <div key={s.purpose} className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div key={s.purpose} className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, gridColumn: s.tools ? 'span 2' : undefined }}>
             <div>
               <h3 style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>{s.title} agent</h3>
               <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>{s.goal}</p>
             </div>
             <div>
-              <div style={sectionTitle}>Variables</div>
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {s.variables.map((v) => (
-                  <code key={v} className="badge-pill badge-blue" style={{ fontSize: 11 }}>
-                    {v}
-                  </code>
-                ))}
-              </div>
+              <div style={sectionTitle}>Variables{s.defaults ? ' (set these defaults: inbound calls carry no values of their own)' : ''}</div>
+              {s.defaults ? (
+                <table className="data-table">
+                  <tbody>
+                    {s.variables.map((v) => (
+                      <tr key={v}>
+                        <td style={{ width: 160 }}>
+                          <code style={{ fontSize: 11.5 }}>{v}</code>
+                        </td>
+                        <td style={{ color: s.defaults?.[v] ? 'var(--text-primary)' : 'var(--orange-dark)' }}>{s.defaults?.[v] || 'Not set in Settings'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {s.variables.map((v) => (
+                    <code key={v} className="badge-pill badge-blue" style={{ fontSize: 11 }}>
+                      {v}
+                    </code>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <div style={{ ...sectionTitle, display: 'flex', justifyContent: 'space-between' }}>
@@ -740,6 +883,50 @@ const ScriptsPanel: React.FC<{ provider?: CallAgentConfig['provider'] }> = ({ pr
               </div>
               <pre style={{ ...pre, maxHeight: 300, overflowY: 'auto' }}>{s.instructions}</pre>
             </div>
+            {s.tools && (
+              <div>
+                <div style={sectionTitle}>Custom tools (agent → Tools → Custom tools → Add, one per row)</div>
+                <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', marginBottom: 8, lineHeight: 1.5 }}>
+                  Every tool: method <strong>POST</strong>, and the server's <code>CALL_TOOLS_SECRET</code> in the <strong>X-Webhook-Secret</strong> box. The agent answers from what
+                  these return, so nothing about a patient is shared until <code>find_patient</code> has verified the caller.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {s.tools.map((tool) => {
+                    const url = `${base}/api/calls/tools/${tool.name}`;
+                    return (
+                      <div key={tool.name} style={{ padding: 10, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <code style={{ fontWeight: 700, fontSize: 12.5 }}>{tool.name}</code>
+                          <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>pre-call message “{tool.preToolMessage}”</span>
+                        </div>
+                        <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                          <span style={{ flex: 1 }}>{tool.description}</span>
+                          <CopyButton text={tool.description} label={`${tool.name} description`} caption="Copy description" />
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                          <code style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all' }}>{url}</code>
+                          <CopyButton text={url} label={`${tool.name} URL`} caption="Copy URL" />
+                        </div>
+                        <table className="data-table">
+                          <tbody>
+                            {tool.parameters.map((param) => (
+                              <tr key={param.name}>
+                                <td style={{ width: 150 }}>
+                                  <code style={{ fontSize: 11.5 }}>{param.name}</code>
+                                </td>
+                                <td style={{ width: 70, color: 'var(--text-secondary)' }}>{param.type}</td>
+                                <td style={{ width: 80, color: param.required ? 'var(--text-primary)' : 'var(--text-muted)' }}>{param.required ? 'required' : 'optional'}</td>
+                                <td style={{ color: 'var(--text-secondary)' }}>{param.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="cols-2" style={{ gap: 12 }}>
               <div>
                 <div style={sectionTitle}>Outcomes</div>

@@ -27,6 +27,7 @@ import {
   CallPurpose,
   CallStatus,
   CallOutcome,
+  ProviderCheck,
   QueueBoard,
   QueueToken,
   QueueSettings,
@@ -322,7 +323,9 @@ export const callAgentService = {
   bookAppointment: (request: BookingCallRequest) => api<AgentCall>('/calls/booking', { method: 'POST', body: request }),
   cancelCall: (id: string) => api<AgentCall>(`/calls/${enc(id)}/cancel`, { method: 'POST' }),
   runDue: () => api<{ expired: number; queued: number; placed: number; withinCallingHours: boolean }>('/calls/run-due', { method: 'POST' }),
-  allowCalls: (uhid: string) => api<{ uhid: string; doNotCall: boolean }>(`/calls/do-not-call/${enc(uhid)}`, { method: 'DELETE' })
+  allowCalls: (uhid: string) => api<{ uhid: string; doNotCall: boolean }>(`/calls/do-not-call/${enc(uhid)}`, { method: 'DELETE' }),
+  /** Reads the provider's agents and wallet with the server's key; places no call. */
+  checkProvider: () => api<ProviderCheck>('/calls/provider-check', { method: 'POST' })
 };
 
 // Token queue: the front desk issues tokens, rooms call them, and display screens

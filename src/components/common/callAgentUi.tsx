@@ -1,5 +1,5 @@
 import React from 'react';
-import { PhoneCall, PhoneOff, PhoneMissed, CalendarCheck, CalendarClock, CircleAlert } from 'lucide-react';
+import { PhoneCall, PhoneIncoming, PhoneOff, PhoneMissed, CalendarCheck, CalendarClock, CircleAlert } from 'lucide-react';
 import { AgentCall, AppointmentConfirmation, CallStatus } from '../../types';
 import { OUTCOME_META, Tone } from '../../utils/callAgent';
 
@@ -43,12 +43,22 @@ export const CallResultBadge: React.FC<{ call: Pick<AgentCall, 'status' | 'outco
   );
 };
 
-export const PurposeBadge: React.FC<{ purpose: AgentCall['purpose'] }> = ({ purpose }) => (
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--fs-xs)', fontWeight: 600, color: purpose === 'booking' ? 'var(--purple-dark)' : 'var(--blue-text)' }}>
-    {purpose === 'booking' ? <CalendarClock size={13} /> : <CalendarCheck size={13} />}
-    {purpose === 'booking' ? 'Booking' : 'Confirmation'}
-  </span>
-);
+const PURPOSE_META: Record<AgentCall['purpose'], { label: string; color: string; icon: typeof PhoneCall }> = {
+  confirmation: { label: 'Confirmation', color: 'var(--blue-text)', icon: CalendarCheck },
+  booking: { label: 'Booking', color: 'var(--purple-dark)', icon: CalendarClock },
+  inbound: { label: 'Inbound', color: 'var(--green-dark)', icon: PhoneIncoming }
+};
+
+export const PurposeBadge: React.FC<{ purpose: AgentCall['purpose'] }> = ({ purpose }) => {
+  const m = PURPOSE_META[purpose] ?? PURPOSE_META.confirmation;
+  const Icon = m.icon;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--fs-xs)', fontWeight: 600, color: m.color }}>
+      <Icon size={13} />
+      {m.label}
+    </span>
+  );
+};
 
 const CONFIRMATION_META: Record<AppointmentConfirmation, { label: string; tone: Tone; icon: typeof PhoneCall }> = {
   Unconfirmed: { label: 'Unconfirmed', tone: 'gray', icon: PhoneCall },

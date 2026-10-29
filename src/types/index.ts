@@ -629,9 +629,14 @@ export interface CallAgentSettings {
   slotMinutes: number;
   closedDays: string[];
   simulatedResponse: SimulatedResponse;
+  /** Callers to the hospital line may book, move, confirm and cancel themselves. */
+  inboundChanges: boolean;
+  /** The API's public https address, for building the URLs pasted into SnapServe ('' until set). */
+  publicApiUrl: string;
 }
 
-export type CallPurpose = 'confirmation' | 'booking';
+/** confirmation and booking calls go out; inbound ones are patients phoning the hospital. */
+export type CallPurpose = 'confirmation' | 'booking' | 'inbound';
 export type CallStatus = 'scheduled' | 'calling' | 'completed' | 'failed' | 'canceled';
 export type CallOutcome =
   | 'confirmed'
@@ -647,6 +652,8 @@ export type CallOutcome =
   | 'wrong_number'
   | 'do_not_call'
   | 'escalated'
+  | 'enquiry'
+  | 'unverified'
   | 'failed';
 
 export interface OfferedSlot {
@@ -670,7 +677,7 @@ export interface AgentCall {
   appointmentType: string;
   scheduledFor: string;
   attempt: number;
-  trigger: 'manual' | 'scheduler' | 'retry' | 'callback';
+  trigger: 'manual' | 'scheduler' | 'retry' | 'callback' | 'inbound';
   requestedBy: string;
   provider: string;
   offeredSlots: OfferedSlot[];
@@ -683,11 +690,14 @@ export interface AgentCall {
   endedAt?: string;
   durationSec?: number;
   error: string;
+  /** The provider's payload, kept when its outcome was not understood (detail only). */
+  rawResult?: Record<string, unknown>;
   createdAt: string;
 }
 
 export interface CallStats {
   callsToday: number;
+  inboundToday: number;
   answeredToday: number;
   contactRate: number | null;
   confirmedToday: number;
@@ -704,6 +714,17 @@ export interface CallAgentConfig {
   provider: 'none' | 'simulated' | 'snapserve';
   live: boolean;
   settings: CallAgentSettings;
+  /** What is configured on the server (never the secrets). */
+  /** testNumbers: how many numbers CALL_ALLOWED_NUMBERS limits calls to (0 = any). */
+  setup: { webhookSecret: boolean; signingSecret: boolean; inboundTools: boolean; inboundAgent: boolean; testNumbers: number };
+}
+
+/** A mid-call HTTP tool for the inbound agent: POST {public API}/api/calls/tools/{name}. */
+export interface AgentTool {
+  name: string;
+  description: string;
+  preToolMessage: string;
+  parameters: { name: string; type: 'string' | 'number' | 'boolean'; description: string; required: boolean }[];
 }
 
 export interface AgentScript {
@@ -711,10 +732,22 @@ export interface AgentScript {
   title: string;
   goal: string;
   variables: string[];
+  /** Inbound agent: values for its variables (no call supplies them). */
+  defaults?: Record<string, string>;
   welcome: string;
   instructions: string;
   outcomes: { label: string; outcome: string }[];
   dataFields: { name: string; description: string }[];
+  tools?: AgentTool[];
+}
+
+/** POST /calls/provider-check: the provider's key, agents and balance, without a call. */
+export interface ProviderCheck {
+  provider: string;
+  ok: boolean;
+  agents: { role: string; agentId: string; ok: boolean; name?: string; active?: boolean; detail: string }[];
+  wallet?: { ok: boolean; balanceInr?: number; detail: string };
+  detail?: string;
 }
 
 /** GET /dashboard/stats — one day's numbers; the dashboard formats them. */

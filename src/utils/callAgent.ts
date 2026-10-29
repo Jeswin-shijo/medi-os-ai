@@ -19,6 +19,8 @@ export const OUTCOME_META: Record<CallOutcome, { label: string; tone: Tone }> = 
   wrong_number: { label: 'Wrong number', tone: 'red' },
   do_not_call: { label: 'Do not call', tone: 'red' },
   escalated: { label: 'Needs staff', tone: 'red' },
+  enquiry: { label: 'Answered', tone: 'blue' },
+  unverified: { label: 'Not verified', tone: 'orange' },
   failed: { label: 'Failed', tone: 'red' }
 };
 

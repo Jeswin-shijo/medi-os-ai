@@ -65,6 +65,12 @@ AI Call Agent:
   - the details panel has **Call to confirm** and the latest call's result;
   - **Book by AI Call** in the header.
 - **Follow-ups**: **Book by AI Call** in a row's menu. A booked slot updates the follow-up.
+- **Going live with SnapServe:**
+  - **Check connection** in the header reads each agent and the wallet without placing a call.
+  - The **Agent Scripts** tab lists everything to set up: the scripts, the post-call notify URL, and the inbound agent's eight tools with their URLs, built from the public address under Automation.
+  - A call whose result could not be read shows "What the provider sent", so the outcome names can be checked.
+- **Inbound calls** (patients phoning the hospital) appear in the log with the purpose **Inbound**. They show what the call changed for the verified patient, or "Unverified caller".
+  - Automation → **Calls to the hospital** decides whether callers may change appointments themselves.
 - `hooks/useCallRunner.ts` starts a call and follows it to the end with toasts. With the backend's simulated provider no phone rings; the screen says so and lets you pick how the pretend patient answers.
 
 Token queue:
