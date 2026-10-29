@@ -5,7 +5,7 @@ import { coordinatorService } from '../../services';
 import { useCoordinatorList, useCoordinatorOverview, useCoordinatorStream } from '../../hooks/useCoordinator';
 import { REQUEST_ROLES, followRequest } from '../../utils/beds';
 import { cols, split } from '../../utils/layout';
-import type { CoordinatorCardData, CoordinatorCardKey, CoordinatorEvent, CoordinatorSeriesPoint, RequestType, SnapshotRange } from '../../types';
+import type { CoordinatorCardData, AgentKey, CoordinatorCardKey, CoordinatorEvent, CoordinatorSeriesPoint, RequestType, SnapshotRange } from '../../types';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
 import { StatCard } from '../beds/StatCard';
@@ -14,6 +14,7 @@ import { CoordinationQueue } from '../agents/CoordinationQueue';
 import { AgentStatusTable } from '../agents/AgentStatusTable';
 import { DecisionsLog } from '../agents/DecisionsLog';
 import { CaseDetail } from '../agents/CaseDetail';
+import { AGENT_LIST } from '../../types';
 import { WorkflowDiagram, LEG_MS, type DiagramPulse } from '../agents/WorkflowDiagram';
 import { ApprovalsList } from '../agents/ApprovalsList';
 import { RulesPanel } from '../agents/RulesPanel';
@@ -49,13 +50,20 @@ export const CoordinatorScreen: React.FC = () => {
   const role = user?.role ?? '';
   const [pulses, setPulses] = useState<DiagramPulse[]>([]);
   const pulseSeq = useRef(0);
+  const timers = useRef<number[]>([]);
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach((t) => window.clearTimeout(t));
+  }, []);
   const onEvent = useCallback((event: CoordinatorEvent) => {
-    if (event.kind !== 'message' || !event.from || !event.to?.length) return;
-    const from = event.from;
-    const fresh = event.to.map((to) => ({ id: `p${++pulseSeq.current}`, from, to }));
+    const isAgent = (k: unknown) => AGENT_LIST.some((a) => a.key === k);
+    if (event.kind !== 'message' || !isAgent(event.from) || !Array.isArray(event.to)) return;
+    const from = event.from as AgentKey;
+    const fresh = event.to.filter(isAgent).map((to) => ({ id: `p${++pulseSeq.current}`, from, to }));
+    if (!fresh.length) return;
     setPulses((prev) => [...prev, ...fresh].slice(-MAX_PULSES));
     // A dot takes up to two legs; clear it from the list shortly after.
-    window.setTimeout(() => setPulses((prev) => prev.filter((p) => !fresh.some((f) => f.id === p.id))), LEG_MS * 2 + 200);
+    timers.current.push(window.setTimeout(() => setPulses((prev) => prev.filter((p) => !fresh.some((f) => f.id === p.id))), LEG_MS * 2 + 200));
   }, []);
   const { version, live } = useCoordinatorStream({ onEvent });
   const { overview, error } = useCoordinatorOverview(version);

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BedDouble, CalendarDays, ClipboardCheck, FlaskConical, Headset, Network, Pill, Receipt, Siren, type LucideIcon } from 'lucide-react';
 import { AGENT_LIST, type AgentKey, type AgentStatus } from '../../types';
 
@@ -14,18 +14,22 @@ const TILE_H = 44;
 
 /** Tile centres. Wide cards also get the short edge labels from the client's design. */
 type Pos = { x: number; y: number };
+type OuterKey = Exclude<AgentKey, 'coordinator'>;
 interface Layout {
   w: number;
   h: number;
   tileW: number;
+  /** Width of the centre tile. */
+  hubW: number;
   centre: Pos;
   labels: boolean;
-  pos: Record<Exclude<AgentKey, 'coordinator'>, Pos>;
+  pos: Record<OuterKey, Pos>;
 }
 const WIDE: Layout = {
   w: 540,
   h: 420,
   tileW: 112,
+  hubW: 124,
   centre: { x: 270, y: 210 },
   labels: true,
   pos: {
@@ -39,25 +43,36 @@ const WIDE: Layout = {
     pharmacy: { x: 456, y: 364 }
   }
 };
-/** Narrow cards: a tighter drawing, so the tiles stay readable and the labels are left out. */
-const NARROW: Layout = {
-  w: 380,
-  h: 410,
-  tileW: 108,
-  centre: { x: 190, y: 205 },
-  labels: false,
-  pos: {
-    scheduling: { x: 60, y: 50 },
-    er: { x: 190, y: 28 },
-    bed: { x: 320, y: 50 },
-    discharge: { x: 56, y: 205 },
-    lab: { x: 324, y: 205 },
-    revenue: { x: 60, y: 360 },
-    'patient-support': { x: 190, y: 384 },
-    pharmacy: { x: 320, y: 360 }
-  }
+/**
+ * Narrow cards: the drawing is as wide as the card (one SVG unit = one CSS pixel), so the text stays
+ * at its real size. The edge labels move to a legend below.
+ */
+const NARROW_TILE = 100;
+const narrowLayout = (width: number): Layout => {
+  const w = Math.max(260, Math.floor(width));
+  const left = NARROW_TILE / 2 + 2;
+  const right = w - left;
+  const mid = w / 2;
+  return {
+    w,
+    h: 346,
+    tileW: NARROW_TILE,
+    hubW: 124,
+    centre: { x: mid, y: 196 },
+    labels: false,
+    pos: {
+      er: { x: mid, y: 24 },
+      scheduling: { x: left, y: 76 },
+      bed: { x: right, y: 76 },
+      discharge: { x: left, y: 132 },
+      lab: { x: right, y: 132 },
+      revenue: { x: left, y: 252 },
+      pharmacy: { x: right, y: 252 },
+      'patient-support': { x: mid, y: 318 }
+    }
+  };
 };
-/** Cards narrower than this get the tight drawing. */
+/** Cards narrower than this get the narrow drawing. */
 const WIDE_FROM = 520;
 
 const ICONS: Record<AgentKey, LucideIcon> = {
@@ -72,7 +87,7 @@ const ICONS: Record<AgentKey, LucideIcon> = {
   'patient-support': Headset
 };
 
-const LABELS: Record<Exclude<AgentKey, 'coordinator'>, string[]> = {
+const LABELS: Record<OuterKey, string[]> = {
   scheduling: ['Appointments', '& OT schedules'],
   er: ['Emergency triage', '& patient flow'],
   bed: ['Bed availability', '& room transfer'],
@@ -90,28 +105,23 @@ const route = (from: AgentKey, to: AgentKey): AgentKey[] =>
 
 const pointer = (layout: Layout) => (key: AgentKey): Pos => (key === 'coordinator' ? layout.centre : layout.pos[key]);
 
-/** One dot crossing from a tile to the centre and on to the target, then it is gone. */
-const Dot: React.FC<{ layout: Layout; from: AgentKey; to: AgentKey; onDone(): void }> = ({ layout, from, to, onDone }) => {
+/** One dot crossing from a tile to the centre and on to the target; it removes itself when it arrives. */
+const Dot: React.FC<{ layout: Layout; from: AgentKey; to: AgentKey }> = ({ layout, from, to }) => {
   const ref = useRef<SVGCircleElement>(null);
-  const done = useRef(onDone);
-  useEffect(() => {
-    done.current = onDone;
-  }, [onDone]);
+  const [gone, setGone] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    if (!el || typeof el.animate !== 'function') {
-      done.current();
-      return;
-    }
+    if (!el || typeof el.animate !== 'function') return;
     const pts = route(from, to).map(pointer(layout));
     const last = pts.length - 1;
     const anim = el.animate(
       pts.map((p, i) => ({ transform: `translate(${p.x}px, ${p.y}px)`, opacity: i === 0 ? 0.3 : 1, offset: i / last })),
       { duration: LEG_MS * last, easing: 'linear', fill: 'forwards' }
     );
-    anim.onfinish = () => done.current();
+    anim.onfinish = () => setGone(true);
     return () => anim.cancel();
   }, [layout, from, to]);
+  if (gone) return null;
   const start = pointer(layout)(from);
   return <circle ref={ref} className="co-dotpulse" r={5} style={{ transform: `translate(${start.x}px, ${start.y}px)` }} />;
 };
@@ -126,8 +136,8 @@ interface WorkflowDiagramProps {
 export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses }) => {
   const byKey = new Map(agents.map((a) => [a.key, a]));
   const online = AGENT_LIST.filter((a) => byKey.get(a.key)?.online).length;
-  const [finished, setFinished] = React.useState<Set<string>>(() => new Set());
-  const [width, setWidth] = React.useState(WIDE_FROM);
+  // Measured before the first paint (a ResizeObserver reports before it), so the right drawing is used from the start.
+  const [width, setWidth] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = box.current;
@@ -136,10 +146,12 @@ export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses
     watch.observe(el);
     return () => watch.disconnect();
   }, []);
-  const layout = width < WIDE_FROM ? NARROW : WIDE;
+  const layout = width >= WIDE_FROM || width === 0 ? WIDE : narrowLayout(width);
   const { centre, tileW } = layout;
   const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const playing = reduced ? [] : pulses.filter((p) => !finished.has(p.id));
+  const known = (k: AgentKey) => k === 'coordinator' || k in layout.pos;
+  const playing = reduced ? [] : pulses.filter((p) => known(p.from) && known(p.to));
+  const ordered = [...OUTER].sort((x, y) => Number(byKey.get(y.key)?.built ?? y.built) - Number(byKey.get(x.key)?.built ?? x.built));
 
   return (
     <div className="co-diagram" ref={box}>
@@ -167,14 +179,14 @@ export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses
             );
           })}
 
-        <g className="co-tile is-centre" transform={`translate(${centre.x - 62} ${centre.y - 30})`}>
-          <rect width={124} height={60} rx={10} />
-          <Network x={10} y={21} width={18} height={18} aria-hidden="true" />
-          <text x={36} y={27} className="co-tile-name">
+        <g className="co-tile is-centre" transform={`translate(${centre.x - layout.hubW / 2} ${centre.y - 28})`}>
+          <title>{`Coordinator: routes work between the agents (${byKey.get('coordinator')?.online ? 'Online' : 'Offline'})`}</title>
+          <rect width={layout.hubW} height={56} rx={10} />
+          <text x={layout.hubW / 2} y={25} textAnchor="middle" className="co-tile-name">
             Coordinator
           </text>
-          <circle cx={39} cy={40} r={3} className={`co-tile-dot${byKey.get('coordinator')?.online ? ' is-on' : ''}`} />
-          <text x={47} y={43} className="co-tile-state">
+          <circle cx={layout.hubW / 2 - 20} cy={39} r={3} className={`co-tile-dot${byKey.get('coordinator')?.online ? ' is-on' : ''}`} />
+          <text x={layout.hubW / 2 - 13} y={42} className="co-tile-state">
             {byKey.get('coordinator')?.online ? 'Online' : 'Offline'}
           </text>
         </g>
@@ -185,25 +197,37 @@ export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses
           const built = s?.built ?? a.built;
           const on = !!s?.online;
           const Icon = ICONS[a.key];
+          const w = a.key === 'patient-support' && !layout.labels ? 124 : tileW;
+          const state = !built ? 'Not built' : on ? 'Online' : 'Offline';
           return (
-            <g key={a.key} className={`co-tile${built ? '' : ' is-dim'}`} transform={`translate(${p.x - tileW / 2} ${p.y - TILE_H / 2})`}>
-              <rect width={tileW} height={TILE_H} rx={8} />
+            <g key={a.key} className={`co-tile${built ? '' : ' is-dim'}`} transform={`translate(${p.x - w / 2} ${p.y - TILE_H / 2})`}>
+              <title>{`${a.name}: ${LABELS[a.key as OuterKey].join(' ')} (${state})`}</title>
+              <rect width={w} height={TILE_H} rx={8} />
               <Icon x={8} y={13} width={18} height={18} aria-hidden="true" />
               <text x={32} y={19} className="co-tile-name">
                 {a.name}
               </text>
               <circle cx={35} cy={31} r={3} className={`co-tile-dot${on ? ' is-on' : ''}`} />
               <text x={42} y={34} className="co-tile-state">
-                {!built ? 'Not built' : on ? 'Online' : 'Offline'}
+                {state}
               </text>
             </g>
           );
         })}
 
         {playing.map((p) => (
-          <Dot key={p.id} layout={layout} from={p.from} to={p.to} onDone={() => setFinished((f) => (f.has(p.id) ? f : new Set(f).add(p.id)))} />
+          <Dot key={p.id} layout={layout} from={p.from} to={p.to} />
         ))}
       </svg>
+      {!layout.labels && width > 0 && (
+        <ul className="co-legend" aria-label="What each agent exchanges with the Coordinator">
+          {ordered.map((a) => (
+            <li key={a.key}>
+              <strong>{a.name}</strong> — {LABELS[a.key as OuterKey].join(' ')}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };

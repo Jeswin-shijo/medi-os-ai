@@ -27,6 +27,7 @@ const ReassignDialog: React.FC<ReassignDialogProps> = ({ approval, onClose, onDo
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const [titles, setTitles] = useState<DutyTitle[] | null>(null);
+  const [titlesFailed, setTitlesFailed] = useState(false);
   const [target, setTarget] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,11 @@ const ReassignDialog: React.FC<ReassignDialogProps> = ({ approval, onClose, onDo
     coordinatorService
       .titles()
       .then((t) => alive && setTitles(t))
-      .catch(() => alive && setTitles([]));
+      .catch(() => {
+        if (!alive) return;
+        setTitles([]);
+        setTitlesFailed(true);
+      });
     return () => {
       alive = false;
     };
@@ -92,8 +97,8 @@ const ReassignDialog: React.FC<ReassignDialogProps> = ({ approval, onClose, onDo
   };
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div ref={boxRef} className="modal-content-box co-reassign" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div ref={boxRef} className="modal-content-box co-reassign" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-header">
           <h3 id={titleId} className="co-reassign-title">
             Reassign approval
@@ -127,6 +132,7 @@ const ReassignDialog: React.FC<ReassignDialogProps> = ({ approval, onClose, onDo
                 </optgroup>
               </select>
             </div>
+            {titlesFailed && <p className="co-rule-note">Duty titles couldn't load; pick a role.</p>}
             <div>
               <label className="form-label" htmlFor="co-reassign-note">
                 Note *

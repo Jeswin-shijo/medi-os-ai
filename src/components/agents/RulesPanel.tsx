@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { coordinatorService } from '../../services';
 import { errorMessage } from '../../services/api';
@@ -16,23 +16,32 @@ export const RulesPanel: React.FC<{ version: number }> = ({ version }) => {
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
 
+  const timers = useRef<number[]>([]);
+  useEffect(() => {
+    const held = timers.current;
+    return () => held.forEach((t) => window.clearTimeout(t));
+  }, []);
+
   const change = async (rule: RuleView, value: boolean) => {
     setFailure(null);
     setPending((p) => ({ ...p, [rule.key]: value }));
-    try {
-      await coordinatorService.setRule(rule.key, value);
-      showToast(`${rule.label} turned ${value ? 'on' : 'off'}`, 'success');
-      reload();
-    } catch (err) {
-      const message = errorMessage(err);
-      setFailure({ key: rule.key, message });
-      showToast(message, 'error');
-    } finally {
+    const drop = () =>
       setPending((p) => {
         const next = { ...p };
         delete next[rule.key];
         return next;
       });
+    try {
+      await coordinatorService.setRule(rule.key, value);
+      showToast(`${rule.label} turned ${value ? 'on' : 'off'}`, 'success');
+      reload();
+      // Keep showing the chosen value until the refreshed list has arrived.
+      timers.current.push(window.setTimeout(drop, 3000));
+    } catch (err) {
+      const message = errorMessage(err);
+      setFailure({ key: rule.key, message });
+      showToast(message, 'error');
+      drop();
     }
   };
 

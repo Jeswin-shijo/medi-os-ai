@@ -27,6 +27,7 @@ export const AskBox: React.FC<AskBoxProps> = ({ onOpenCase, onOpenRequestForm })
     try {
       setAnswer(await coordinatorService.ask(question));
     } catch (err) {
+      setAnswer(null);
       setError(errorMessage(err));
     } finally {
       setBusy(false);

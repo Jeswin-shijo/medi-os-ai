@@ -3644,9 +3644,11 @@ button.stat-card-item:active {
 .co-tile.is-dim { opacity: 0.62; }
 .co-tile-name { font-size: 12px; font-weight: 600; fill: var(--text-primary); }
 .co-tile.is-centre .co-tile-name { font-size: 13px; }
-.co-tile-state { font-size: 9.5px; fill: var(--text-secondary); }
+.co-tile-state { font-size: 10.5px; fill: var(--text-secondary); }
 .co-tile-dot { fill: var(--text-muted); }
 .co-tile-dot.is-on { fill: var(--green-emerald); }
+.co-legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-sm); color: var(--text-muted); }
+.co-legend strong { font-weight: 500; color: var(--text-secondary); }
 .co-dotpulse { fill: var(--blue-primary); stroke: var(--bg-card); stroke-width: 2; pointer-events: none; }
 
 .co-approvals .co-item { padding: 0; }
