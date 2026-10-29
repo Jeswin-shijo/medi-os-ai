@@ -13,6 +13,7 @@ import {
   minutesUntil,
   percentText,
   requestStatus,
+  unitText,
   type OrderFilter
 } from '../../utils/lab';
 import { LabOverviewCards } from './LabOverviewCards';
@@ -181,7 +182,19 @@ const CollectionPreview: React.FC<{ collection: LabCollectionItem[] | null; erro
               const left = minutesUntil(s.collectBy, now);
               return (
                 <tr key={s.sampleId} className={s.overdue ? 'is-late' : undefined}>
-                  <td className="lab-num">{s.sampleNumber}</td>
+                  <td className="lab-num">
+                    {s.sampleNumber}
+                    <span className="lab-block lab-deadline-narrow">
+                      {s.overdue ? (
+                        <span className="status-pill sm red lab-delayed">
+                          <AlertTriangle size={12} aria-hidden="true" />
+                          {-left} min late
+                        </span>
+                      ) : (
+                        <span className="er-hint">{left} min left</span>
+                      )}
+                    </span>
+                  </td>
                   <td>
                     <span className="er-name">{s.patientName}</span>
                     <span className="er-sub lab-block">{s.patientUhid} · {locationText(s.location)}</span>
@@ -319,7 +332,7 @@ const CriticalCard: React.FC<{ rows: LabCriticalRow[] | null; error: string | nu
               <div className="lab-crit-main">
                 <span className="er-name">
                   {c.label}: {c.parameter} {c.value}
-                  {c.unit && c.unit !== '–' ? ` ${c.unit}` : ''}
+                  {unitText(c.unit) ? ` ${unitText(c.unit)}` : ''}
                 </span>
                 <span className="er-sub lab-block">
                   {c.requestNumber} · ordered by {c.orderedBy || '—'}

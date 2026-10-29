@@ -4032,26 +4032,6 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .lab-crit-row .status-pill { flex: none; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .lab-critical-tile.is-pulse { animation: none; } }
 
-/* ===== Lab Agent page ===== */
-.lab-body { min-width: 0; }
-.lab-card, .lab-next { min-width: 0; }
-.lab-block { display: block; }
-.lab-num { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
-.lab-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.lab-tests { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lab-more { margin: 8px 0 0; }
-.lab-table .status-pill { white-space: nowrap; }
-.lab-delayed { display: inline-flex; align-items: center; gap: 3px; }
-.lab-table tr.is-late td { background-color: var(--red-light); }
-.lab-table tr.is-late td:first-child { box-shadow: inset 3px 0 0 var(--red-rose); }
-.lab-perf { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-.lab-branch { grid-template-columns: minmax(0, 1fr); }
-.lab-critical-tile { flex-wrap: wrap; color: var(--red-dark); border-color: var(--red-border); background: var(--red-light); }
-.lab-critical-tile.is-pulse { animation: er-pulse 280ms ease-out; }
-.lab-branch-note { flex-basis: 100%; font-size: var(--fs-xs); color: var(--text-secondary); }
-.lab-crit { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.lab-crit-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; min-width: 0; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }
-.lab-crit-row:last-child { border-bottom: 0; padding-bottom: 0; }
-.lab-crit-main { min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
-.lab-crit-row .status-pill { flex: none; white-space: nowrap; }
-@media (prefers-reduced-motion: reduce) { .lab-critical-tile.is-pulse { animation: none; } }
+/* On a phone the Collect by column scrolls away, so the deadline also shows under the sample number. */
+.lab-deadline-narrow { display: none; margin-top: 3px; font-weight: 400; }
+@media (max-width: 640px) { .lab-deadline-narrow { display: block; } }

@@ -74,3 +74,6 @@ export const percentText = (n: number | null): string => (n === null ? '—%' : 
 
 /** Whole minutes from now to `iso` on the real clock: negative once past. */
 export const minutesUntil = (iso: string, now: number): number => Math.floor((new Date(iso).getTime() - now) / 60_000);
+
+/** A unit for printing after a value: empty for a missing or dash-only unit (INR and pH have none). */
+export const unitText = (unit?: string): string => (!unit || /^[\s\-–—]*$/.test(unit) ? '' : unit);
