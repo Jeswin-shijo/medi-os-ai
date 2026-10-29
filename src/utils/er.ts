@@ -58,3 +58,9 @@ export const leftText = (minutes: number): string => (minutes < 0 ? `${-minutes}
 export function stepClock(visit: ErVisit, step: string) {
   return visit.clocks.find((c) => c.key === `er-step-${step}`) ?? (step === 'doctor' ? visit.clocks.find((c) => c.key === 'er-doctor') : undefined);
 }
+
+/** The ten digits of an Indian mobile number typed as "98765 43210", "+91 98765-43210" or "09876543210"; null when it is not one. */
+export function indianMobile(raw: string): string | null {
+  const digits = raw.replace(/[\s\-().]/g, '').replace(/^(\+91|91|0)(?=\d{10}$)/, '');
+  return /^[6-9]\d{9}$/.test(digits) ? digits : null;
+}

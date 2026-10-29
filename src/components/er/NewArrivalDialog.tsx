@@ -20,6 +20,9 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 
 interface NewArrivalDialogProps {
   complaints: ErComplaintInfo | null;
+  /** The complaint list failed to load: an error with Try again shows instead of an empty list. */
+  complaintsError?: boolean;
+  onRetryComplaints?(): void;
   /** Arrivals still on their way (state `waiting`). */
   expected: ErExpected[];
   /** Visits already on the board: an arrival that returns one of these was already in the ER. */
@@ -30,12 +33,14 @@ interface NewArrivalDialogProps {
 }
 
 /** Register an arrival: a card tap, a patient search, or an unknown emergency patient. */
-export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, expected, knownVisitIds, onClose, onArrived }) => {
+export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, complaintsError, onRetryComplaints, expected, knownVisitIds, onClose, onArrived }) => {
   const { patients } = useApp();
   const uid = useId();
   const boxRef = useRef<HTMLDivElement>(null);
   const { busy, error, setError, run } = useErAction();
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
+  // While the arrival is being registered, the dialog stays open: closing it could lead to a second placeholder.
+  const closeGuard = useRef<() => void>(onClose);
 
   const [tab, setTab] = useState<Tab>('card');
   const [cardId, setCardId] = useState('');
@@ -51,6 +56,13 @@ export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, 
   const [expectedId, setExpectedId] = useState('');
   /** Set when the patient already had an open visit: the dialog says so and offers it. */
   const [existing, setExisting] = useState<ErVisit | null>(null);
+
+  useEffect(() => {
+    closeGuard.current = () => {
+      if (busy === null) onClose();
+    };
+  });
+  const tryClose = () => closeGuard.current();
 
   const waiting = expected.filter((e) => e.state === 'waiting');
   const q = query.trim().toLowerCase();
@@ -74,7 +86,7 @@ export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, 
       if (!box || e.defaultPrevented) return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        closeGuard.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -90,7 +102,7 @@ export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, 
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, []);
 
   const pickExpected = (id: string) => {
     setExpectedId(id);
@@ -138,14 +150,14 @@ export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, 
   const titleId = `${uid}-title`;
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={tryClose}>
       <div ref={boxRef} className="modal-content-box admit-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 id={titleId} className="admit-title">
             <Siren size={18} color="var(--blue-text)" aria-hidden="true" />
             New arrival
           </h3>
-          <button type="button" onClick={onClose} style={{ color: 'var(--text-muted)' }} aria-label="Close">
+          <button type="button" onClick={tryClose} disabled={busy !== null} style={{ color: 'var(--text-muted)' }} aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -282,11 +294,19 @@ export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, 
                   <div>
                     <label className="form-label" htmlFor={`${uid}-complaint`}>Complaint *</label>
                     <select id={`${uid}-complaint`} className="form-select" value={complaint} onChange={(e) => setComplaint(e.target.value)}>
-                      <option value="">Choose…</option>
+                      <option value="">{complaints || !complaintsError ? 'Choose…' : 'Not loaded'}</option>
                       {complaints?.complaints.map((c) => (
                         <option key={c.key} value={c.key}>{c.label}</option>
                       ))}
                     </select>
+                    {!complaints && complaintsError && (
+                      <p className="er-error" role="alert">
+                        The complaint list did not load.{' '}
+                        <button type="button" className="btn-secondary btn-sm" onClick={onRetryComplaints}>
+                          Try again
+                        </button>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -316,7 +336,7 @@ export const NewArrivalDialog: React.FC<NewArrivalDialogProps> = ({ complaints, 
             </p>
           )}
           <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button type="button" className="btn-secondary" onClick={tryClose} disabled={busy !== null}>
               {existing ? 'Close' : 'Cancel'}
             </button>
             {!existing && (

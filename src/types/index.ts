@@ -1392,6 +1392,9 @@ export interface ErVisit {
   pathways: { key: ErPathwayKey; startedBy: 'rules' | 'staff'; startedByName?: string; cancelled: { byName: string; reason: string; at: string } | null }[];
   steps: { key: string; doneAt: string | null; byName: string | null }[];
   doctorSeenAt: string | null;
+  doctorSeenByName: string | null;
+  /** When the bed request of an admit was cancelled and the visit went back to treatment; the doctor decides again. */
+  admitCancelledAt: string | null;
   disposition: { kind: ErDispositionKind; byName: string; at: string; notes: string } | null;
   leftAt: string | null;
   leftReason: string | null;

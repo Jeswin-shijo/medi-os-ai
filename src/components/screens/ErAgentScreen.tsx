@@ -19,7 +19,7 @@ import { ErCapacityCard, ErEventsCard, ErPerformanceCard, ErStaffCard } from '..
 export const ErAgentScreen: React.FC = () => {
   const { user } = useApp();
   const canArrive = ER_ROLES.includes(user?.role ?? '');
-  const { board, overview, complaints, error, live, eventVersion, lastEvent, reload } = useEr();
+  const { board, overview, complaints, complaintsError, error, live, eventVersion, lastEvent, reload } = useEr();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** A visit just made by this person, shown until the board reload brings it in. */
   const [fresh, setFresh] = useState<ErVisit | null>(null);
@@ -172,6 +172,8 @@ export const ErAgentScreen: React.FC = () => {
       {arriving && (
         <NewArrivalDialog
           complaints={complaints}
+          complaintsError={complaintsError}
+          onRetryComplaints={reload}
           expected={board?.expected ?? []}
           knownVisitIds={board?.visits.map((v) => v.id) ?? []}
           onClose={() => setArriving(false)}

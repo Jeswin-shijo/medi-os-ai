@@ -24,7 +24,10 @@ export const ErHandover: React.FC<ErHandoverProps> = ({ visit, canEdit, onChange
   const dirty = edited !== null;
   const closed = visit.status === 'left';
 
+  const [replacing, setReplacing] = useState(false);
+
   const draft = async () => {
+    setReplacing(false);
     const d = await run('draft', () => erService.handoverDraft(visit.id));
     if (d) {
       setEdited(d.text.slice(0, NOTE_MAX));
@@ -45,11 +48,24 @@ export const ErHandover: React.FC<ErHandoverProps> = ({ visit, canEdit, onChange
         <h4 className="er-section-title">Handover note</h4>
         {sample && <SampleBadge />}
         {canEdit && !closed && (
-          <button type="button" className="btn-secondary btn-sm er-push" onClick={() => void draft()} disabled={busy !== null}>
+          <button type="button" className="btn-secondary btn-sm er-push" onClick={() => (dirty && text.trim() ? setReplacing(true) : void draft())} disabled={busy !== null}>
             {busy === 'draft' ? 'Drafting…' : 'Draft with AI'}
           </button>
         )}
       </div>
+      {replacing && (
+        <div className="er-inline-form" role="alert">
+          <p style={{ margin: 0 }}>Replace your note with the AI draft?</p>
+          <div className="er-actions">
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setReplacing(false)}>
+              Keep my note
+            </button>
+            <button type="button" className="btn-primary btn-sm" onClick={() => void draft()}>
+              Replace
+            </button>
+          </div>
+        </div>
+      )}
       {canEdit && !closed ? (
         <>
           <label className="form-label sr-only" htmlFor={id}>Handover note</label>

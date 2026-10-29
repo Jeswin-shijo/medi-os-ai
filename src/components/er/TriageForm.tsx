@@ -10,12 +10,12 @@ const SUGGEST_DEBOUNCE_MS = 300;
 
 /** The ranges match the server's checks. */
 const FIELDS: { key: keyof ErVitals; label: string; min: number; max: number; step: number }[] = [
-  { key: 'spo2', label: 'SpO₂ (%)', min: 50, max: 100, step: 1 },
-  { key: 'bpSystolic', label: 'BP systolic', min: 40, max: 300, step: 1 },
-  { key: 'bpDiastolic', label: 'BP diastolic', min: 20, max: 200, step: 1 },
-  { key: 'heartRate', label: 'Heart rate', min: 20, max: 250, step: 1 },
-  { key: 'respiratoryRate', label: 'Resp. rate', min: 4, max: 80, step: 1 },
-  { key: 'temperature', label: 'Temp (°C)', min: 30, max: 45, step: 0.1 }
+  { key: 'spo2', label: 'SpO₂ (%)', min: 0, max: 100, step: 1 },
+  { key: 'bpSystolic', label: 'BP systolic', min: 0, max: 300, step: 1 },
+  { key: 'bpDiastolic', label: 'BP diastolic', min: 0, max: 200, step: 1 },
+  { key: 'heartRate', label: 'Heart rate', min: 0, max: 300, step: 1 },
+  { key: 'respiratoryRate', label: 'Resp. rate', min: 0, max: 80, step: 1 },
+  { key: 'temperature', label: 'Temp (°C)', min: 25, max: 45, step: 0.1 }
 ];
 const PAIN_MAX = 10;
 

@@ -4,7 +4,7 @@ import { coordinatorService } from '../../services';
 import { errorMessage } from '../../services/api';
 import type { CoordinatorCaseDetail, CoordinatorClock } from '../../types';
 import { dayAndTime } from '../../utils/beds';
-import { agentName, agentNames, PRIORITY_LABELS, PRIORITY_PILLS, realDayAndTime, timeLeft, typeLabel } from '../../utils/coordinator';
+import { agentName, agentNames, PRIORITY_LABELS, PRIORITY_PILLS, clockLabel, realDayAndTime, timeLeft, typeLabel } from '../../utils/coordinator';
 
 interface CaseDetailProps {
   caseId: string;
@@ -138,7 +138,7 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ caseId, version, heading
                 const { text, late } = clockText(k);
                 return (
                   <li key={k.id} className={late ? 'is-late' : undefined}>
-                    <span className="co-clock-name">{typeLabel(k.def)}</span>
+                    <span className="co-clock-name">{clockLabel(k.def)}</span>
                     <span className="co-clock-left">
                       {text}
                       {k.escalation ? ' · escalated' : ''}

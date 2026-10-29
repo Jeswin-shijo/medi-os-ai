@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, UserPen } from 'lucide-react';
 import { erService } from '../../services';
 import type { ErBay, ErComplaintInfo, ErVisit, TriageColour } from '../../types';
 import { displayTime } from '../../utils/clinicDate';
-import { COLOUR_LABEL, ER_CLINICAL_ROLES, ER_DOCTOR_ROLES, MODE_LABEL, STATUS_LABEL, TRIAGE_COLOURS, leftText, minutesTo } from '../../utils/er';
+import { COLOUR_LABEL, ER_CLINICAL_ROLES, ER_ROLES, ER_DOCTOR_ROLES, MODE_LABEL, STATUS_LABEL, TRIAGE_COLOURS, leftText, minutesTo } from '../../utils/er';
 import { ErDispositionBar } from './ErDispositionBar';
 import { ErHandover } from './ErHandover';
+import { FillDetailsDialog } from './FillDetailsDialog';
 import { ErPathwaySteps } from './ErPathwaySteps';
 import { TriageForm } from './TriageForm';
 import { useErAction } from './useErAction';
@@ -24,6 +25,7 @@ interface ErVisitPanelProps {
 export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, role, headingRef, onChanged }) => {
   const canClinical = ER_CLINICAL_ROLES.includes(role);
   const canDoctor = ER_DOCTOR_ROLES.includes(role);
+  const [filling, setFilling] = useState(false);
   const closed = visit.status === 'left';
   // Time left is worked out from the real clock, so it keeps moving between data refreshes.
   const [now, setNow] = useState(() => Date.now());
@@ -34,6 +36,11 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
 
   const sex = visit.patientGender ? visit.patientGender[0].toUpperCase() : '';
   const ageSex = visit.patientAge === null && !sex ? '' : `${visit.patientAge ?? '?'} ${sex}`.trim();
+  // After a change that moves the work on, focus stays with the panel (not on <body>).
+  const changedAndFocus = () => {
+    onChanged();
+    headingRef.current?.focus({ preventScroll: true });
+  };
   const complaintLabel = complaints?.complaints.find((c) => c.key === visit.complaint)?.label ?? visit.complaint;
 
   return (
@@ -49,6 +56,11 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
         <p className="er-patient">
           <strong>{visit.patientName}</strong>
           {visit.detailsPending ? <span className="status-pill sm gray er-pending">Details pending</span> : ageSex && <span className="er-hint">{ageSex}</span>}
+          {visit.detailsPending && ER_ROLES.includes(role) && !closed && (
+            <button type="button" className="btn-secondary btn-sm" onClick={() => setFilling(true)}>
+              <UserPen size={13} aria-hidden="true" /> Fill in details
+            </button>
+          )}
         </p>
         <p className="er-hint">
           {visit.detailsPending ? '' : `${visit.patientUhid} · `}
@@ -60,7 +72,7 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
         canClinical ? (
           <section className="er-section" aria-label="Triage">
             <h4 className="er-section-title">Triage</h4>
-            <TriageForm visit={visit} complaints={complaints} onDone={onChanged} />
+            <TriageForm visit={visit} complaints={complaints} onDone={changedAndFocus} />
           </section>
         ) : (
           <p className="er-hint">Waiting for a nurse to triage this patient.</p>
@@ -71,9 +83,9 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
 
       <BaySection visit={visit} canEdit={canClinical && !closed} onChanged={onChanged} />
       <ErPathwaySteps visit={visit} info={complaints?.pathways ?? []} now={now} canEdit={canClinical} onChanged={onChanged} />
-      <DoctorSection visit={visit} now={now} canEdit={canDoctor && !closed} onChanged={onChanged} />
+      <DoctorSection visit={visit} now={now} canEdit={canDoctor && !closed} onChanged={changedAndFocus} />
+      {canDoctor && <ErDispositionBar visit={visit} onChanged={onChanged} onAdmitted={() => headingRef.current?.focus({ preventScroll: true })} />}
       <ErHandover key={visit.id} visit={visit} canEdit={canClinical} onChanged={onChanged} />
-      {canDoctor && <ErDispositionBar visit={visit} onChanged={onChanged} />}
       {visit.triage && visit.triage.history.length > 0 && (
         <section className="er-section" aria-label="Triage history">
           <h4 className="er-section-title">Triage history</h4>
@@ -82,7 +94,7 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
               <li key={`${h.at}-${i}`}>
                 <span className={`tri-dot ${h.colour}`} aria-hidden="true" />
                 <strong>
-                  {h.kind === 'retriage' ? 'Re-triaged' : 'Triaged'} {h.colour}
+                  {h.kind === 'retriage' ? 'Re-triaged' : 'Triaged'} {COLOUR_LABEL[h.colour as TriageColour] ?? h.colour}
                 </strong>
                 <span className="er-hint">
                   {h.byName}, {displayTime(new Date(h.at))}
@@ -93,6 +105,7 @@ export const ErVisitPanel: React.FC<ErVisitPanelProps> = ({ visit, complaints, r
           </ul>
         </section>
       )}
+      {filling && <FillDetailsDialog visit={visit} onClose={() => setFilling(false)} onSaved={onChanged} />}
     </div>
   );
 };
@@ -193,6 +206,7 @@ const BaySection: React.FC<{ visit: ErVisit; canEdit: boolean; onChanged(): void
   const { busy, error, run } = useErAction();
   const [bays, setBays] = useState<ErBay[] | null>(null);
   const [suggested, setSuggested] = useState<ErBay | null>(null);
+  const [suggestLoaded, setSuggestLoaded] = useState(false);
   const [tick, setTick] = useState(0);
   const colour = visit.colour;
 
@@ -206,8 +220,16 @@ const BaySection: React.FC<{ visit: ErVisit; canEdit: boolean; onChanged(): void
     if (colour) {
       erService
         .suggestBay(colour)
-        .then((b) => alive && setSuggested(b))
-        .catch(() => alive && setSuggested(null));
+        .then((b) => {
+          if (!alive) return;
+          setSuggested(b);
+          setSuggestLoaded(true);
+        })
+        .catch(() => {
+          if (!alive) return;
+          setSuggested(null);
+          setSuggestLoaded(false);
+        });
     }
     return () => {
       alive = false;
@@ -222,7 +244,11 @@ const BaySection: React.FC<{ visit: ErVisit; canEdit: boolean; onChanged(): void
   };
 
   const free = (bays ?? []).filter((b) => !b.outOfUse && (b.visitId === null || b.id === visit.bayId));
-  const showSuggested = colour && suggested && suggested.id !== visit.bayId;
+  const currentBay = bays?.find((b) => b.id === visit.bayId);
+  // Suggest only to a patient with no bay, or a red patient in a non-resus bay when the suggestion is a resus bay.
+  const showSuggested = !!colour && !!suggested && suggested.id !== visit.bayId && (!visit.bayId || (colour === 'red' && currentBay?.kind !== 'resus' && suggested.kind === 'resus'));
+  const noResus = colour === 'red' && !!suggested && suggested.kind !== 'resus';
+  const noBayFree = !!colour && suggested === null && suggestLoaded && !visit.bayId;
 
   return (
     <section className="er-section" aria-label="Bay">
@@ -232,12 +258,16 @@ const BaySection: React.FC<{ visit: ErVisit; canEdit: boolean; onChanged(): void
         <>
           {showSuggested && (
             <div className="er-actions er-between">
-              <span className="er-hint">Suggested: {suggested.name}</span>
+              <span className="er-hint">
+                Suggested: {suggested.name}
+                {noResus && <span className="er-late"> · No resus bay free</span>}
+              </span>
               <button type="button" className="btn-secondary btn-sm" disabled={busy !== null} onClick={() => void assign(suggested.id)}>
                 {busy ? 'Assigning…' : `Use ${suggested.name}`}
               </button>
             </div>
           )}
+          {noBayFree && <p className="er-hint er-late">No bay free</p>}
           <label className="form-label sr-only" htmlFor={`bay-${visit.id}`}>
             Choose a bay
           </label>
@@ -283,7 +313,7 @@ const DoctorSection: React.FC<{ visit: ErVisit; now: number; canEdit: boolean; o
         <div className="er-actions er-between">
           {minutes !== null ? <span className={minutes < 0 ? 'er-late' : 'er-left'}>{leftText(minutes)}</span> : <span className="er-hint">Not seen yet.</span>}
           {canEdit && (
-            <button type="button" className="btn-primary btn-sm" disabled={busy !== null} onClick={() => void mark()}>
+            <button type="button" className="btn-primary btn-sm" disabled={busy !== null || visit.colour === null} data-tip={visit.colour === null ? 'Triage first' : undefined} onClick={() => void mark()}>
               {busy ? 'Saving…' : 'Seen by doctor'}
             </button>
           )}

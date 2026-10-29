@@ -15,13 +15,15 @@ const KINDS: ErDispositionKind[] = ['admit', 'home', 'transfer', 'left-against-a
 interface ErDispositionBarProps {
   visit: ErVisit;
   onChanged(): void;
+  /** The admit went through (bed request made and the visit marked): the panel moves focus to its heading. */
+  onAdmitted?(): void;
 }
 
 /**
  * Doctor and admin: where the patient goes next. Admit opens the bed form first and records the disposition
  * only once the bed request exists; the others ask for confirmation with optional notes.
  */
-export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onChanged }) => {
+export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onChanged, onAdmitted }) => {
   const { user, showToast, refreshAlertCount, refreshPatients } = useApp();
   const { busy, error, run } = useErAction();
   const [confirming, setConfirming] = useState<Exclude<ErDispositionKind, 'admit'> | null>(null);
@@ -33,7 +35,9 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
   const [wrongPatient, setWrongPatient] = useState<string | null>(null);
 
   const done = visit.disposition;
-  if (done || visit.status === 'left') {
+  // An admitted patient still waiting for a bed can leave another way; Admit is already done.
+  const waitingBed = visit.status === 'waiting-bed' && done?.kind === 'admit';
+  if ((done && !waitingBed) || visit.status === 'left') {
     return (
       <section className="er-section" aria-label="Disposition">
         <h4 className="er-section-title">Disposition</h4>
@@ -66,6 +70,7 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
       await erService.disposition(visit.id, 'admit');
       setMarkFailed(null);
       onChanged();
+      onAdmitted?.();
     } catch (err) {
       setMarkFailed({ request, message: errorMessage(err) });
     } finally {
@@ -101,13 +106,25 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
   return (
     <section className="er-section" aria-label="Disposition">
       <h4 className="er-section-title">Disposition</h4>
+      {waitingBed && done && (
+        <p className="er-note">
+          {DISPOSITION_LABEL[done.kind]} by {done.byName} at {displayTime(new Date(done.at))}.{done.notes ? ` ${done.notes}` : ''}
+        </p>
+      )}
+      {visit.admitCancelledAt && !done && (
+        <p className="er-note" role="status">
+          The bed request was cancelled at {displayTime(new Date(visit.admitCancelledAt))}. Decide again: admit, or send the patient elsewhere.
+        </p>
+      )}
       <div className="er-actions">
-        {KINDS.map((k) => (
+        {KINDS.filter((k) => !(waitingBed && k === 'admit')).map((k) => (
           <button
             key={k}
             type="button"
             className={k === 'admit' ? 'btn-primary btn-sm' : k === 'died' ? 'btn-danger-soft btn-sm' : 'btn-secondary btn-sm'}
-            disabled={disabled}
+            // Admit needs a triage colour (the bed priority comes from it); leaving does not, as a patient can walk out.
+            disabled={disabled || (k === 'admit' && visit.colour === null)}
+            data-tip={k === 'admit' && visit.colour === null ? 'Triage first' : undefined}
             aria-pressed={confirming === k}
             onClick={() => (k === 'admit' ? void openAdmit() : (setConfirming(k), setNotes('')))}
           >
@@ -115,6 +132,8 @@ export const ErDispositionBar: React.FC<ErDispositionBarProps> = ({ visit, onCha
           </button>
         ))}
       </div>
+
+      {waitingBed && <p className="er-hint">Leaving now cancels the open bed request.</p>}
 
       {confirming && (
         <div className="er-inline-form">

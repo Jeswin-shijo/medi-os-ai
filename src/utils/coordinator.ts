@@ -35,8 +35,32 @@ export function timeLeft(dueAt: string, now: number = Date.now()): { text: strin
   return { text: late ? `overdue by ${span}` : `${span} left`, late };
 }
 
-/** A message type like "bed.request" read as words: "Bed request". */
+const ACRONYMS = new Set(['er', 'ecg', 'ct', 'icu', 'hdu']);
+const CLOCK_LABELS: Record<string, string> = { 'er-triage': 'Triage', 'er-doctor': 'Doctor review' };
+/** The ER pathway steps' labels, for `er-step-<step>` clocks. */
+const ER_STEP_LABELS: Record<string, string> = {
+  ecg: 'ECG done',
+  doctor: 'Seen by a doctor',
+  ct: 'CT scan done',
+  'last-known-well': 'Last known well recorded',
+  cultures: 'Blood cultures taken',
+  antibiotics: 'Antibiotics given'
+};
+
+/** A message type like "bed.request" read as words: "Bed request". Acronyms like ER and ECG stay in capitals. */
 export function typeLabel(type: string): string {
   const words = type.replace(/[._-]+/g, ' ').trim();
-  return words ? words[0].toUpperCase() + words.slice(1) : type;
+  if (!words) return type;
+  const text = words.split(' ').map((w) => (ACRONYMS.has(w.toLowerCase()) ? w.toUpperCase() : w)).join(' ');
+  return text[0].toUpperCase() + text.slice(1);
+}
+
+/** A clock's name: the ER ones read as words ("Doctor review", "ECG done"); the rest as typeLabel. */
+export function clockLabel(def: string): string {
+  if (CLOCK_LABELS[def]) return CLOCK_LABELS[def];
+  if (def.startsWith('er-step-')) {
+    const step = def.slice('er-step-'.length);
+    return ER_STEP_LABELS[step] ?? typeLabel(step);
+  }
+  return typeLabel(def);
 }

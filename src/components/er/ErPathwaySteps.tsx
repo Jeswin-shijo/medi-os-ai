@@ -106,7 +106,7 @@ export const ErPathwaySteps: React.FC<ErPathwayStepsProps> = ({ visit, info, now
       {canEdit && !closed && idle.length > 0 && (
         <div className="er-actions er-start">
           {idle.map((p) => (
-            <button key={p.key} type="button" className="btn-secondary btn-sm" disabled={busy !== null} onClick={() => void act(`start-${p.key}`, () => erService.startPathway(visit.id, p.key))}>
+            <button key={p.key} type="button" className="btn-secondary btn-sm" disabled={busy !== null || visit.colour === null} data-tip={visit.colour === null ? 'Triage first' : undefined} onClick={() => void act(`start-${p.key}`, () => erService.startPathway(visit.id, p.key))}>
               {busy === `start-${p.key}` ? 'Starting…' : `Start ${p.label}`}
             </button>
           ))}

@@ -113,12 +113,13 @@ AI Agents and the Coordinator:
 - **Who sees what:** admin, doctor, nurse and front desk see the Coordinator page, cases and the Ask box. Admin only: Settings → Coordinator. Pharmacist and lab have no access.
 
 ER Agent:
-- **ER Agent** page (AI Agents group; admin, doctor, nurse and front desk; not pharmacist or lab), live through the API's ER stream (a **LIVE** badge):
+- **ER Agent** page (AI Agents group; admin, doctor, nurse and front desk; not pharmacist or lab), live through the Coordinator stream (a **LIVE** badge):
   - four cards (patients in the ER, critical, average triage time, on-time doctor response) and a row of the four triage colours (red 10 min, orange 30, yellow 120, green 240 to the doctor) with counts and average waits;
   - **Expected arrivals**: calls and ambulances on the way, each with a countdown and **Add**; they drop off two hours after the expected time or when the patient arrives;
   - **ER queue**: everyone in the ER, red first, filtered by colour, with status, bay and a deadline (minutes left, or late). A patient with no name yet shows as `Unknown male, ER-0024` with a **Details pending** tag (also on the Patients list) until someone fills in the details;
   - **Visit panel** (select a row; it opens below the queue on narrow screens): triage and **Re-triage**, bay, pathways and their steps, **Seen by doctor**, a handover note with **Draft with AI**, the disposition, and the triage history;
   - **ER workflow** diagram, performance today, bay and bed capacity, staff on duty and recent ER events.
+  - Reseed right before a demo: clocks run on real time.
 - **New arrival**: search a registered patient, tap a card, or record an emergency with no ID (gender, approximate age, a description). Pick the complaint and how they came.
 - **Triage form** (admin, doctor, nurse): complaint, the vitals and pain, then a **suggested colour** with its reasons, from fixed rules (the AI only words the explanation; a **SAMPLE** label shows in sample mode). Choosing a colour lower than suggested needs a reason. **Re-triage** always needs a reason and is kept in the history.
 - **Bays**: after triage the panel suggests a bay (red goes to a resus bay when one is free). **Use** it or choose another.
