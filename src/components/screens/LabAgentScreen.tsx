@@ -53,6 +53,7 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
   const lab = useLab();
   const [tab, setTabState] = useState<Tab>(readTab);
   const tabsId = useId();
+  const newOrderRef = useRef<HTMLButtonElement>(null);
   const [ordering, setOrdering] = useState(false);
   const [printing, setPrinting] = useState<{ id: string; number: string } | null>(null);
   const printRequest = (r: LabRequestView) => setPrinting({ id: r.id, number: r.number });
@@ -83,7 +84,7 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
         subtitle="Coordinates lab orders, sample collection, testing, result validation and reporting."
         actions={
           canOrderLab(role) && (
-            <button type="button" className="btn-primary" onClick={() => setOrdering(true)}>
+            <button ref={newOrderRef} type="button" className="btn-primary" onClick={() => setOrdering(true)}>
               <Plus size={15} aria-hidden="true" />
               New order
             </button>
@@ -144,7 +145,13 @@ const LabAgentPage: React.FC<{ role: string }> = ({ role }) => {
           onPrint={printRequest}
         />
       )}
-      {printing && <LabLabels requestId={printing.id} requestNumber={printing.number} onClose={() => setPrinting(null)} />}
+      {printing && <LabLabels requestId={printing.id} requestNumber={printing.number} onClose={() => {
+        setPrinting(null);
+        // Labels opened from the order dialog have no button to return to: go back to New order.
+        window.requestAnimationFrame(() => {
+          if (!document.activeElement || document.activeElement === document.body) newOrderRef.current?.focus();
+        });
+      }} />}
     </div>
   );
 };

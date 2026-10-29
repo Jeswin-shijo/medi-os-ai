@@ -24,7 +24,7 @@ interface NewLabOrderDialogProps {
   onClose(): void;
   /** After an order is saved: the lists reload. */
   onOrdered(requests: LabRequestView[]): void;
-  /** Open the print view for a request. */
+  /** Open the print view for a request. The dialog closes at the same moment, so only one modal is ever open. */
   onPrint(request: LabRequestView): void;
 }
 
@@ -168,7 +168,7 @@ export const NewLabOrderDialog: React.FC<NewLabOrderDialogProps> = ({ initialPat
                     <span className="lab-num">{r.number}</span>
                     <span className="er-hint">{r.lines.map((l) => l.label).join(', ')}</span>
                     {canPrint && (
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => onPrint(r)}>
+                      <button type="button" className="btn-secondary btn-sm" onClick={() => { onPrint(r); onClose(); }}>
                         <Printer size={14} aria-hidden="true" />
                         Print labels
                       </button>
