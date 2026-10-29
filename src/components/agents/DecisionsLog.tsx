@@ -23,10 +23,10 @@ const newest = (ms: AgentMessage[]) => ms.reduce((max, m) => (m.createdAt > max 
 
 /** Every message the Coordinator routed: when, what triggered it, who it went to, and how it ended. */
 export const DecisionsLog: React.FC<DecisionsLogProps> = ({ messages, loaded, error, selectedCaseId, onOpenCase }) => {
-  // Rows newer than anything seen so far slide in (240 ms); the first page just appears.
-  const [seen, setSeen] = useState(() => ({ newest: newest(messages), arrived: new Set<string>() }));
-  const arrivals = messages.filter((m) => m.createdAt > seen.newest);
-  if (arrivals.length) setSeen({ newest: newest(arrivals), arrived: new Set([...seen.arrived, ...arrivals.map((m) => m.id)]) });
+  // Only rows newer than what the first load showed slide in (240 ms); the first page just appears.
+  const [baseline, setBaseline] = useState<string | null>(null);
+  if (loaded && baseline === null) setBaseline(newest(messages));
+  const isNew = (m: AgentMessage) => baseline !== null && m.createdAt > baseline;
 
   return (
     <section className="medios-card bagent-card co-card" aria-label="Decisions log">
@@ -60,7 +60,7 @@ export const DecisionsLog: React.FC<DecisionsLogProps> = ({ messages, loaded, er
               </>
             );
             return (
-              <li key={m.id} className={`co-item${seen.arrived.has(m.id) ? ' co-row-enter' : ''}`}>
+              <li key={m.id} className={`co-item${isNew(m) ? ' co-row-enter' : ''}`}>
                 {m.case ? (
                   <button type="button" className="co-row co-logrow" aria-current={m.case === selectedCaseId ? 'true' : undefined} onClick={() => onOpenCase(m.case as string)}>
                     {body}

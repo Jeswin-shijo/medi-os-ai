@@ -3639,6 +3639,8 @@ button.stat-card-item:active {
 .co-menu button:hover { background-color: var(--bg-subtle); }
 
 .co-list { list-style: none; margin: 0; padding: 0; }
+.co-log { max-height: 560px; overflow-y: auto; }
+.co-sub-hint { margin: -4px 0 8px; }
 .co-item { display: grid; grid-template-rows: 1fr; }
 .co-item + .co-item { border-top: 1px solid var(--border-subtle); }
 .co-row {
@@ -3706,4 +3708,3 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
   .co-row-enter,
   .co-row-enter > .co-row { animation: none; }
 }
-.co-log { max-height: 560px; overflow-y: auto; }

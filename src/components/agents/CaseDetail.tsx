@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { coordinatorService } from '../../services';
 import { errorMessage } from '../../services/api';
@@ -21,18 +21,25 @@ export const CaseDetail: React.FC<CaseDetailProps> = ({ caseId, version, onClose
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
+  const shownId = useRef<string | null>(null);
   useEffect(() => {
     let alive = true;
-    coordinatorService
-      .case(caseId)
-      .then((detail) => {
-        if (!alive) return;
-        setLoaded({ id: caseId, detail });
-        setFailed(null);
-      })
-      .catch((err) => alive && setFailed({ id: caseId, message: errorMessage(err) }));
+    // A newly opened case loads at once; later live changes wait 300 ms so a burst costs one request.
+    const wait = shownId.current === caseId ? 300 : 0;
+    shownId.current = caseId;
+    const timer = window.setTimeout(() => {
+      coordinatorService
+        .case(caseId)
+        .then((detail) => {
+          if (!alive) return;
+          setLoaded({ id: caseId, detail });
+          setFailed(null);
+        })
+        .catch((err) => alive && setFailed({ id: caseId, message: errorMessage(err) }));
+    }, wait);
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
   }, [caseId, version]);
   useEffect(() => {

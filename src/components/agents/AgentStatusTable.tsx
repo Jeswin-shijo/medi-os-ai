@@ -34,7 +34,10 @@ export const AgentStatusTable: React.FC<{ agents: AgentStatus[] | null; error: s
                         {a.open}/{a.capacity}
                       </span>
                     </span>
-                    <span className="co-agent-pct" data-tip="Share of work finished on time">
+                    <span
+                      className="co-agent-pct"
+                      data-tip={a.onTimePct === null && info.key === 'coordinator' ? 'The Coordinator routes work; it has no queue of its own.' : 'Share of work finished on time'}
+                    >
                       {a.onTimePct === null ? '–' : `${a.onTimePct}%`}
                     </span>
                   </>

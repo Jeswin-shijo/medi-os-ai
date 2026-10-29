@@ -83,6 +83,7 @@ export const CoordinationQueue: React.FC<CoordinationQueueProps> = ({ messages, 
           </div>
         )}
       </div>
+      <p className="bagent-hint co-sub-hint">Open work waiting on an agent or a person</p>
       <div className="bagent-filters" role="group" aria-label="Filter by priority">
         {FILTERS.map((f) => (
           <button key={f.id} type="button" className={`chip-btn${filter === f.id ? ' active' : ''}`} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
