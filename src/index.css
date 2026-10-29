@@ -3895,3 +3895,51 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
   .er-table tbody tr { transition: none; }
 }
 .er-left { color: var(--text-secondary); white-space: nowrap; }
+
+/* ===== ER visit panel, triage form and arrival dialog ===== */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.er-panel { min-width: 0; padding: 14px 16px; }
+.er-panel-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.er-panel-head { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.er-panel-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.er-heading { margin: 0; }
+.er-heading:focus { outline: none; }
+.er-heading:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 3px; border-radius: var(--radius-xs); }
+.er-patient { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-body); overflow-wrap: anywhere; }
+.er-panel-head .er-hint { margin: 0; }
+.er-section { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-color); min-width: 0; }
+.er-section-head { display: flex; align-items: center; gap: 8px; }
+.er-section-title { margin: 0; font-size: var(--fs-h4); font-weight: 600; }
+.er-push { margin-left: auto; }
+.er-hint { font-size: var(--fs-xs); color: var(--text-muted); }
+.er-note { margin: 0; font-size: var(--fs-body); color: var(--text-primary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.er-ok-line { display: flex; align-items: center; gap: 6px; color: var(--green-dark); }
+.er-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.er-between { justify-content: space-between; }
+.er-error { margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); background-color: var(--red-light); border: 1px solid var(--red-border); color: var(--red-dark); font-size: var(--fs-sm); }
+.er-field-error { margin: 3px 0 0; font-size: var(--fs-xs); color: var(--red-dark); }
+.er-inline-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background-color: var(--bg-hover); }
+.er-triage { display: flex; flex-direction: column; gap: 12px; }
+.er-vitals { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 10px; }
+.er-suggest { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--radius-sm); background-color: var(--blue-light); border: 1px solid var(--blue-border); }
+.er-suggest-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.er-reasons { margin: 0; padding-left: 18px; font-size: var(--fs-sm); color: var(--text-secondary); }
+.er-explain { margin: 0; font-size: var(--fs-sm); color: var(--text-primary); }
+.er-pathway { display: flex; flex-direction: column; gap: 6px; }
+.er-pathway-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.er-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.er-step { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); min-width: 0; }
+.er-step label { min-width: 0; overflow-wrap: anywhere; }
+.er-step.is-done label { color: var(--text-muted); text-decoration: line-through; }
+.er-step .er-late, .er-step .er-left, .er-step .er-hint { text-align: right; font-size: var(--fs-sm); }
+.er-start { padding-top: 2px; }
+.er-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); }
+.er-history li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.er-history .tri-dot { margin-right: 0; }
+.er-pick { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; padding: 6px 10px; background: none; border: 0; cursor: pointer; }
+.er-pick:hover, .er-pick:focus-visible { background-color: var(--bg-tab-active); }
+.er-panel .admit-option .er-hint { margin-left: 2px; }
+/* Beside the queue the panel stays in view while a long queue scrolls. */
+@media (min-width: 1101px) {
+  .er-panel { position: sticky; top: 0; max-height: calc(100dvh - 130px); overflow-y: auto; overscroll-behavior: contain; }
+}

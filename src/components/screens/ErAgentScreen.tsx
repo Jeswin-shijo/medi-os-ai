@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, Clock3, HeartPulse, Plus, Siren } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { useEr } from '../../hooks/useEr';
@@ -9,6 +9,8 @@ import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
 import { StatCard } from '../beds/StatCard';
 import { ErQueue } from '../er/ErQueue';
+import { ErVisitPanel } from '../er/ErVisitPanel';
+import { NewArrivalDialog } from '../er/NewArrivalDialog';
 
 /** The ER Agent: who is in the ER, how urgent, and whether the deadlines are being met. */
 export const ErAgentScreen: React.FC = () => {
@@ -16,12 +18,50 @@ export const ErAgentScreen: React.FC = () => {
   const canArrive = ER_ROLES.includes(user?.role ?? '');
   const { board, overview, complaints, error, live, reload } = useEr();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected: ErVisit | null = board?.visits.find((v) => v.id === selectedId) ?? null;
+  /** A visit just made by this person, shown until the board reload brings it in. */
+  const [fresh, setFresh] = useState<ErVisit | null>(null);
+  const [arriving, setArriving] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  /** The row or button that opened the panel: focus goes back to it when the selection clears. */
+  const opener = useRef<HTMLElement | null>(null);
+  const seen = useRef<string | null>(null);
+  const selected: ErVisit | null = board?.visits.find((v) => v.id === selectedId) ?? (fresh && fresh.id === selectedId ? fresh : null);
+
+  const select = useCallback((id: string) => {
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    setSelectedId(id);
+  }, []);
 
   const complaintLabels = useMemo(() => Object.fromEntries((complaints?.complaints ?? []).map((c) => [c.key, c.label])), [complaints]);
-  // A visit that left the board is no longer selected.
-  const stillThere = board && selectedId !== null ? board.visits.some((v) => v.id === selectedId) : true;
-  if (!stillThere) setSelectedId(null);
+  // A visit that left the board is no longer selected (one just made waits for the board to show it).
+  useEffect(() => {
+    if (!board || selectedId === null) return;
+    if (board.visits.some((v) => v.id === selectedId)) {
+      seen.current = selectedId;
+      return;
+    }
+    if (fresh?.id === selectedId && seen.current !== selectedId) return;
+    setSelectedId(null);
+    setFresh(null);
+  }, [board, selectedId, fresh]);
+
+  // A selected visit takes focus; on a stacked layout the panel sits below the queue, so bring it into view.
+  const panelOpen = selected !== null;
+  useEffect(() => {
+    if (selectedId === null) {
+      const back = opener.current;
+      opener.current = null;
+      if (back?.isConnected) back.focus({ preventScroll: true });
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      if (window.matchMedia('(max-width: 1100px)').matches) panelRef.current?.scrollIntoView({ block: 'start' });
+      headingRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedId, panelOpen]);
 
   const cards = overview?.cards;
   const perf = overview?.performance;
@@ -34,8 +74,7 @@ export const ErAgentScreen: React.FC = () => {
         subtitle="Handles emergency triage, prioritises cases, coordinates care and keeps fast-track pathways on time."
         actions={
           canArrive && (
-            // Task 11 opens the arrival form here; until then the button does nothing.
-            <button type="button" className="btn-primary" onClick={() => undefined}>
+            <button type="button" className="btn-primary" onClick={() => setArriving(true)}>
               <Plus size={15} aria-hidden="true" />
               New arrival
             </button>
@@ -88,20 +127,25 @@ export const ErAgentScreen: React.FC = () => {
           </section>
         )}
 
-        <div className="split er-split" style={split('minmax(280px, 320px)')}>
+        <div className="split er-split" style={split('minmax(320px, 380px)')}>
           <ErQueue
             visits={board?.visits ?? null}
             error={error}
             onRetry={reload}
             complaintLabels={complaintLabels}
             selectedId={selectedId}
-            onSelect={(v) => setSelectedId(v.id)}
+            onSelect={(v) => select(v.id)}
             expectedCount={board?.expected.length ?? 0}
           />
-          {/* Task 11: the visit panel (triage, pathways, bay, decision) replaces this card for the selected visit. */}
-          <section className="medios-card er-slot" aria-label="Visit panel">
-            <h3 className="card-title">Visit</h3>
-            <p className="data-empty">{selected ? `${selected.number} selected. The visit panel comes next.` : 'Select a patient to see the visit.'}</p>
+          <section ref={panelRef} className="medios-card er-panel" aria-label="Visit panel">
+            {selected ? (
+              <ErVisitPanel key={selected.id} visit={selected} complaints={complaints} role={user?.role ?? ''} headingRef={headingRef} onChanged={reload} />
+            ) : (
+              <>
+                <h3 className="card-title">Visit</h3>
+                <p className="data-empty">Select a patient to see the visit.</p>
+              </>
+            )}
           </section>
         </div>
 
@@ -117,6 +161,19 @@ export const ErAgentScreen: React.FC = () => {
           </section>
         </div>
       </div>
+      {arriving && (
+        <NewArrivalDialog
+          complaints={complaints}
+          expected={board?.expected ?? []}
+          knownVisitIds={board?.visits.map((v) => v.id) ?? []}
+          onClose={() => setArriving(false)}
+          onArrived={(visit) => {
+            setFresh(visit);
+            select(visit.id);
+            reload();
+          }}
+        />
+      )}
     </div>
   );
 };

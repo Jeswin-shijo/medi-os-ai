@@ -6,13 +6,15 @@ import { bedRequestService } from '../../services';
 import { errorMessage } from '../../services/api';
 import type { BedAdmission, BedRequest, BedRequestPriority, Need, Patient, RoomClass } from '../../types';
 import { PRIORITY_OPTIONS, defaultRoomClass, offersEmergency } from '../../utils/beds';
-import { AdmitStepNeeds, type AdmitForm } from './AdmitStepNeeds';
+import { AdmitStepNeeds, NOTES_MAX, type AdmitForm } from './AdmitStepNeeds';
 
 interface RequestBedDialogProps {
   /** Request a bed for this patient (the patient field is then fixed). */
   patient?: Patient;
   /** Pre-select this patient but leave the patient field changeable (used by the Coordinator's Ask box). */
-  initialPatient?: { id: string; uhid: string };
+  initialPatient?: { id: string; uhid: string; /** Shown when the patient is not in the app's list yet (a placeholder just created). */ name?: string; age?: number };
+  /** Start the form with these values (the ER carries the priority, the department and the handover note over). */
+  initialValues?: { priority?: BedRequestPriority; department?: string; doctor?: string; notes?: string };
   /** Move an admitted patient out of this bed: pre-filled from the admission. */
   transferFrom?: { bedId: string; admission: BedAdmission };
   onClose(): void;
@@ -23,7 +25,7 @@ interface RequestBedDialogProps {
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** One short form: who, the needs and a priority. The Bed Agent picks the bed, with no one to approve it. */
-export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, initialPatient, transferFrom, onClose, onSubmitted }) => {
+export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, initialPatient, initialValues, transferFrom, onClose, onSubmitted }) => {
   const { patients } = useApp();
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
@@ -42,17 +44,25 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
         }
       : (() => {
           const start = patient ?? (initialPatient ? (patients.find((p) => p.id === initialPatient.id) ?? patients.find((p) => p.uhid === initialPatient.uhid)) : undefined);
-          return { patientId: start?.id ?? initialPatient?.id ?? '', doctor: start?.doctor ?? '', department: start?.department ?? '', roomClass: null, needs: [], notes: '', stay: '3' };
+          return {
+            patientId: start?.id ?? initialPatient?.id ?? '',
+            doctor: initialValues?.doctor ?? start?.doctor ?? '',
+            department: initialValues?.department ?? start?.department ?? '',
+            roomClass: null,
+            needs: [],
+            notes: (initialValues?.notes ?? '').slice(0, NOTES_MAX),
+            stay: '3'
+          };
         })()
   );
-  const [priority, setPriority] = useState<BedRequestPriority>('medium');
+  const [priority, setPriority] = useState<BedRequestPriority>(initialValues?.priority ?? 'medium');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The control that opened the dialog, read during the first render: before autoFocus moves focus into the dialog. */
   const [opener] = useState(() => document.activeElement as HTMLElement | null);
 
   const selected = patient ?? patients.find((p) => p.id === form.patientId);
-  const age = moving?.patient.age ?? selected?.age;
+  const age = moving?.patient.age ?? selected?.age ?? initialPatient?.age;
   const roomClass: RoomClass =
     form.roomClass && (form.roomClass !== 'emergency' || offersEmergency(form.department)) ? form.roomClass : defaultRoomClass(age, form.needs as Need[]);
 
@@ -99,7 +109,9 @@ export const RequestBedDialog: React.FC<RequestBedDialogProps> = ({ patient, ini
     ? { name: moving.patient.name, detail: `${moving.patient.uhid} · ${moving.patient.age} yrs · ${moving.patient.gender}` }
     : patient
       ? { name: patient.name, detail: `${patient.uhid} · ${patient.age} yrs · ${patient.gender}` }
-      : undefined;
+      : !selected && initialPatient?.name && form.patientId === initialPatient.id
+        ? { name: initialPatient.name, detail: initialPatient.uhid }
+        : undefined;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
