@@ -70,7 +70,8 @@ AI Call Agent:
   - The **Agent Scripts** tab lists everything to set up: the scripts, the post-call notify URL, and the inbound agent's eight tools with their URLs, built from the public address under Automation.
   - A call whose result could not be read shows "What the provider sent", so the outcome names can be checked.
 - **Inbound calls** (patients phoning the hospital) appear in the log with the purpose **Inbound**. They show what the call changed for the verified patient, or "Unverified caller".
-  - Automation → **Calls to the hospital** decides whether callers may change appointments themselves.
+  - Automation → **Calls to the hospital** decides whether callers may change appointments themselves. Only an admin can change it, or the API's public address (https only; a trailing `/api` is dropped).
+  - The phone line checks a patient's date of birth, so **Add New Patient** (and an ER patient's **Fill in details**) take an optional date of birth, saved as "14 Mar 1992".
 - `hooks/useCallRunner.ts` starts a call and follows it to the end with toasts. With the backend's simulated provider no phone rings; the screen says so and lets you pick how the pretend patient answers.
 
 Token queue:

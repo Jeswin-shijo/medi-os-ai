@@ -37,3 +37,15 @@ export const callTime = (iso?: string) => {
 };
 
 export const callDuration = (sec?: number) => (sec == null ? '—' : sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, '0')}s`);
+
+/**
+ * The API's public address as the server keeps it (call-agent-settings.ts on the API):
+ * https only, without trailing slashes or a trailing /api, since the URLs shown add
+ * /api themselves. '' when empty; null when it is not an https address.
+ */
+export const normalisePublicApiUrl = (value: string): string | null => {
+  const url = value.trim();
+  if (!url) return '';
+  if (!/^https:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(url)) return null;
+  return url.replace(/\/+$/, '').replace(/\/api$/i, '').replace(/\/+$/, '');
+};

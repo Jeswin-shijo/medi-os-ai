@@ -9,7 +9,7 @@ import { ScreenHeader } from '../common/ScreenHeader';
 import { Avatar } from '../common/Avatar';
 import { BookByCallDialog } from '../common/BookByCallDialog';
 import { AgentNotice, CallResultBadge, PurposeBadge, Transcript } from '../common/callAgentUi';
-import { OUTCOME_OPTIONS, callDuration, callTime, isLive } from '../../utils/callAgent';
+import { OUTCOME_OPTIONS, callDuration, callTime, isLive, normalisePublicApiUrl } from '../../utils/callAgent';
 import {
   PhoneCall,
   PhoneForwarded,
@@ -129,13 +129,28 @@ export const CallAgentScreen: React.FC = () => {
   const saveAgentSettings = async (patch: Partial<CallAgentSettings>, message?: string) => {
     try {
       await settingsService.saveCallAgent(patch);
-      reloadConfig();
-      if (message) showToast(message, 'success');
-      return true;
     } catch (err) {
       showToast(`Settings not saved: ${errorMessage(err)}`, 'error');
       return false;
     }
+    if (patch.publicApiUrl === undefined) {
+      reloadConfig();
+      if (message) showToast(message, 'success');
+      return true;
+    }
+    // Read back what the server kept, so "saved" is never claimed for an address it dropped.
+    try {
+      const fresh = await callAgentService.getConfig();
+      setConfig(fresh);
+      if (fresh.settings.publicApiUrl !== patch.publicApiUrl) {
+        showToast("Settings saved, but the server did not keep the public address. Enter the API's https address.", 'error');
+        return false;
+      }
+    } catch {
+      reloadConfig();
+    }
+    if (message) showToast(message, 'success');
+    return true;
   };
 
   const kpis: { label: string; value: string | number; sub: string; icon: LucideIcon; tint: keyof typeof TINT }[] = [
@@ -338,7 +353,7 @@ export const CallAgentScreen: React.FC = () => {
                       <td>
                         <PurposeBadge purpose={c.purpose} />
                       </td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{c.attempt}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{c.purpose === 'inbound' ? '—' : c.attempt}</td>
                       <td>
                         <CallResultBadge call={c} />
                       </td>
@@ -393,7 +408,9 @@ export const CallAgentScreen: React.FC = () => {
         </div>
       )}
 
-      {tab === 'Automation' && config && <AutomationPanel key={JSON.stringify(config.settings)} settings={config.settings} simulated={config.provider === 'simulated'} onSave={saveAgentSettings} />}
+      {tab === 'Automation' && config && (
+        <AutomationPanel key={JSON.stringify(config.settings)} settings={config.settings} simulated={config.provider === 'simulated'} isAdmin={user?.role === 'admin'} onSave={saveAgentSettings} />
+      )}
       {tab === 'Agent Scripts' && <ScriptsPanel config={config} />}
 
       {bookingOpen && <BookByCallDialog onClose={() => setBookingOpen(false)} onSubmit={runCall} />}
@@ -561,7 +578,7 @@ const CheckRow: React.FC<{ ok: boolean; title: string; detail: string }> = ({ ok
 /** Result of "Check connection": each agent, and the wallet. */
 const ConnectionReport: React.FC<{ check: ProviderCheck; onClose: () => void }> = ({ check, onClose }) => {
   return (
-    <div className="medios-card" style={{ padding: 14, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8, borderColor: check.ok ? 'var(--green-border)' : 'var(--orange-border)' }}>
+    <div role="status" className="medios-card" style={{ padding: 14, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8, borderColor: check.ok ? 'var(--green-border)' : 'var(--orange-border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>{check.ok ? 'SnapServe is connected' : 'SnapServe needs attention'}</h3>
         <button className="btn-secondary btn-sm" onClick={onClose}>
@@ -594,19 +611,27 @@ const Field: React.FC<{ label: string; hint?: string; htmlFor?: string; children
   </div>
 );
 
-const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolean; onSave: (patch: Partial<CallAgentSettings>, message?: string) => Promise<boolean> }> = ({
-  settings,
-  simulated,
-  onSave
-}) => {
+const AutomationPanel: React.FC<{
+  settings: CallAgentSettings;
+  simulated: boolean;
+  /** Changes by phone and the public address are admin-only (the API refuses anyone else). */
+  isAdmin: boolean;
+  onSave: (patch: Partial<CallAgentSettings>, message?: string) => Promise<boolean>;
+}> = ({ settings, simulated, isAdmin, onSave }) => {
   const [draft, setDraft] = useState(settings);
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof CallAgentSettings>(key: K, value: CallAgentSettings[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
+  const publicUrl = normalisePublicApiUrl(draft.publicApiUrl);
+  const publicUrlProblem = publicUrl === null;
+  // Shown once the field is left, not on every keystroke of "https://".
+  const [urlLeft, setUrlLeft] = useState(false);
+  const showUrlProblem = publicUrlProblem && urlLeft;
 
   const save = async () => {
+    if (publicUrl === null) return;
     setSaving(true);
-    await onSave(draft, 'Call agent settings saved');
+    await onSave({ ...draft, publicApiUrl: publicUrl }, 'Call agent settings saved');
     setSaving(false);
   };
 
@@ -717,18 +742,27 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
         )}
       </div>
 
-      <div className="medios-card" style={{ gridColumn: 'span 2', padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="medios-card" style={{ gridColumn: '1 / -1', padding: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Calls to the hospital (inbound)</h3>
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+        {!isAdmin && (
+          <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: -8 }}>Only an admin can change these two settings.</p>
+        )}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: isAdmin ? 'pointer' : 'not-allowed' }}>
           <span className="switch-label" style={{ flexShrink: 0 }}>
-            <input type="checkbox" checked={draft.inboundChanges} onChange={(e) => set('inboundChanges', e.target.checked)} aria-label="Let callers change appointments" />
+            <input
+              type="checkbox"
+              checked={draft.inboundChanges}
+              disabled={!isAdmin}
+              onChange={(e) => set('inboundChanges', e.target.checked)}
+              aria-label="Let callers change appointments"
+            />
             <span className="switch-slider" />
           </span>
           <span>
             <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>Let verified callers book, move and cancel appointments</span>
             <span style={{ display: 'block', fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', marginTop: 2 }}>
-              Callers are verified by their registered number and name, plus date of birth when it is on file. Switched off, the agent only tells them their appointments and takes
-              a message for the front desk.
+              Callers give the registered number, the patient's full name and date of birth. From another number, a date of birth must be on file. Switched off, the agent only
+              tells them their appointments and takes a message for the front desk.
             </span>
           </span>
         </label>
@@ -737,15 +771,39 @@ const AutomationPanel: React.FC<{ settings: CallAgentSettings; simulated: boolea
           htmlFor="ca-public"
           hint="The https address SnapServe can reach (your server, or a tunnel while testing), e.g. https://medios.example.com. Used to show the webhook and tool URLs to paste into SnapServe."
         >
-          <input id="ca-public" className="input-field" placeholder="https://" value={draft.publicApiUrl} onChange={(e) => set('publicApiUrl', e.target.value.trim())} />
+          <input
+            id="ca-public"
+            className="input-field"
+            placeholder="https://"
+            inputMode="url"
+            value={draft.publicApiUrl}
+            disabled={!isAdmin}
+            aria-invalid={showUrlProblem}
+            aria-describedby={showUrlProblem ? 'ca-public-err' : undefined}
+            onBlur={() => setUrlLeft(true)}
+            onChange={(e) => set('publicApiUrl', e.target.value.trim())}
+          />
+          {showUrlProblem ? (
+            <p id="ca-public-err" role="alert" style={{ marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--red-dark)', lineHeight: 1.4 }}>
+              Enter an https address, e.g. https://medios.example.com. http:// and localhost addresses are not accepted: use a tunnel while testing.
+            </p>
+          ) : (
+            !publicUrlProblem &&
+            publicUrl &&
+            publicUrl !== draft.publicApiUrl && (
+              <p style={{ marginTop: 4, fontSize: 'var(--fs-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Saved as {publicUrl}: the URLs below add /api themselves.
+              </p>
+            )
+          )}
         </Field>
       </div>
 
-      <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+      <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
         <button className="btn-secondary" disabled={!dirty || saving} onClick={() => setDraft(settings)}>
           Discard changes
         </button>
-        <button className="btn-primary" disabled={!dirty || saving} onClick={save}>
+        <button className="btn-primary" disabled={!dirty || saving || publicUrlProblem} onClick={save}>
           {saving ? <RefreshCw className="animate-spin" size={15} /> : <Save size={15} />}
           Save settings
         </button>
@@ -813,11 +871,11 @@ const ScriptsPanel: React.FC<{ config: CallAgentConfig | null }> = ({ config }) 
         <h3 style={{ fontSize: 'var(--fs-h4)', fontWeight: 700 }}>Setting up SnapServe</h3>
         <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
           Create one SnapServe agent per script below. Paste the welcome line and instructions, and add the variables, outcomes and data fields exactly as named. Put each agent's
-          id in the server's <code>.env</code>. Then give every agent this <strong>post-call notify</strong> URL, with the server's <code>CALL_WEBHOOK_SECRET</code> in place of the
-          placeholder:
+          id in the server's <code>.env</code>. Then give every agent this <strong>post-call notify</strong> URL. If SnapServe lets you add a header, send the server's{' '}
+          <code>CALL_WEBHOOK_SECRET</code> as <strong>X-MediOS-Webhook-Token</strong> and leave <code>?token=</code> off; otherwise put the secret in place of the placeholder:
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <pre style={{ ...pre, flex: 1 }}>{notifyUrl}</pre>
+          <pre style={{ ...pre, flex: 1, minWidth: 0, wordBreak: 'break-all' }}>{notifyUrl}</pre>
           <CopyButton text={notifyUrl} label="post-call notify URL" />
         </div>
         {!config?.settings.publicApiUrl && (
@@ -841,7 +899,7 @@ const ScriptsPanel: React.FC<{ config: CallAgentConfig | null }> = ({ config }) 
 
       <div className="cols-2" style={{ gap: 12, alignItems: 'start' }}>
         {scripts.map((s) => (
-          <div key={s.purpose} className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, gridColumn: s.tools ? 'span 2' : undefined }}>
+          <div key={s.purpose} className="medios-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, gridColumn: s.tools ? '1 / -1' : undefined }}>
             <div>
               <h3 style={{ fontSize: 'var(--fs-h3)', fontWeight: 700 }}>{s.title} agent</h3>
               <p style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>{s.goal}</p>
@@ -849,18 +907,20 @@ const ScriptsPanel: React.FC<{ config: CallAgentConfig | null }> = ({ config }) 
             <div>
               <div style={sectionTitle}>Variables{s.defaults ? ' (set these defaults: inbound calls carry no values of their own)' : ''}</div>
               {s.defaults ? (
-                <table className="data-table">
-                  <tbody>
-                    {s.variables.map((v) => (
-                      <tr key={v}>
-                        <td style={{ width: 160 }}>
-                          <code style={{ fontSize: 11.5 }}>{v}</code>
-                        </td>
-                        <td style={{ color: s.defaults?.[v] ? 'var(--text-primary)' : 'var(--orange-dark)' }}>{s.defaults?.[v] || 'Not set in Settings'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="table-scroll" style={tableMin(320)}>
+                  <table className="data-table">
+                    <tbody>
+                      {s.variables.map((v) => (
+                        <tr key={v}>
+                          <td style={{ width: 160 }}>
+                            <code style={{ fontSize: 11.5 }}>{v}</code>
+                          </td>
+                          <td style={{ color: s.defaults?.[v] ? 'var(--text-primary)' : 'var(--orange-dark)' }}>{s.defaults?.[v] || 'Not set in Settings'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                   {s.variables.map((v) => (
@@ -907,20 +967,22 @@ const ScriptsPanel: React.FC<{ config: CallAgentConfig | null }> = ({ config }) 
                           <code style={{ flex: 1, fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-all' }}>{url}</code>
                           <CopyButton text={url} label={`${tool.name} URL`} caption="Copy URL" />
                         </div>
-                        <table className="data-table">
-                          <tbody>
-                            {tool.parameters.map((param) => (
-                              <tr key={param.name}>
-                                <td style={{ width: 150 }}>
-                                  <code style={{ fontSize: 11.5 }}>{param.name}</code>
-                                </td>
-                                <td style={{ width: 70, color: 'var(--text-secondary)' }}>{param.type}</td>
-                                <td style={{ width: 80, color: param.required ? 'var(--text-primary)' : 'var(--text-muted)' }}>{param.required ? 'required' : 'optional'}</td>
-                                <td style={{ color: 'var(--text-secondary)' }}>{param.description}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <div className="table-scroll" style={tableMin(560)}>
+                          <table className="data-table">
+                            <tbody>
+                              {tool.parameters.map((param) => (
+                                <tr key={param.name}>
+                                  <td style={{ width: 150 }}>
+                                    <code style={{ fontSize: 11.5 }}>{param.name}</code>
+                                  </td>
+                                  <td style={{ width: 70, color: 'var(--text-secondary)' }}>{param.type}</td>
+                                  <td style={{ width: 80, color: param.required ? 'var(--text-primary)' : 'var(--text-muted)' }}>{param.required ? 'required' : 'optional'}</td>
+                                  <td style={{ color: 'var(--text-secondary)' }}>{param.description}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     );
                   })}
