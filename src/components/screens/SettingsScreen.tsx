@@ -8,6 +8,7 @@ import { Avatar } from '../common/Avatar';
 import { ChangePasswordDialog } from '../common/ChangePasswordDialog';
 import { ActiveSessions } from '../common/ActiveSessions';
 import { BedAgentSettings } from '../beds/BedAgentSettings';
+import { CoordinatorSettings } from '../agents/CoordinatorSettings';
 import {
   Settings as SettingsIcon,
   Building2,
@@ -16,6 +17,7 @@ import {
   ClipboardMinus,
   Diamond,
   BrainCircuit,
+  Workflow,
   Share2,
   Bell,
   BellRing,
@@ -62,6 +64,7 @@ type SettingsTab =
   | 'departments'
   | 'clinical'
   | 'ai'
+  | 'coordinator'
   | 'integrations'
   | 'notifications'
   | 'security'
@@ -77,6 +80,7 @@ const TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: 'departments', label: 'Departments', icon: ClipboardPlus },
   { id: 'clinical', label: 'Clinical Settings', icon: Diamond },
   { id: 'ai', label: 'AI Assistant', icon: BrainCircuit },
+  { id: 'coordinator', label: 'Coordinator', icon: Workflow },
   { id: 'integrations', label: 'Integrations', icon: Share2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: ShieldCheck },
@@ -337,13 +341,13 @@ export const SettingsScreen: React.FC = () => {
       <ScreenHeader
         title="Settings"
         subtitle="Manage your account, hospital settings, AI preferences and system configurations"
-        actions={activeTab === 'general' ? (savedBadge || undefined) : <>{savedBadge}{saveButton}</>}
+        actions={activeTab === 'coordinator' ? undefined : activeTab === 'general' ? (savedBadge || undefined) : <>{savedBadge}{saveButton}</>}
       />
 
       {/* Settings tabs */}
       <div className="medios-card" style={{ padding: 0, overflow: 'hidden', marginTop: -3 }}>
         <div className="page-tabs" style={{ gap: 2 }}>
-          {TABS.map(tab => {
+          {TABS.filter(tab => tab.id !== 'coordinator' || user?.role === 'admin').map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
@@ -928,6 +932,8 @@ export const SettingsScreen: React.FC = () => {
       )}
 
       {/* ===================== INTEGRATIONS ===================== */}
+      {activeTab === 'coordinator' && user?.role === 'admin' && <CoordinatorSettings />}
+
       {activeTab === 'integrations' && (
         <div className="medios-card" style={{ padding: '14px 18px 18px' }}>
           <SectionTitle icon={Share2} color="var(--blue-text)" title="External Healthcare Integrations" subtitle="Connect hospital subsystems, PACS/DICOM radiology servers, LIMS analyzers, and messaging gateways" />

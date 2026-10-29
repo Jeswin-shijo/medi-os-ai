@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { TaskAlertItem } from '../../types';
-import { taskService } from '../../services';
+import { taskService, coordinatorService } from '../../services';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
 import { ScreenHeader } from '../common/ScreenHeader';
@@ -185,6 +185,45 @@ export const TasksAlertsScreen: React.FC = () => {
       showToast(`Task not updated: ${errorMessage(err)}`, 'error');
     }
   };
+
+  const [acking, setAcking] = useState<string | null>(null);
+  const [ackErrors, setAckErrors] = useState<Record<string, string>>({});
+  const acknowledge = async (task: TaskAlertItem) => {
+    const esc = task.escalation;
+    if (!esc || acking) return;
+    setAcking(task.id);
+    setAckErrors((e) => ({ ...e, [task.id]: '' }));
+    try {
+      await coordinatorService.acknowledge(esc.id);
+      showToast('Escalation acknowledged', 'success');
+      setTasks(await taskService.getTasks());
+    } catch (err) {
+      const message = errorMessage(err);
+      setAckErrors((e) => ({ ...e, [task.id]: message }));
+      showToast(message, 'error');
+    } finally {
+      setAcking(null);
+    }
+  };
+  const escalationLine = (task: TaskAlertItem) =>
+    task.escalation ? (
+      <>
+        <span className="cs-esc">
+          Step {task.escalation.step + 1}: {task.escalation.titleLabel} · {task.escalation.holderNames.join(', ') || 'No one on duty'}
+        </span>
+        {ackErrors[task.id] && (
+          <span className="cs-ack-err" role="alert">
+            {ackErrors[task.id]}
+          </span>
+        )}
+      </>
+    ) : null;
+  const ackButton = (task: TaskAlertItem) =>
+    task.status === 'Completed' ? null : (
+    <button type="button" className="btn-outline-blue cs-ack" style={{ height: 30, padding: '0 12px' }} disabled={acking === task.id} onClick={() => void acknowledge(task)}>
+      {acking === task.id ? 'Acknowledging…' : 'Acknowledge'}
+    </button>
+    );
 
   const toggleSuggestion = (text: string) =>
     setDoneSuggestions((prev) => {
@@ -502,7 +541,7 @@ export const TasksAlertsScreen: React.FC = () => {
                     return (
                       <tr key={task.id} style={{ height: 54, opacity: isDone ? 0.6 : 1 }}>
                         <td style={{ ...cell, paddingLeft: 8 }}>
-                          <input type="checkbox" style={checkbox} checked={isDone} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />
+                          {task.escalation ? null : <input type="checkbox" style={checkbox} checked={isDone} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />}
                         </td>
                         <td style={{ ...cell, paddingLeft: 8 }}>
                           <TypeIcon size={19} color={meta.color} style={{ display: 'block' }} />
@@ -510,6 +549,8 @@ export const TasksAlertsScreen: React.FC = () => {
                         <td style={cell}>
                           <div style={{ ...line1, textDecoration: isDone ? 'line-through' : 'none' }}>{task.title}</div>
                           {task.subtitle && <div style={{ ...line2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.subtitle}</div>}
+                          {escalationLine(task)}
+                          {task.escalation && <div style={{ marginTop: 6 }}>{ackButton(task)}</div>}
                         </td>
                         <td style={cell}>
                           <div style={line1}>{task.patientName}</div>
@@ -536,7 +577,7 @@ export const TasksAlertsScreen: React.FC = () => {
                         </td>
                         <td style={cell}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 22, paddingLeft: 6 }}>
-                            {rowAction(task)}
+                            {task.escalation ? null : rowAction(task)}
                             <button style={{ color: 'var(--text-primary)', display: 'inline-flex', padding: 2 }} aria-label="More actions" onClick={() => showToast(`More actions for "${task.title}"`, 'info')}>
                               <EllipsisVertical size={16} />
                             </button>
@@ -575,11 +616,13 @@ export const TasksAlertsScreen: React.FC = () => {
                           <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                             <TypeIcon size={15} color={meta.color} style={{ flexShrink: 0, marginTop: 2 }} />
                             <span style={{ ...line1, flex: 1 }}>{task.title}</span>
-                            <input type="checkbox" style={checkbox} checked={task.status === 'Completed'} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />
+                            {!task.escalation && <input type="checkbox" style={checkbox} checked={task.status === 'Completed'} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />}
                           </div>
                           <span style={line2}>
                             {task.patientName} • {task.dueDateTime}
                           </span>
+                          {escalationLine(task)}
+                          {task.escalation && <div>{ackButton(task)}</div>}
                           {requestId(task) && (
                             <button type="button" className="text-link" style={{ fontSize: 12, alignSelf: 'flex-start' }} onClick={() => openBedRequest(requestId(task)!)}>
                               Open request
@@ -684,7 +727,7 @@ export const TasksAlertsScreen: React.FC = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {!criticalAlerts.length && <span style={{ fontSize: 12, color: 'var(--text-secondary)', paddingLeft: 6 }}>{loading ? 'Loading…' : 'No open critical alerts.'}</span>}
-              {criticalAlerts.slice(0, 4).map((t) => ({ id: t.id, title: t.title, patient: t.patientName || t.subtitle, time: t.dueDateTime, badge: criticalBadge(t), request: requestId(t) })).map((ca) => {
+              {criticalAlerts.slice(0, 4).map((t) => ({ id: t.id, title: t.title, patient: t.patientName || t.subtitle, time: t.dueDateTime, badge: criticalBadge(t), request: requestId(t), task: t })).map((ca) => {
                 const meta = CRITICAL_META[ca.badge] ?? CRITICAL_META.Lab;
                 const Icon = meta.icon;
                 return (
@@ -699,7 +742,9 @@ export const TasksAlertsScreen: React.FC = () => {
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                         {ca.patient} | {ca.time}
                       </div>
+                      {escalationLine(ca.task)}
                     </div>
+                    {ca.task.escalation && ackButton(ca.task)}
                     {ca.request && (
                       <button type="button" className="text-link" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => openBedRequest(ca.request!)}>
                         Open request
