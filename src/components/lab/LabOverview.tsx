@@ -7,13 +7,15 @@ import {
   ORDER_FILTERS,
   PRIORITY_LABEL,
   PRIORITY_TONE,
+  criticalFirstText,
+  criticalWho,
+  dueText,
   locationText,
   matchesOrderFilter,
   minutesText,
   minutesUntil,
   percentText,
   requestStatus,
-  unitText,
   type OrderFilter
 } from '../../utils/lab';
 import { LabOverviewCards } from './LabOverviewCards';
@@ -128,7 +130,7 @@ const RecentOrders: React.FC<{ requests: LabRequestView[] | null; error: string 
                       <td className="lab-num">{r.number}</td>
                       <td>
                         <span className="er-name">{r.patientName}</span>
-                        <span className="er-sub lab-block">{r.patientUhid} · {locationText(r.location)}</span>
+                        <span className="er-sub lab-block">{r.patientUhid}{r.done ? '' : ` · ${locationText(r.location)}`}</span>
                       </td>
                       <td className="lab-tests" data-tip={tests}>{tests}</td>
                       <td><span className={`status-pill sm ${PRIORITY_TONE[r.priority]}`}>{PRIORITY_LABEL[r.priority]}</span></td>
@@ -180,12 +182,13 @@ const CollectionPreview: React.FC<{ collection: LabCollectionItem[] | null; erro
           <tbody>
             {collection.slice(0, QUEUE_ROWS).map((s) => {
               const left = minutesUntil(s.collectBy, now);
+              const late = left < 0;
               return (
-                <tr key={s.sampleId} className={s.overdue ? 'is-late' : undefined}>
+                <tr key={s.sampleId} className={s.overdue || late ? 'is-late' : undefined}>
                   <td className="lab-num">
                     {s.sampleNumber}
                     <span className="lab-block lab-deadline-narrow">
-                      {s.overdue ? (
+                      {late ? (
                         <span className="status-pill sm red lab-delayed">
                           <AlertTriangle size={12} aria-hidden="true" />
                           {-left} min late
@@ -204,7 +207,7 @@ const CollectionPreview: React.FC<{ collection: LabCollectionItem[] | null; erro
                   <td><span className={`status-pill sm ${PRIORITY_TONE[s.priority]}`}>{PRIORITY_LABEL[s.priority]}</span></td>
                   <td>
                     <span className="lab-time">{displayTime(new Date(s.collectBy))}</span>{' '}
-                    {s.overdue ? (
+                    {late ? (
                       <span className="status-pill sm red lab-delayed" data-tip={`${-left} min past the collection time`}>
                         <AlertTriangle size={12} aria-hidden="true" />
                         Delayed
@@ -330,9 +333,11 @@ const CriticalCard: React.FC<{ rows: LabCriticalRow[] | null; error: string | nu
           return (
             <li key={c.lineId} className={`lab-crit-row${c.ackAt ? '' : ' is-open'}`}>
               <div className="lab-crit-main">
-                <span className="er-name">
-                  {c.label}: {c.parameter} {c.value}
-                  {unitText(c.unit) ? ` ${unitText(c.unit)}` : ''}
+                <span className="er-name">{c.patientName || c.label}</span>
+                <span className="er-sub lab-block">{criticalWho({ ...c, patientName: undefined })}</span>
+                <span className="er-sub lab-block">
+                  {c.label}: {criticalFirstText(c)}
+                  {c.pendingAmendment && <span className="status-pill sm orange lab-tag">Amendment pending</span>}
                 </span>
                 <span className="er-sub lab-block">
                   {c.requestNumber} · ordered by {c.orderedBy || '—'}
@@ -341,10 +346,8 @@ const CriticalCard: React.FC<{ rows: LabCriticalRow[] | null; error: string | nu
               </div>
               {c.ackAt ? (
                 <span className="status-pill sm green">Acknowledged by {c.ackBy ?? '—'}</span>
-              ) : left !== null && left < 0 ? (
-                <span className="status-pill sm red">{-left} min overdue</span>
               ) : left !== null ? (
-                <span className="status-pill sm orange">Acknowledge within {left} min</span>
+                <span className={`status-pill sm ${left < 0 ? 'red' : 'orange'}`}>{dueText(left)}</span>
               ) : (
                 <span className="status-pill sm red">Not acknowledged</span>
               )}

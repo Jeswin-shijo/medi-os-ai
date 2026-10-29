@@ -141,7 +141,7 @@ const PROMPT_ROWS: { label: string; icon: LucideIcon; prompt: string }[][] = [
 const QUICK_ACTIONS: { label: string; icon: LucideIcon; screen: ScreenId }[] = [
   { label: 'New Consultation', icon: UserRoundPlus, screen: 'consultation' },
   { label: 'Create Prescription', icon: RxIcon, screen: 'prescriptions' },
-  { label: 'Order Lab Test', icon: FlaskConical, screen: 'lab-reports' },
+  { label: 'Order Lab Test', icon: FlaskConical, screen: 'lab-agent' },
   { label: 'Order Imaging', icon: ImageIcon, screen: 'imaging' },
   { label: 'Generate\nClinical Note', icon: FileText, screen: 'voice-to-notes' },
   { label: 'Schedule\nFollow-up', icon: CalendarDays, screen: 'follow-ups' },

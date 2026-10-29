@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useApp } from '../context/appContextCore';
 import { labAgentService } from '../services';
 import { errorMessage } from '../services/api';
 import type { CoordinatorEvent, LabCollectionItem, LabCriticalRow, LabOverview, LabRequestView } from '../types';
@@ -39,15 +40,19 @@ export function useLab(): UseLab {
   const [manual, setManual] = useState(0);
   const [lastEvent, setLastEvent] = useState<CoordinatorEvent | null>(null);
   const manualRef = useRef(false);
+  const { refreshAlertCount } = useApp();
 
   const onEvent = useCallback((event: CoordinatorEvent) => {
     if (event.from === 'lab') {
       setLabEvents((n) => n + 1);
       setLastEvent(event);
+      // lab.critical and lab.critical-acked (their summaries read "... critical (...)" and "... critical acknowledged") move the header bell.
+      // The alert is raised just after the message is sent, so the recount waits a moment.
+      if (/\bcritical\b/i.test(event.summary ?? '')) window.setTimeout(() => void refreshAlertCount(), 800);
     } else if (event.from === 'er' || event.from === 'bed') {
       setSideEvents((n) => n + 1);
     }
-  }, []);
+  }, [refreshAlertCount]);
   const { sync, live } = useCoordinatorStream({ onEvent });
 
   // Everything refetches on a Lab event, a stream catch-up or a manual reload.

@@ -4,7 +4,7 @@ import { labAgentService } from '../../services';
 import { useErAction } from '../er/useErAction';
 import type { LabCriticalRow, LabRequestView } from '../../types';
 import { displayTime } from '../../utils/clinicDate';
-import { minutesUntil, unitText } from '../../utils/lab';
+import { criticalValuesText, criticalWho, dueText, minutesUntil } from '../../utils/lab';
 import { LabDialogShell } from './LabDialogShell';
 
 interface LabCriticalProps {
@@ -54,14 +54,15 @@ export const LabCritical: React.FC<LabCriticalProps> = ({ rows, requests, error,
           <ul className="lab-crit lab-crit-list">
             {rows.map((c) => {
               const left = c.dueAt ? minutesUntil(c.dueAt, now) : null;
-              const unit = unitText(c.unit);
               return (
                 <li key={c.lineId} className={`lab-crit-row${c.ackAt ? '' : ' is-open'}`}>
                   <div className="lab-crit-main">
-                    <span className="er-name">
-                      {c.label}: {c.parameter} {c.value}
-                      {unit ? ` ${unit}` : ''}
+                    <span className="er-name">{c.patientName || '—'}</span>
+                    <span className="er-sub lab-block">{criticalWho({ ...c, patientName: undefined })}</span>
+                    <span className="er-sub lab-block">
+                      {c.label}: {criticalValuesText(c)}
                       {c.amended ? ' (amended)' : ''}
+                      {c.pendingAmendment && <span className="status-pill sm orange lab-tag">Amendment pending</span>}
                     </span>
                     <span className="er-sub lab-block">
                       {c.requestNumber} · ordered by {c.orderedBy || '—'}
@@ -78,10 +79,8 @@ export const LabCritical: React.FC<LabCriticalProps> = ({ rows, requests, error,
                     <span className="status-pill sm green">Acknowledged</span>
                   ) : (
                     <span className="lab-crit-act">
-                      {left !== null && left < 0 ? (
-                        <span className="status-pill sm red">{-left} min overdue</span>
-                      ) : left !== null ? (
-                        <span className="status-pill sm orange">Acknowledge within {left} min</span>
+                      {left !== null ? (
+                        <span className={`status-pill sm ${left < 0 ? 'red' : 'orange'}`}>{dueText(left)}</span>
                       ) : (
                         <span className="status-pill sm red">Not acknowledged</span>
                       )}
@@ -109,11 +108,11 @@ const AckNote: React.FC<{ requests: LabRequestView[] | null; lineId: string }> =
   return note ? <> · “{note}”</> : null;
 };
 
-const AckDialog: React.FC<{ row: LabCriticalRow; onClose(): void; onDone(): void }> = ({ row, onClose, onDone }) => {
+/** The acknowledge dialog; also used by Tasks & Alerts for a lab-line alert. */
+export const AckDialog: React.FC<{ row: LabCriticalRow; onClose(): void; onDone(): void }> = ({ row, onClose, onDone }) => {
   const uid = useId();
   const { busy, error, run } = useErAction();
   const [note, setNote] = useState('');
-  const unit = unitText(row.unit);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,12 +128,14 @@ const AckDialog: React.FC<{ row: LabCriticalRow; onClose(): void; onDone(): void
       <form onSubmit={(e) => void submit(e)}>
         <div className="modal-body admit-body">
           <p>
-            <strong>
-              {row.label}: {row.parameter} {row.value}
-              {unit ? ` ${unit}` : ''}
-            </strong>
+            <strong>{row.patientName || '—'}</strong>
+            <span className="er-sub lab-block">{criticalWho({ ...row, patientName: undefined })}</span>
+            <span className="lab-block">
+              {row.label}: {criticalValuesText(row)}
+            </span>
             <span className="er-sub lab-block">
               {row.requestNumber} · ordered by {row.orderedBy || '—'}
+              {row.pendingAmendment ? ' · Amendment pending' : ''}
             </span>
           </p>
           <div>

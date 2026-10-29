@@ -171,6 +171,10 @@ export interface LabParameter {
   unit: string;
   status: 'Normal' | 'Low' | 'High' | 'Abnormal';
   relativePosition?: number; // 0 to 100 for gauge position
+  /** A critical value (Lab Agent reports). */
+  critical?: boolean;
+  /** A text note given with a text result, such as the organism. */
+  comment?: string;
 }
 
 export interface LabReportGroup {
@@ -187,6 +191,9 @@ export interface LabTestReport {
   time: string;
   status: 'Completed' | 'Pending' | 'Abnormal';
   groups: LabReportGroup[];
+  /** The report was amended after its first release; `amendedAt` is clinic time, e.g. "26 Sep 2026, 02:30 PM". */
+  amended?: boolean;
+  amendedAt?: string;
   /** Present only when an interpretation has been recorded for the report. */
   aiSummary?: {
     findings: string[];
@@ -324,6 +331,7 @@ export interface TaskAlertItem {
   /** What the alert points at, e.g. 'bed-request:<id>'. */
   link?: string;
   /** Present when the alert is a Coordinator escalation waiting for someone to acknowledge it. */
+  /** For a Lab alert: 'lab-line:<lineId>'. An escalated critical takes over that alert, so check the link first. */
   escalation?: { id: string; ladder: string; step: number; titleKey: string; titleLabel: string; holderNames: string[] };
   /** Real-clock ISO time the alert was stored. */
   createdAt?: string;
@@ -1510,6 +1518,7 @@ export interface LabResultRow {
   unit: string;
   flag: 'normal' | 'low' | 'high' | 'abnormal';
   critical: boolean;
+  comment?: string;
 }
 
 export interface LabLineView {
@@ -1532,6 +1541,12 @@ export interface LabLineView {
   lastReleasedRealAt: string | null;
   cancelled: { by: string; reason: string; at: string } | null;
   critical: { active: boolean; ackBy: string | null; ackAt: string | null; ackNote: string | null } | null;
+  amendment?: LabAmendment | null;
+}
+
+export interface LabAmendment {
+  reason: string;
+  previous: { param: string; value: string | number; unit: string; flag: string }[];
 }
 
 export interface LabSampleView {
@@ -1597,6 +1612,9 @@ export interface LabCollectionItem {
   location: { area: LabArea; ward?: string };
   collectBy: string;
   overdue: boolean;
+  scheduledFor: string | null;
+  /** A repeat is not collected before this time (ISO); null for others. */
+  notBefore: string | null;
 }
 
 export interface LabWorklistSample {
@@ -1633,6 +1651,7 @@ export interface LabWorklistLine {
   lastReleasedRealAt: string | null;
   version: number;
   sentBack: { by: string; reason: string; at: string } | null;
+  amendment: LabAmendment | null;
 }
 
 export interface LabWorklist {
@@ -1648,7 +1667,7 @@ export interface LabCatalogueTest {
   tube: string;
   tubeLabel: string;
   category: string;
-  parameters: { name: string; unit: string; low: number | null; high: number | null; text: boolean; range: string }[];
+  parameters: { name: string; unit: string; low: number | null; high: number | null; text: boolean; range: string; options?: string[] | null }[];
   targets: { stat: number; routine: number };
 }
 
@@ -1699,6 +1718,13 @@ export interface LabCriticalRow {
   dueAt: string | null;
   /** The line was amended after its first release. */
   amended: boolean;
+  /** The amendment waits for validation; the critical stays listed. */
+  pendingAmendment: boolean;
+  patientName?: string;
+  patientUhid?: string;
+  location?: { area: LabArea; ward?: string };
+  /** Every critical value of the released version. */
+  criticals: { param: string; value: number | string; unit: string; flag: string }[];
 }
 
 export interface LabOverview {
