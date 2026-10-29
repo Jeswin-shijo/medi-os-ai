@@ -121,13 +121,15 @@ export function useCoordinatorOverview(version: number): { overview: Coordinator
 export function useCoordinatorList<T>(
   fetcher: () => Promise<T[]>,
   version: number
-): { items: T[]; loading: boolean; error: string | null; reload: () => void } {
+): { items: T[]; loading: boolean; error: string | null; reload: () => Promise<void> } {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [manual, setManual] = useState(0);
   // A manual reload() runs at once; stream changes wait out the debounce.
   const manualRef = useRef(false);
+  // Callers of reload() that are waiting for the next fetch to finish.
+  const waiters = useRef<(() => void)[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -140,7 +142,11 @@ export function useCoordinatorList<T>(
             setError(null);
           })
           .catch((err) => alive && setError(errorMessage(err)))
-          .finally(() => alive && setLoading(false));
+          .finally(() => {
+            if (!alive) return; // a newer fetch has replaced this one; it will release the waiters
+            setLoading(false);
+            waiters.current.splice(0).forEach((done) => done());
+          });
       },
       version === 0 || manualRef.current ? 0 : REFETCH_MS
     );
@@ -151,9 +157,14 @@ export function useCoordinatorList<T>(
     };
   }, [fetcher, version, manual]);
 
-  const reload = useCallback(() => {
-    manualRef.current = true;
-    setManual((n) => n + 1);
-  }, []);
+  const reload = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        waiters.current.push(resolve);
+        manualRef.current = true;
+        setManual((n) => n + 1);
+      }),
+    []
+  );
   return { items, loading, error, reload };
 }

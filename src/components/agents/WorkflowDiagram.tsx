@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BedDouble, CalendarDays, ClipboardCheck, FlaskConical, Headset, Network, Pill, Receipt, Siren, type LucideIcon } from 'lucide-react';
 import { AGENT_LIST, type AgentKey, type AgentStatus } from '../../types';
 
@@ -136,17 +136,20 @@ interface WorkflowDiagramProps {
 export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses }) => {
   const byKey = new Map(agents.map((a) => [a.key, a]));
   const online = AGENT_LIST.filter((a) => byKey.get(a.key)?.online).length;
-  // Measured before the first paint (a ResizeObserver reports before it), so the right drawing is used from the start.
+  // Measured before the first paint; nothing is drawn until a width is known.
   const [width, setWidth] = useState(0);
   const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = box.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const watch = new ResizeObserver((entries) => setWidth(entries[0].contentRect.width));
+    if (!el) return;
+    setWidth(Math.floor(el.getBoundingClientRect().width));
+    if (typeof ResizeObserver === 'undefined') return;
+    const watch = new ResizeObserver((entries) => setWidth(Math.floor(entries[0].contentRect.width)));
     watch.observe(el);
     return () => watch.disconnect();
   }, []);
-  const layout = width >= WIDE_FROM || width === 0 ? WIDE : narrowLayout(width);
+  // Same object until the width changes, so a running dot is not restarted by an unrelated re-render.
+  const layout = useMemo(() => (width >= WIDE_FROM ? WIDE : narrowLayout(width)), [width]);
   const { centre, tileW } = layout;
   const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const known = (k: AgentKey) => k === 'coordinator' || k in layout.pos;
@@ -154,7 +157,8 @@ export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses
   const ordered = [...OUTER].sort((x, y) => Number(byKey.get(y.key)?.built ?? y.built) - Number(byKey.get(x.key)?.built ?? x.built));
 
   return (
-    <div className="co-diagram" ref={box}>
+    <div className="co-diagram" ref={box} style={width === 0 ? { minHeight: 346 } : undefined}>
+      {width > 0 && (
       <svg viewBox={`0 0 ${layout.w} ${layout.h}`} role="img" aria-label={`Agent network: ${online} of ${AGENT_LIST.length} agents online`} className="co-diagram-svg">
         {OUTER.map((a) => {
           const p = layout.pos[a.key as keyof Layout['pos']];
@@ -219,6 +223,7 @@ export const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({ agents, pulses
           <Dot key={p.id} layout={layout} from={p.from} to={p.to} />
         ))}
       </svg>
+      )}
       {!layout.labels && width > 0 && (
         <ul className="co-legend" aria-label="What each agent exchanges with the Coordinator">
           {ordered.map((a) => (

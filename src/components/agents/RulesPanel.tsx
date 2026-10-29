@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { coordinatorService } from '../../services';
 import { errorMessage } from '../../services/api';
@@ -12,21 +12,18 @@ export const RulesPanel: React.FC<{ version: number }> = ({ version }) => {
   const isAdmin = user?.role === 'admin';
   const fetchRules = useCallback(() => coordinatorService.rules(), []);
   const { items, loading, error, reload } = useCoordinatorList(fetchRules, version);
-  /** What the person just chose, shown until the server confirms (or the change fails and it is dropped). */
-  const [pending, setPending] = useState<Record<string, boolean>>({});
+  /** What the person just chose, shown until the saved value has come back (or the save failed). `n` tells saves apart. */
+  const [pending, setPending] = useState<Record<string, { value: boolean; n: number }>>({});
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
-
-  const timers = useRef<number[]>([]);
-  useEffect(() => {
-    const held = timers.current;
-    return () => held.forEach((t) => window.clearTimeout(t));
-  }, []);
+  const saves = useRef(0);
 
   const change = async (rule: RuleView, value: boolean) => {
     setFailure(null);
-    setPending((p) => ({ ...p, [rule.key]: value }));
+    const n = ++saves.current;
+    setPending((p) => ({ ...p, [rule.key]: { value, n } }));
     const drop = () =>
       setPending((p) => {
+        if (p[rule.key]?.n !== n) return p; // a newer toggle of this rule owns the entry now
         const next = { ...p };
         delete next[rule.key];
         return next;
@@ -34,9 +31,9 @@ export const RulesPanel: React.FC<{ version: number }> = ({ version }) => {
     try {
       await coordinatorService.setRule(rule.key, value);
       showToast(`${rule.label} turned ${value ? 'on' : 'off'}`, 'success');
-      reload();
-      // Keep showing the chosen value until the refreshed list has arrived.
-      timers.current.push(window.setTimeout(drop, 3000));
+      // Keep the chosen value until the refreshed list is in.
+      await reload();
+      drop();
     } catch (err) {
       const message = errorMessage(err);
       setFailure({ key: rule.key, message });
@@ -59,7 +56,7 @@ export const RulesPanel: React.FC<{ version: number }> = ({ version }) => {
           <ul className="co-list co-rules">
             {items.map((r) => {
               const coming = !!r.comingWith;
-              const value = r.locked && !coming ? true : (pending[r.key] ?? r.value);
+              const value = r.locked && !coming ? true : (pending[r.key]?.value ?? r.value);
               const note = coming ? `Coming with the ${agentName(r.comingWith as string)} Agent` : r.locked ? 'Always on' : null;
               const canSwitch = isAdmin && !r.locked && !coming;
               return (
