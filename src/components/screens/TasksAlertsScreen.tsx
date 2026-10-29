@@ -8,7 +8,7 @@ import { useEscalationAck } from '../../hooks/useEscalationAck';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
 import { AckDialog } from '../lab/LabCritical';
-import { LAB_TAB_KEY, canAckLab } from '../../utils/lab';
+import { LAB_TAB_KEY, canAckLab, canReadLab } from '../../utils/lab';
 import type { LabCriticalRow } from '../../types';
 import {
   createLucideIcon,
@@ -196,8 +196,9 @@ export const TasksAlertsScreen: React.FC = () => {
   };
 
   const { acking, ackErrors, acknowledge } = useEscalationAck(async () => setTasks(await taskService.getTasks()));
-  // A lab-line alert: Acknowledge (admin, doctor) opens the Lab Agent's own acknowledge dialog; others go to the Lab Agent's Critical tab.
+  // A lab-line alert: Acknowledge (admin, doctor) opens the Lab Agent's own acknowledge dialog; other Lab roles go to the Lab Agent's Critical tab.
   const canAckResults = canAckLab(user?.role ?? '');
+  const canOpenLab = canReadLab(user?.role ?? '');
   const [labAck, setLabAck] = useState<LabCriticalRow | null>(null);
   const [labAckBusy, setLabAckBusy] = useState<string | null>(null);
   const openLabAck = async (task: TaskAlertItem) => {
@@ -229,11 +230,11 @@ export const TasksAlertsScreen: React.FC = () => {
       <button type="button" className="btn-outline-blue cs-ack" style={{ height: 30, padding: '0 12px' }} disabled={labAckBusy === task.id} aria-label={`Acknowledge the critical result: ${task.title}`} onClick={() => void openLabAck(task)}>
         {labAckBusy === task.id ? 'Opening…' : 'Acknowledge'}
       </button>
-    ) : (
+    ) : canOpenLab ? (
       <button type="button" className="text-link" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={openLabAgent}>
         Open in Lab Agent
       </button>
-    );
+    ) : null;
   const escalationLine = (task: TaskAlertItem) =>
     task.escalation ? (
       <>
@@ -847,7 +848,7 @@ export const TasksAlertsScreen: React.FC = () => {
           </div>
         </div>
       </div>
-      {labAck && <AckDialog row={labAck} onClose={() => setLabAck(null)} onDone={() => void taskService.getTasks().then(setTasks)} />}
+      {labAck && <AckDialog row={labAck} onClose={() => setLabAck(null)} onDone={() => void taskService.getTasks().then(setTasks).catch((err) => showToast(`Could not refresh alerts: ${errorMessage(err)}`, 'error'))} />}
     </div>
   );
 };
