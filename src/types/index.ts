@@ -1139,7 +1139,7 @@ export const AGENT_LIST: AgentInfo[] = [
     job: 'Checks every order (allergy, interactions, dose for weight and kidneys), queues it for the pharmacist, tracks stock, prepares take-home medicines',
     owns: 'Medicine orders and stock',
     neverDoes: 'Change a dose or swap a drug',
-    built: false
+    built: true
   },
   {
     key: 'discharge',
@@ -1777,3 +1777,262 @@ export interface LabOverview {
 }
 
 export type LabSeriesPoint = { at: string } & Record<LabCardKey, number | null>;
+
+// ----- Pharmacy Agent: mirrors the backend views (pharmacy-views.ts, pharmacy-overview.service.ts) -----
+
+export type PharmacyPriority = 'stat' | 'urgent' | 'routine';
+export type PharmacySetting = 'ER' | 'Ward' | 'OPD';
+export type PharmacyStore = 'main' | 'er';
+export type PharmacyLineStatus = 'to-check' | 'query' | 'approved' | 'issued' | 'stopped' | 'rejected' | 'cancelled';
+export type PharmacyFlagKind = 'allergy' | 'clash' | 'double' | 'dose' | 'kidney' | 'age' | 'list';
+export type PharmacyCardKey = 'ordersToday' | 'toCheck' | 'openQueries' | 'issuedToday' | 'lowStock';
+
+type PharmacyBy = { id: string; name: string };
+
+export interface PharmacyFlag {
+  key: string;
+  kind: PharmacyFlagKind;
+  severity: 'red' | 'amber';
+  text: string;
+  confirmed: { by: string; reason: string; at: string } | null;
+  reviewed: { by: string; at: string } | null;
+}
+
+export interface PharmacyQuery {
+  seq: number;
+  kind: string;
+  question: string;
+  by: PharmacyBy;
+  at: string;
+  dueAt: string;
+  suggestions: { medicine: string; label: string }[];
+  answer: { outcome: string; by: PharmacyBy; reason: string; at: string } | null;
+}
+
+export interface PharmacyLineView {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  priority: PharmacyPriority;
+  setting: PharmacySetting;
+  defaultStore: PharmacyStore;
+  source: 'order' | 'prescription';
+  status: PharmacyLineStatus;
+  medicine: string | null;
+  medicineLabel: string;
+  product: string | null;
+  productLabel: string;
+  freeName: string | null;
+  dose: number | null;
+  unit: string;
+  route: string;
+  frequency: string;
+  durationDays: number | null;
+  quantity: number | null;
+  issueUnit: string;
+  note: string;
+  version: number;
+  flags: PharmacyFlag[];
+  query: PharmacyQuery | null;
+  approved: { by: PharmacyBy; at: string; reason: string | null } | null;
+  rejected: { by: PharmacyBy; reason: string; at: string } | null;
+  issued: { by: PharmacyBy; at: string; store: string; quantity: number | null; batches: { batch: string; batchNo: string; expiry: string; qty: number }[] } | null;
+  cancelled: { by: PharmacyBy; reason: string; at: string } | null;
+  stopped: { by: PharmacyBy; reason: string; at: string } | null;
+  waitingForStock: boolean;
+  replaces: string | null;
+  prescriptionItem: string | null;
+  checkDueAt: string | null;
+  issueDueAt: string | null;
+  orderedBy: PharmacyBy;
+  orderedAt: string;
+  patient: {
+    id: string;
+    name: string;
+    uhid: string;
+    location: { area: PharmacySetting; ward?: string };
+    allergies: string[];
+    weightKg: number | null;
+    age: number | null;
+    sex: 'M' | 'F' | 'Other' | null;
+    egfr: number | null;
+    egfrAt: string | null;
+  };
+}
+
+export interface PharmacyOrderView {
+  id: string;
+  number: string;
+  patientId: string;
+  patientUhid: string;
+  patientName: string;
+  caseId: string;
+  setting: PharmacySetting;
+  ward: string | null;
+  orderedBy: PharmacyBy;
+  priority: PharmacyPriority;
+  note: string;
+  source: 'order' | 'prescription';
+  prescriptionId: string | null;
+  orderedAt: string;
+  lines: PharmacyLineView[];
+}
+
+export interface PharmacyBatchView {
+  id: string;
+  batchNo: string;
+  expiry: string;
+  quantity: number;
+  expired: boolean;
+  nearExpiry: boolean;
+}
+
+/** One product in one store. `nearExpiry` and `expired` are quantities. */
+export interface PharmacyStockRow {
+  product: string;
+  label: string;
+  medicine: string;
+  store: PharmacyStore;
+  usable: number;
+  reorderLevel: number;
+  low: boolean;
+  batches: PharmacyBatchView[];
+  nearExpiry: number;
+  expired: number;
+}
+
+export interface PharmacyMovement {
+  id: string;
+  batch: string;
+  product: string;
+  label: string;
+  store: PharmacyStore;
+  change: number;
+  kind: string;
+  reason: string;
+  line: string | null;
+  by: PharmacyBy;
+  at: string;
+}
+
+export interface PharmacyBatchAlert {
+  product: string;
+  label: string;
+  store: string;
+  batchNo: string;
+  expiry: string;
+  quantity: number;
+}
+
+export interface PharmacyCheckTimeRow {
+  priority: PharmacyPriority;
+  count: number;
+  avgMin: number | null;
+  targetMin: number;
+  onTimePct: number | null;
+}
+
+export interface PharmacyOverview {
+  at: string;
+  cards: Record<PharmacyCardKey, StatCardData>;
+  checkTime: PharmacyCheckTimeRow[];
+  stockAlerts: { low: PharmacyStockRow[]; nearExpiry: PharmacyBatchAlert[]; expired: PharmacyBatchAlert[] };
+  performance: {
+    avgCheckMin: number | null;
+    checkOnTimePct: number | null;
+    queriesOnTimePct: number | null;
+    ordersByHour: number[];
+  };
+}
+
+export type PharmacySeriesPoint = { at: string } & Record<PharmacyCardKey, number | null>;
+
+export type PharmacyTargets = Record<'check' | 'issue' | 'query', Record<PharmacyPriority, number>>;
+export interface PharmacySettings {
+  targets: PharmacyTargets;
+  nearExpiryDays: number;
+}
+
+export interface PharmacyCatalogueProduct {
+  key: string;
+  label: string;
+  form: string;
+  strength: number;
+  unit: string;
+  issueUnit: string;
+  routes: string[];
+}
+export interface PharmacyCatalogueMedicine {
+  key: string;
+  name: string;
+  unit: string;
+  classKey: string;
+  classLabel: string;
+  products: PharmacyCatalogueProduct[];
+}
+export interface PharmacyCatalogue extends PharmacySettings {
+  medicines: PharmacyCatalogueMedicine[];
+  routes: { key: string; label: string }[];
+  frequencies: { key: string; dosesPerDay: number; hasDuration: boolean }[];
+  priorities: PharmacyPriority[];
+  stores: { key: PharmacyStore; label: string }[];
+  queryKinds: string[];
+  adjustReasons: string[];
+}
+
+export interface PharmacyOrderQuery {
+  status?: PharmacyLineStatus;
+  search?: string;
+  setting?: PharmacySetting;
+  limit?: number;
+}
+
+export type PharmacyWorklistView = 'check' | 'issue' | 'queries';
+
+/** One medicine line as the order form sends it. */
+export interface PharmacyLineInput {
+  medicine: string;
+  product: string;
+  dose: number;
+  route: string;
+  frequency: string;
+  durationDays?: number;
+  note?: string;
+  confirm?: { reason: string };
+}
+
+export interface PharmacyCheckInput {
+  patientId: string;
+  lines: PharmacyLineInput[];
+}
+export interface PharmacyOrderInput extends PharmacyCheckInput {
+  priority: PharmacyPriority;
+  note?: string;
+}
+export interface PharmacyCheckResult {
+  patient: { age: number | null; sex: 'M' | 'F' | 'Other' | null; weightKg: number | null; allergies: string[]; egfr: number | null; egfrAt: string | null };
+  lines: { flags: PharmacyFlag[]; quantity: number | null }[];
+}
+
+export interface PharmacyAnswerInput {
+  querySeq: number;
+  outcome: 'change' | 'keep' | 'cancel' | 'stop' | 'switch' | 'wait';
+  reason?: string;
+  change?: Omit<PharmacyLineInput, 'medicine' | 'note'>;
+  switchTo?: PharmacyLineInput;
+}
+
+export interface PharmacyIssueOptions {
+  quantity: number | null;
+  defaultStore: PharmacyStore;
+  stores: { store: PharmacyStore; usable: number; batches: { id: string; batchNo: string; expiry: string; quantity: number }[] }[];
+}
+
+export interface PharmacyExplain {
+  text: string;
+  /** True for canned text: show the SAMPLE tag. */
+  sample: boolean;
+  source: 'ai' | 'rules';
+}
+
+export type PharmacyItemStatus = { lineId: string; status: string; red: number; amber: number; waitingForStock: boolean } | { status: 'not-sent' };

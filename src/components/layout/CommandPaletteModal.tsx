@@ -40,6 +40,7 @@ import {
 import { AiSparkle, Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
 import { canReadLab } from '../../utils/lab';
+import { canReadPharmacy } from '../../utils/pharmacy';
 import { canUseCallAgent } from '../../utils/callAgent';
 
 interface ModuleItem {
@@ -60,7 +61,7 @@ const MODULES: ModuleItem[] = [
   { id: 'er-agent', label: 'ER Agent', hint: 'Not built yet', icon: Siren },
   { id: 'bed-agent', label: 'Bed Agent', hint: 'Bed requests & allocation', icon: Bot },
   { id: 'lab-agent', label: 'Lab Agent', hint: 'Orders, samples & results', icon: FlaskRound },
-  { id: 'pharmacy-agent', label: 'Pharmacy Agent', hint: 'Not built yet', icon: Pill },
+  { id: 'pharmacy-agent', label: 'Pharmacy Agent', hint: 'Orders, checks & stock', icon: Pill },
   { id: 'discharge-agent', label: 'Discharge Agent', hint: 'Not built yet', icon: CalendarCheck2 },
   { id: 'scheduling-agent', label: 'Scheduling Agent', hint: 'Not built yet', icon: CalendarClock },
   { id: 'revenue-agent', label: 'Revenue Agent', hint: 'Not built yet', icon: CircleDollarSign },
@@ -85,10 +86,10 @@ const MODULES: ModuleItem[] = [
   { id: 'settings', label: 'Settings', hint: 'Hospital & AI settings', icon: Settings }
 ];
 
-/** Pharmacists and lab staff have no access to the bed pages, the AI Agents or the AI Call Agent (as the sidebar and the API). */
+/** Pharmacists and lab staff have no access to the bed pages, the AI Call Agent or most AI Agents (Lab and Pharmacy use their own read checks) (as the sidebar and the API). */
 const AGENT_SCREENS: ScreenId[] = ['beds', 'bed-agent', 'coordinator', 'er-agent', 'lab-agent', 'pharmacy-agent', 'discharge-agent', 'scheduling-agent', 'revenue-agent', 'patient-support-agent'];
 const hiddenFor = (id: ScreenId, role?: string) =>
-  id === 'lab-agent' ? !canReadLab(role ?? '') : (AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab')) || (id === 'call-agent' && !canUseCallAgent(role));
+  id === 'lab-agent' ? !canReadLab(role ?? '') : id === 'pharmacy-agent' ? !canReadPharmacy(role ?? '') : (AGENT_SCREENS.includes(id) && (role === 'pharmacist' || role === 'lab')) || (id === 'call-agent' && !canUseCallAgent(role));
 
 type Entry =
   | { kind: 'ai' }

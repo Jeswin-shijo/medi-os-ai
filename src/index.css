@@ -4160,3 +4160,15 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .ls-history { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-sm); }
 .ls-history li { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .ls-history .ls-when { color: var(--text-muted); font-size: var(--fs-xs); }
+
+/* ===== Pharmacy Agent page (reuses the Lab and ER pieces above) ===== */
+.ph-query-tile { flex-wrap: wrap; color: var(--orange-dark); border-color: var(--orange-border); background: var(--orange-light); }
+.ph-query-tile.is-pulse { animation: er-pulse 280ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .ph-query-tile.is-pulse { animation: none; } }
+.ph-alert-group + .ph-alert-group { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
+.ph-alert-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ph-alert-none { margin: 4px 0 0; }
+.ph-alert-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ph-alert-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; min-width: 0; font-size: var(--fs-sm); }
+.ph-alert-what { min-width: 0; overflow-wrap: anywhere; color: var(--text-primary); }
+.ph-alert-qty { color: var(--text-secondary); font-variant-numeric: tabular-nums; }

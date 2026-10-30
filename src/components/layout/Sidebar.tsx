@@ -36,19 +36,20 @@ import {
 import { Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
 import { canReadLab } from '../../utils/lab';
+import { canReadPharmacy } from '../../utils/pharmacy';
 import { canUseCallAgent } from '../../utils/callAgent';
 
 /** The bed pages, and the roles that cannot open them (as the API). */
 const BED_SCREENS: ScreenId[] = ['beds'];
 const NO_BED_ACCESS = ['pharmacist', 'lab'];
 
-/** The AI Agents group, in the client's order. Pharmacists and lab staff have no access to it (as the API). */
+/** The AI Agents group, in the client's order. Pharmacists see the Lab and Pharmacy Agents, lab staff only the Lab Agent, front desk none (as the API). */
 const AGENT_NAV: { id: ScreenId; label: string; icon: LucideIcon; built: boolean }[] = [
   { id: 'coordinator', label: 'Coordinator Agent', icon: Network, built: true },
   { id: 'er-agent', label: 'ER Agent', icon: Siren, built: true },
   { id: 'bed-agent', label: 'Bed Agent', icon: Bot, built: true },
   { id: 'lab-agent', label: 'Lab Agent', icon: FlaskRound, built: true },
-  { id: 'pharmacy-agent', label: 'Pharmacy Agent', icon: Pill, built: false },
+  { id: 'pharmacy-agent', label: 'Pharmacy Agent', icon: Pill, built: true },
   { id: 'discharge-agent', label: 'Discharge Agent', icon: CalendarCheck2, built: false },
   { id: 'scheduling-agent', label: 'Scheduling Agent', icon: CalendarClock, built: false },
   { id: 'revenue-agent', label: 'Revenue Agent', icon: CircleDollarSign, built: false },
@@ -94,8 +95,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     });
   };
   const role = user?.role ?? '';
-  // Pharmacists and lab staff see only the Lab Agent in the group; front desk does not see it.
-  const agentItems = AGENT_NAV.filter((a) => (a.id === 'lab-agent' ? canReadLab(role) : !NO_BED_ACCESS.includes(role)));
+  // Each agent that has its own read rule uses it (pharmacists see Lab and Pharmacy, lab staff see Lab only); the others keep the bed-pages rule.
+  const agentItems = AGENT_NAV.filter((a) => (a.id === 'lab-agent' ? canReadLab(role) : a.id === 'pharmacy-agent' ? canReadPharmacy(role) : !NO_BED_ACCESS.includes(role)));
   const showAgents = agentItems.length > 0;
 
   useEffect(() => {

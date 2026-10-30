@@ -28,6 +28,25 @@ import {
   CallStatus,
   CallOutcome,
   ProviderCheck,
+  PharmacyCatalogue,
+  PharmacyOverview,
+  PharmacySeriesPoint,
+  PharmacyOrderView,
+  PharmacyOrderQuery,
+  PharmacyLineView,
+  PharmacyWorklistView,
+  PharmacyCheckInput,
+  PharmacyCheckResult,
+  PharmacyOrderInput,
+  PharmacyAnswerInput,
+  PharmacyIssueOptions,
+  PharmacyExplain,
+  PharmacyItemStatus,
+  PharmacyStockRow,
+  PharmacyMovement,
+  PharmacyStore,
+  PharmacySettings,
+  PharmacyTargets,
   QueueBoard,
   QueueToken,
   QueueSettings,
@@ -523,4 +542,40 @@ export const labAgentService = {
   limits: () => api<LabLimits>('/lab/limits'),
   /** Admin only: an object of "<test>.<parameter>": { low, high } (null clears a side). */
   saveLimits: (limits: Record<string, { low?: number | null; high?: number | null }>) => api<LabLimits>('/lab/limits', { method: 'PUT', body: limits })
+};
+
+// The Pharmacy Agent: medicine orders, checks, issue, queries and stock.
+export const pharmacyAgentService = {
+  catalogue: () => api<PharmacyCatalogue>('/pharmacy/catalogue'),
+  overview: () => api<PharmacyOverview>('/pharmacy/overview'),
+  /** Hourly counts, oldest first. */
+  snapshots: (range: SnapshotRange) => api<{ range: SnapshotRange; points: PharmacySeriesPoint[] }>(`/pharmacy/snapshots?range=${range}`),
+  orders: (q: PharmacyOrderQuery = {}) => api<{ orders: PharmacyOrderView[] }>('/pharmacy/orders', { query: { ...q } }).then((r) => r.orders),
+  order: (id: string) => api<PharmacyOrderView>(`/pharmacy/orders/${enc(id)}`),
+  line: (id: string) => api<PharmacyLineView>(`/pharmacy/lines/${enc(id)}`),
+  patientLines: (patientId: string, since?: string) => api<{ lines: PharmacyLineView[] }>(`/pharmacy/patients/${enc(patientId)}/lines`, { query: { since } }).then((r) => r.lines),
+  /** The pharmacist's lists: to check, to issue, queries. */
+  worklist: (view: PharmacyWorklistView) => api<{ lines: PharmacyLineView[] }>('/pharmacy/worklist', { query: { view } }).then((r) => r.lines),
+  /** Admin and doctor. Checks the lines without saving. */
+  check: (body: PharmacyCheckInput) => api<PharmacyCheckResult>('/pharmacy/check', { method: 'POST', body }),
+  placeOrder: (body: PharmacyOrderInput) => api<PharmacyOrderView>('/pharmacy/orders', { method: 'POST', body }),
+  cancelLine: (lineId: string, reason: string) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/cancel`, { method: 'POST', body: { reason } }),
+  answer: (lineId: string, body: PharmacyAnswerInput) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/answer`, { method: 'POST', body }),
+  approve: (lineId: string, body: { reason?: string; allergyReviewed?: boolean } = {}) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/approve`, { method: 'POST', body }),
+  query: (lineId: string, body: { kind: string; question: string }) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/query`, { method: 'POST', body }),
+  reject: (lineId: string, reason: string) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/reject`, { method: 'POST', body: { reason } }),
+  issueOptions: (lineId: string) => api<PharmacyIssueOptions>(`/pharmacy/lines/${enc(lineId)}/issue-options`),
+  issue: (lineId: string, body: { store?: PharmacyStore; batchNo?: string; quantity?: number } = {}) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/issue`, { method: 'POST', body }),
+  outOfStock: (lineId: string) => api<PharmacyLineView>(`/pharmacy/lines/${enc(lineId)}/out-of-stock`, POST),
+  explain: (lineId: string, flagKey: string) => api<PharmacyExplain>(`/pharmacy/lines/${enc(lineId)}/flags/${enc(flagKey)}/explain`, POST),
+  prescriptionStatus: (id: string) => api<Record<string, PharmacyItemStatus>>(`/pharmacy/prescriptions/${enc(id)}/status`),
+  stock: (store?: PharmacyStore) => api<{ stock: PharmacyStockRow[] }>('/pharmacy/stock', { query: { store } }).then((r) => r.stock),
+  movements: (q: { product?: string; store?: PharmacyStore; limit?: number } = {}) => api<{ movements: PharmacyMovement[] }>('/pharmacy/stock/movements', { query: { ...q } }).then((r) => r.movements),
+  receive: (body: { product: string; store: PharmacyStore; batchNo: string; expiry: string; quantity: number }) => api<{ ok?: boolean }>('/pharmacy/stock/receive', { method: 'POST', body }),
+  adjust: (batchId: string, body: { change: number; reason: string }) => api<{ ok?: boolean }>(`/pharmacy/stock/batches/${enc(batchId)}/adjust`, { method: 'POST', body }),
+  removeExpired: (batchId: string) => api<{ ok?: boolean }>(`/pharmacy/stock/batches/${enc(batchId)}/remove-expired`, POST),
+  setLevel: (body: { product: string; store: PharmacyStore; reorderLevel: number }) => api<{ ok?: boolean }>('/pharmacy/stock/levels', { method: 'PUT', body }),
+  settings: () => api<PharmacySettings>('/pharmacy/settings'),
+  /** Admin only: `targets` and/or `nearExpiryDays`. */
+  saveSettings: (body: { targets?: Partial<Record<keyof PharmacyTargets, Partial<Record<'stat' | 'urgent' | 'routine', number>>>>; nearExpiryDays?: number }) => api<PharmacySettings>('/pharmacy/settings', { method: 'PUT', body })
 };
