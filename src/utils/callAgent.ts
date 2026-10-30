@@ -5,6 +5,13 @@ import { AgentCall, CallOutcome } from '../types';
 
 export type Tone = 'green' | 'blue' | 'orange' | 'red' | 'gray' | 'purple';
 
+/**
+ * Who may use the AI call agent: its log, transcripts and calls (as the API's
+ * CALL_LOG_ROLES). Calls hold patients' own words, which pharmacy and lab don't need.
+ */
+const CALL_AGENT_ROLES = ['admin', 'doctor', 'nurse', 'staff'];
+export const canUseCallAgent = (role?: string) => CALL_AGENT_ROLES.includes(role ?? '');
+
 export const OUTCOME_META: Record<CallOutcome, { label: string; tone: Tone }> = {
   confirmed: { label: 'Confirmed', tone: 'green' },
   rescheduled: { label: 'Rescheduled', tone: 'blue' },
@@ -19,6 +26,8 @@ export const OUTCOME_META: Record<CallOutcome, { label: string; tone: Tone }> = 
   wrong_number: { label: 'Wrong number', tone: 'red' },
   do_not_call: { label: 'Do not call', tone: 'red' },
   escalated: { label: 'Needs staff', tone: 'red' },
+  enquiry: { label: 'Answered', tone: 'blue' },
+  unverified: { label: 'Not verified', tone: 'orange' },
   failed: { label: 'Failed', tone: 'red' }
 };
 
@@ -35,3 +44,15 @@ export const callTime = (iso?: string) => {
 };
 
 export const callDuration = (sec?: number) => (sec == null ? '—' : sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, '0')}s`);
+
+/**
+ * The API's public address as the server keeps it (call-agent-settings.ts on the API):
+ * https only, without trailing slashes or a trailing /api, since the URLs shown add
+ * /api themselves. '' when empty; null when it is not an https address.
+ */
+export const normalisePublicApiUrl = (value: string): string | null => {
+  const url = value.trim();
+  if (!url) return '';
+  if (!/^https:\/\/[^\s/?#]+(\/[^\s?#]*)?$/.test(url)) return null;
+  return url.replace(/\/+$/, '').replace(/\/api$/i, '').replace(/\/+$/, '');
+};

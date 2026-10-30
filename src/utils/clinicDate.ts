@@ -57,3 +57,19 @@ export const clockMinutes = (time: string) => {
   if (m[3].toUpperCase() === 'PM') h += 12;
   return h * 60 + Number(m[2]);
 };
+
+/** A date input's "1992-03-14" → "14 Mar 1992", the format patient records keep a date of birth in; '' when empty. */
+export const dobFromInput = (value: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return m ? displayDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : '';
+};
+
+/** Whole years from a date input's "1992-03-14" to the clinic's today; null when empty or in the future. */
+export const ageFromDobInput = (value: string): number | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return null;
+  const today = clinicNow();
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const age = today.getFullYear() - y - (today.getMonth() + 1 < mo || (today.getMonth() + 1 === mo && today.getDate() < d) ? 1 : 0);
+  return age >= 0 && age <= 130 ? age : null;
+};

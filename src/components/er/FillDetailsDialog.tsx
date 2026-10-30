@@ -5,6 +5,7 @@ import { useApp } from '../../context/appContextCore';
 import { patientService } from '../../services';
 import type { ErVisit, Patient } from '../../types';
 import { indianMobile } from '../../utils/er';
+import { ageFromDobInput, dobFromInput, isoDay } from '../../utils/clinicDate';
 import { useErAction } from './useErAction';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -28,6 +29,8 @@ export const FillDetailsDialog: React.FC<FillDetailsDialogProps> = ({ visit, onC
   const [age, setAge] = useState(visit.patientAge === null ? '' : String(visit.patientAge));
   const [gender, setGender] = useState<Patient['gender']>(visit.patientGender === 'Female' || visit.patientGender === 'Other' ? visit.patientGender : 'Male');
   const [address, setAddress] = useState('');
+  /** A date input's value ("1992-03-14"); saved as "14 Mar 1992". */
+  const [dob, setDob] = useState('');
   // No closing while saving: the form stays until the answer is in.
   const closeGuard = useRef(onClose);
   useEffect(() => {
@@ -82,6 +85,7 @@ export const FillDetailsDialog: React.FC<FillDetailsDialogProps> = ({ visit, onC
         phone: `+91 ${mobile.slice(0, 5)} ${mobile.slice(5)}`,
         gender,
         ...(age.trim() !== '' && { age: ageNumber }),
+        ...(dob && { dob: dobFromInput(dob) }),
         ...(address.trim() && ({ address: address.trim() } as Partial<Patient>))
       })
     );
@@ -143,6 +147,22 @@ export const FillDetailsDialog: React.FC<FillDetailsDialogProps> = ({ visit, onC
                   <option value="Other">Other</option>
                 </select>
               </div>
+            </div>
+            <div>
+              <label className="form-label" htmlFor={`${uid}-dob`}>Date of birth (optional)</label>
+              <input
+                id={`${uid}-dob`}
+                className="input-field"
+                type="date"
+                min="1900-01-01"
+                max={isoDay()}
+                value={dob}
+                onChange={(e) => {
+                  setDob(e.target.value);
+                  const years = ageFromDobInput(e.target.value);
+                  if (years !== null) setAge(String(years));
+                }}
+              />
             </div>
             <div>
               <label className="form-label" htmlFor={`${uid}-address`}>Address (optional)</label>

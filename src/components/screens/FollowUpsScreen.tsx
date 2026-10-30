@@ -12,6 +12,7 @@ import { useCallRunner } from '../../hooks/useCallRunner';
 import { BookByCallDialog } from '../common/BookByCallDialog';
 import { usePatientChart } from '../../hooks/usePatientChart';
 import { clinicNow } from '../../utils/clinicDate';
+import { canUseCallAgent } from '../../utils/callAgent';
 import {
   CalendarDays,
   CalendarCheck,
@@ -106,7 +107,9 @@ const FilterSelect: React.FC<{ value: string; onChange: (v: string) => void; opt
 );
 
 export const FollowUpsScreen: React.FC = () => {
-  const { showToast, activePatient, patients } = useApp();
+  const { showToast, activePatient, patients, user } = useApp();
+  // Pharmacy and lab have no access to the AI call agent (as the API).
+  const callsAllowed = canUseCallAgent(user?.role);
   const [followUps, setFollowUps] = useState<FollowUpItem[]>([]);
   const { loading, reload } = useLoader(() => followUpService.getFollowUps(), setFollowUps, []);
   // A booking call updates the follow-up with the booked slot.
@@ -400,18 +403,20 @@ export const FollowUpsScreen: React.FC = () => {
                                   <Send size={13} />
                                   <span>Send Reminder</span>
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    setMenuFor(null);
-                                    setBookingFor(item);
-                                  }}
-                                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                  <PhoneForwarded size={13} />
-                                  <span>Book by AI Call</span>
-                                </button>
+                                {callsAllowed && (
+                                  <button
+                                    onClick={() => {
+                                      setMenuFor(null);
+                                      setBookingFor(item);
+                                    }}
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', fontSize: 12, borderRadius: 6, textAlign: 'left' }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                                  >
+                                    <PhoneForwarded size={13} />
+                                    <span>Book by AI Call</span>
+                                  </button>
+                                )}
                               </div>
                             </>
                           )}
@@ -680,7 +685,7 @@ export const FollowUpsScreen: React.FC = () => {
           </div>
         </div>
       </div>
-      {bookingFor && (
+      {callsAllowed && bookingFor && (
         <BookByCallDialog
           uhid={bookingFor.uhid}
           followUpId={bookingFor.id}

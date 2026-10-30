@@ -36,6 +36,7 @@ import {
 import { Capsules } from '../common/icons';
 import { Avatar } from '../common/Avatar';
 import { canReadLab } from '../../utils/lab';
+import { canUseCallAgent } from '../../utils/callAgent';
 
 /** The bed pages, and the roles that cannot open them (as the API). */
 const BED_SCREENS: ScreenId[] = ['beds'];
@@ -126,7 +127,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
     { id: 'tasks-alerts', label: 'Tasks & Alerts', icon: Bell },
     { id: 'messages', label: 'Messages', icon: MessageSquareMore, badge: unreadMessagesCount, dot: unreadMessagesCount > 0 },
     { id: 'settings', label: 'Settings', icon: Settings }
-  ] as NavItem[]).filter((item) => !BED_SCREENS.includes(item.id) || !NO_BED_ACCESS.includes(user?.role ?? ''));
+  ] as NavItem[]).filter(
+    (item) =>
+      (!BED_SCREENS.includes(item.id) || !NO_BED_ACCESS.includes(user?.role ?? '')) &&
+      (item.id !== 'call-agent' || canUseCallAgent(user?.role)),
+  );
 
   const renderItem = (item: NavItem & { soon?: boolean }, isActive: boolean) => {
     const Icon = item.icon;

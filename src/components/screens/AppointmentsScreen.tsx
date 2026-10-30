@@ -11,7 +11,7 @@ import { Avatar } from '../common/Avatar';
 import { AllergyIcon, DiabetesDots, HypertensionIcon } from '../common/icons';
 import { BookByCallDialog } from '../common/BookByCallDialog';
 import { CallResultBadge, ConfirmationChip } from '../common/callAgentUi';
-import { callTime, isLive } from '../../utils/callAgent';
+import { callTime, canUseCallAgent, isLive } from '../../utils/callAgent';
 import { ws3 } from '../../utils/layout';
 import {
   CalendarDays,
@@ -186,7 +186,9 @@ const cardTitle: React.CSSProperties = { fontSize: 14, fontWeight: 700, color: '
 const detailRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-primary)', minHeight: 20 };
 
 export const AppointmentsScreen: React.FC = () => {
-  const { setActiveScreen, setActivePatient, showToast, patients, activePatient } = useApp();
+  const { setActiveScreen, setActivePatient, showToast, patients, activePatient, user } = useApp();
+  // Pharmacy and lab have no access to the AI call agent (as the API): no call data or call actions.
+  const callsAllowed = canUseCallAgent(user?.role);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAptId, setSelectedAptId] = useState<string>('');
   const [patientVisits, setPatientVisits] = useState<{ uhid: string; visits: SoapNote[] } | null>(null);
@@ -298,7 +300,7 @@ export const AppointmentsScreen: React.FC = () => {
   // The selected appointment's AI calls, newest first.
   const selectedId = selectedApt?.id;
   useLoader(
-    async () => (selectedId ? { id: selectedId, calls: await callAgentService.getCalls({ appointmentId: selectedId, limit: 3 }) } : null),
+    async () => (callsAllowed && selectedId ? { id: selectedId, calls: await callAgentService.getCalls({ appointmentId: selectedId, limit: 3 }) } : null),
     setAptCalls,
     [selectedId, callsVersion]
   );
@@ -437,7 +439,7 @@ export const AppointmentsScreen: React.FC = () => {
   };
 
   const rowMenu = (apt: Appointment): MenuItem[] => [
-    ...(apt.status === 'Scheduled' ? [{ label: 'AI confirmation call', icon: PhoneCall, onClick: () => confirmByCall(apt) }] : []),
+    ...(callsAllowed && apt.status === 'Scheduled' ? [{ label: 'AI confirmation call', icon: PhoneCall, onClick: () => confirmByCall(apt) }] : []),
     { label: 'Mark as Waiting', icon: Timer, onClick: () => handleUpdateStatus(apt.id, 'Waiting') },
     { label: 'Reschedule', icon: CalendarClock, onClick: () => showToast(`Reschedule request sent to front desk for ${apt.patientName}`, 'info') },
     { label: 'Open EMR', icon: FolderOpen, onClick: () => openPatientScreen(apt, 'emr') },
@@ -457,10 +459,12 @@ export const AppointmentsScreen: React.FC = () => {
               <CalendarDays size={16} />
               <span>Block Time</span>
             </button>
-            <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 18px' }} onClick={() => setIsBookByCallOpen(true)}>
-              <PhoneForwarded size={16} />
-              <span>Book by AI Call</span>
-            </button>
+            {callsAllowed && (
+              <button className="btn-outline-blue" style={{ borderColor: 'var(--border-strong)', padding: '0 18px' }} onClick={() => setIsBookByCallOpen(true)}>
+                <PhoneForwarded size={16} />
+                <span>Book by AI Call</span>
+              </button>
+            )}
             <button
               className="btn-primary"
               style={{ padding: '0 22px' }}
@@ -947,19 +951,21 @@ export const AppointmentsScreen: React.FC = () => {
                         <PhoneCall size={15} />
                         <ConfirmationChip value={selectedApt.confirmation} />
                       </span>
-                      <button
-                        className="btn-outline-blue"
-                        style={{ height: 30, padding: '0 10px', fontSize: 11.5, borderColor: 'var(--border-strong)' }}
-                        disabled={callInProgress || !!selectedPatient?.doNotCall}
-                        title={selectedPatient?.doNotCall ? `AI calls blocked: ${selectedPatient.doNotCallReason || 'do-not-call'}` : 'The AI agent phones the patient to confirm, move or cancel'}
-                        onClick={() => confirmByCall(selectedApt)}
-                      >
-                        <PhoneCall size={13} />
-                        {callInProgress ? 'Calling…' : 'Call to confirm'}
-                      </button>
+                      {callsAllowed && (
+                        <button
+                          className="btn-outline-blue"
+                          style={{ height: 30, padding: '0 10px', fontSize: 11.5, borderColor: 'var(--border-strong)' }}
+                          disabled={callInProgress || !!selectedPatient?.doNotCall}
+                          title={selectedPatient?.doNotCall ? `AI calls blocked: ${selectedPatient.doNotCallReason || 'do-not-call'}` : 'The AI agent phones the patient to confirm, move or cancel'}
+                          onClick={() => confirmByCall(selectedApt)}
+                        >
+                          <PhoneCall size={13} />
+                          {callInProgress ? 'Calling…' : 'Call to confirm'}
+                        </button>
+                      )}
                     </div>
                   )}
-                  {selectedCalls[0] && (
+                  {callsAllowed && selectedCalls[0] && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
                       <CallResultBadge call={selectedCalls[0]} />
                       <span style={{ flex: 1 }}>
@@ -1143,7 +1149,7 @@ export const AppointmentsScreen: React.FC = () => {
         )}
       </div>
 
-      {isBookByCallOpen && <BookByCallDialog uhid={activePatient?.uhid} onClose={() => setIsBookByCallOpen(false)} onSubmit={runCall} />}
+      {callsAllowed && isBookByCallOpen && <BookByCallDialog uhid={activePatient?.uhid} onClose={() => setIsBookByCallOpen(false)} onSubmit={runCall} />}
 
       {/* Add Appointment Modal */}
       {isAddAptModalOpen && (
