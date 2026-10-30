@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/appContextCore';
 import { PatientBanner, type BannerTab } from '../layout/PatientBanner';
 import { ScreenHeader } from '../common/ScreenHeader';
@@ -158,15 +158,24 @@ export const PrescriptionsScreen: React.FC = () => {
   const [consultType, setConsultType] = useState('Follow-up');
   // Where each item is in Pharmacy, keyed by item id; null until loaded (or when the role can't read it).
   const [itemStatus, setItemStatus] = useState<Record<string, PharmacyItemStatus> | null>(null);
+  // The prescription the statuses belong to, so a late answer for another one is ignored; and the re-fetch timer.
+  const statusFor = useRef<string | undefined>(undefined);
+  const statusTimer = useRef<number | undefined>(undefined);
+  const clearStatusTimer = () => {
+    if (statusTimer.current !== undefined) window.clearTimeout(statusTimer.current);
+    statusTimer.current = undefined;
+  };
+  useEffect(() => clearStatusTimer, []);
   const loadItemStatus = (id: string | undefined) => {
+    statusFor.current = id;
     if (!id) {
       setItemStatus(null);
       return;
     }
     pharmacyAgentService
       .prescriptionStatus(id)
-      .then((r) => setItemStatus(r))
-      .catch(() => setItemStatus(null));
+      .then((r) => { if (statusFor.current === id) setItemStatus(r); })
+      .catch(() => { if (statusFor.current === id) setItemStatus(null); });
   };
 
   /** Loads a stored prescription into the editor, or starts a blank one. */
@@ -177,6 +186,7 @@ export const PrescriptionsScreen: React.FC = () => {
     setOptions(rx?.options ?? DEFAULT_OPTIONS);
     if (rx?.type) setConsultType(rx.type);
     setItemStatus(null);
+    clearStatusTimer();
     loadItemStatus(rx?.id);
   };
 
@@ -248,7 +258,8 @@ export const PrescriptionsScreen: React.FC = () => {
       setItems(saved.items);
       loadItemStatus(saved.id);
       // The pharmacy sync runs just after a save; look again once it has had time to finish.
-      window.setTimeout(() => loadItemStatus(saved.id), 1500);
+      clearStatusTimer();
+      statusTimer.current = window.setTimeout(() => loadItemStatus(saved.id), 1500);
       showToast('Prescription saved to the patient record');
     } catch (err) {
       showToast(`Prescription not saved: ${errorMessage(err)}`, 'error');
