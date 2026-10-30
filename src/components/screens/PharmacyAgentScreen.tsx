@@ -1,9 +1,12 @@
 import React, { useId, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { usePharmacy } from '../../hooks/usePharmacy';
-import { PHARMACY_TAB_KEY, canReadPharmacy } from '../../utils/pharmacy';
+import { PHARMACY_TAB_KEY, canCheckPharmacy, canOrderPharmacy, canReadPharmacy } from '../../utils/pharmacy';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
+import { NewMedicineOrderDialog } from '../pharmacy/NewMedicineOrderDialog';
+import { PharmacyCheckQueue } from '../pharmacy/PharmacyCheckQueue';
 import { PharmacyOverview } from '../pharmacy/PharmacyOverview';
 
 type Tab = 'overview' | 'to-check' | 'to-issue' | 'queries' | 'stock';
@@ -42,6 +45,9 @@ export const PharmacyAgentScreen: React.FC = () => {
 
 const PharmacyAgentPage: React.FC = () => {
   const pharmacy = usePharmacy();
+  const { user } = useApp();
+  const role = user?.role ?? '';
+  const [ordering, setOrdering] = useState(false);
   const [tab, setTabState] = useState<Tab>(readTab);
   const tabsId = useId();
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
@@ -69,6 +75,14 @@ const PharmacyAgentPage: React.FC = () => {
         title="Pharmacy Agent"
         badge={<LivePill live={pharmacy.live} />}
         subtitle="Checks medicine orders for allergy, clashes, dose and kidney function, queues them for the pharmacist and issues them from stock."
+        actions={
+          canOrderPharmacy(role) && (
+            <button type="button" className="btn-primary" onClick={() => setOrdering(true)}>
+              <Plus size={15} aria-hidden="true" />
+              New order
+            </button>
+          )
+        }
       />
 
       <div className="page-tabs" role="tablist" aria-label="Pharmacy Agent views">
@@ -95,12 +109,16 @@ const PharmacyAgentPage: React.FC = () => {
       <div id={`${tabsId}-panel`} role="tabpanel" aria-labelledby={`${tabsId}-${tab}`} className="bagent-panel">
         {tab === 'overview' ? (
           <PharmacyOverview overview={pharmacy.overview} orders={pharmacy.orders} orderLimit={pharmacy.orderLimit} error={pharmacy.error} lastEvent={pharmacy.lastEvent} onRetry={pharmacy.reload} />
+        ) : tab === 'to-check' ? (
+          <PharmacyCheckQueue lines={pharmacy.check} error={pharmacy.error} canCheck={canCheckPharmacy(role)} onRetry={pharmacy.reload} onChanged={pharmacy.reload} />
         ) : (
           <section className="medios-card">
             <p className="data-empty">Comes next.</p>
           </section>
         )}
       </div>
+
+      {ordering && <NewMedicineOrderDialog onClose={() => setOrdering(false)} onOrdered={() => pharmacy.reload()} />}
     </div>
   );
 };
