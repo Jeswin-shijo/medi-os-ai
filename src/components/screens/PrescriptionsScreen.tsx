@@ -5,7 +5,9 @@ import { ScreenHeader } from '../common/ScreenHeader';
 import { AiSparkle } from '../common/icons';
 import { mockMedicationTemplates, mockDrugAlternatives } from '../../mock/prescriptionsData';
 import type { PrescriptionItem, PrescriptionRecord } from '../../types';
-import { prescriptionService } from '../../services';
+import { pharmacyAgentService, prescriptionService } from '../../services';
+import type { PharmacyItemStatus } from '../../types';
+import { LINE_STATUS_LABEL } from '../../utils/pharmacy';
 import { errorMessage } from '../../services/api';
 import { useLoader } from '../../hooks/useLoader';
 import { usePatientChart } from '../../hooks/usePatientChart';
@@ -118,6 +120,21 @@ const CellSelect: React.FC<{ value: string; options: readonly string[]; onChange
 
 const smallCardTitle: React.CSSProperties = { fontSize: 13.5, fontWeight: 700, letterSpacing: '-0.01em' };
 
+/** An item's place in Pharmacy: its status and red-flag count, or "Not sent" for an item that is not Active. */
+const PharmacyPill: React.FC<{ item: PrescriptionItem; status: PharmacyItemStatus | undefined }> = ({ item, status }) => {
+  if (item.id.startsWith('new-')) return null;
+  if (!status) return null;
+  if (!('lineId' in status)) return <div style={{ marginTop: 3 }}><span className="status-pill sm gray">Not sent</span></div>;
+  const label = status.waitingForStock ? 'Waiting for stock' : (LINE_STATUS_LABEL as Record<string, string>)[status.status] ?? status.status;
+  const tone = status.status === 'issued' ? 'green' : status.status === 'query' ? 'orange' : status.status === 'rejected' || status.status === 'cancelled' || status.status === 'stopped' ? 'gray' : 'blue';
+  return (
+    <div style={{ marginTop: 3, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      <span className={`status-pill sm ${tone}`}>{label}</span>
+      {status.red > 0 && <span className="status-pill sm red">{status.red} red flag{status.red === 1 ? '' : 's'}</span>}
+    </div>
+  );
+};
+
 export const PrescriptionsScreen: React.FC = () => {
   const { activePatient, showToast } = useApp();
   const uhid = activePatient?.uhid;
@@ -139,6 +156,18 @@ export const PrescriptionsScreen: React.FC = () => {
   const [showAddRow, setShowAddRow] = useState(false);
   const [newMedName, setNewMedName] = useState('');
   const [consultType, setConsultType] = useState('Follow-up');
+  // Where each item is in Pharmacy, keyed by item id; null until loaded (or when the role can't read it).
+  const [itemStatus, setItemStatus] = useState<Record<string, PharmacyItemStatus> | null>(null);
+  const loadItemStatus = (id: string | undefined) => {
+    if (!id) {
+      setItemStatus(null);
+      return;
+    }
+    pharmacyAgentService
+      .prescriptionStatus(id)
+      .then((r) => setItemStatus(r))
+      .catch(() => setItemStatus(null));
+  };
 
   /** Loads a stored prescription into the editor, or starts a blank one. */
   const openPrescription = (rx: PrescriptionRecord | undefined) => {
@@ -147,6 +176,8 @@ export const PrescriptionsScreen: React.FC = () => {
     setInstructions(rx?.additionalInstructions ?? '');
     setOptions(rx?.options ?? DEFAULT_OPTIONS);
     if (rx?.type) setConsultType(rx.type);
+    setItemStatus(null);
+    loadItemStatus(rx?.id);
   };
 
   // Open the latest prescription whenever the patient (or their list) loads.
@@ -215,6 +246,9 @@ export const PrescriptionsScreen: React.FC = () => {
       );
       setEditingId(saved.id);
       setItems(saved.items);
+      loadItemStatus(saved.id);
+      // The pharmacy sync runs just after a save; look again once it has had time to finish.
+      window.setTimeout(() => loadItemStatus(saved.id), 1500);
       showToast('Prescription saved to the patient record');
     } catch (err) {
       showToast(`Prescription not saved: ${errorMessage(err)}`, 'error');
@@ -502,6 +536,7 @@ export const PrescriptionsScreen: React.FC = () => {
                     <td style={{ ...td, lineHeight: 1.4 }}>
                       <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.medicine}</div>
                       <div style={{ color: 'var(--text-secondary)', marginTop: 1 }}>{genericName(item)}</div>
+                      {itemStatus && <PharmacyPill item={item} status={itemStatus[item.id]} />}
                     </td>
                     <td style={td}>
                       <CellSelect label="Dose" value={item.dose} options={DOSE_OPTIONS} onChange={v => updateItem(item.id, { dose: v })} />
@@ -580,7 +615,7 @@ export const PrescriptionsScreen: React.FC = () => {
                     ? 'Interaction check unavailable'
                     : interactionResult.warnings.length
                       ? `${interactionResult.warnings.length} possible interaction(s) — see the assistant panel`
-                      : 'No interactions found in the built-in list',
+                      : 'No interactions found by the Pharmacy rules',
                   interactionResult?.warnings.length ? 'warning' : 'info'
                 )
               }
@@ -707,9 +742,9 @@ export const PrescriptionsScreen: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <p>No interactions found among {interactionResult.checked} medicine{interactionResult.checked === 1 ? '' : 's'} in the built-in interaction list.</p>
+                  <p>No interactions found among {interactionResult.checked} medicine{interactionResult.checked === 1 ? '' : 's'} by the Pharmacy rules.</p>
                 )}
-                <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>The built-in list covers a few common drugs only; confirm with a full drug reference.</p>
+                <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>The Pharmacy rules cover the medicines in the pharmacy list only; confirm with a full drug reference.</p>
               </div>
             )}
 
@@ -746,7 +781,7 @@ export const PrescriptionsScreen: React.FC = () => {
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36, padding: '0 10px', borderRadius: 6, background: 'var(--green-light)', border: '1px solid var(--green-border)', fontSize: 'var(--fs-sm)' }}>
                   <CircleCheck size={16} fill="var(--green-emerald)" color="#ffffff" strokeWidth={2.4} />
-                  <span>{interactionResult ? 'No interactions in the built-in list.' : 'Checking…'}</span>
+                  <span>{interactionResult ? 'No interactions by the Pharmacy rules.' : 'Checking…'}</span>
                 </div>
               )}
             </div>

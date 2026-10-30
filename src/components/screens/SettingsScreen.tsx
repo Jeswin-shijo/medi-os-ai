@@ -11,6 +11,7 @@ import { BedAgentSettings } from '../beds/BedAgentSettings';
 import { CoordinatorSettings } from '../agents/CoordinatorSettings';
 import { ErSettings } from '../er/ErSettings';
 import { LabSettings } from '../lab/LabSettings';
+import { PharmacySettings } from '../pharmacy/PharmacySettings';
 import {
   Settings as SettingsIcon,
   Building2,
@@ -21,6 +22,7 @@ import {
   BrainCircuit,
   Siren,
   FlaskConical,
+  Pill,
   Workflow,
   Share2,
   Bell,
@@ -71,6 +73,7 @@ type SettingsTab =
   | 'coordinator'
   | 'er'
   | 'lab'
+  | 'pharmacy'
   | 'integrations'
   | 'notifications'
   | 'security'
@@ -89,6 +92,7 @@ const TABS: { id: SettingsTab; label: string; icon: LucideIcon }[] = [
   { id: 'coordinator', label: 'Coordinator', icon: Workflow },
   { id: 'er', label: 'ER', icon: Siren },
   { id: 'lab', label: 'Lab', icon: FlaskConical },
+  { id: 'pharmacy', label: 'Pharmacy', icon: Pill },
   { id: 'integrations', label: 'Integrations', icon: Share2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: ShieldCheck },
@@ -239,7 +243,7 @@ export const SettingsScreen: React.FC = () => {
       // The call agent, token queue and Coordinator sections, and the two Bed Agent switches, are saved where
       // they are edited; never send back a stale copy of them.
       const { bedAutoAllocate: _autoAllocate, bedSuggestions: _suggestions, ...ai } = settings.ai;
-      const { coordinator: _coordinator, er: _er, lab: _lab, ...rest } = settings as SettingsState & { coordinator?: unknown; er?: unknown; lab?: unknown };
+      const { coordinator: _coordinator, er: _er, lab: _lab, pharmacy: _pharmacy, ...rest } = settings as SettingsState & { coordinator?: unknown; er?: unknown; lab?: unknown; pharmacy?: unknown };
       const saved = await settingsService.saveSettings({ ...rest, ai, callAgent: undefined, queue: undefined });
       setSettings(saved);
       setSessionTimeout(saved.security.sessionTimeout);
@@ -350,13 +354,13 @@ export const SettingsScreen: React.FC = () => {
       <ScreenHeader
         title="Settings"
         subtitle="Manage your account, hospital settings, AI preferences and system configurations"
-        actions={activeTab === 'coordinator' || activeTab === 'er' || activeTab === 'lab' ? undefined : activeTab === 'general' ? (savedBadge || undefined) : <>{savedBadge}{saveButton}</>}
+        actions={activeTab === 'coordinator' || activeTab === 'er' || activeTab === 'lab' || activeTab === 'pharmacy' ? undefined : activeTab === 'general' ? (savedBadge || undefined) : <>{savedBadge}{saveButton}</>}
       />
 
       {/* Settings tabs */}
       <div className="medios-card" style={{ padding: 0, overflow: 'hidden', marginTop: -3 }}>
         <div className="page-tabs" style={{ gap: 2 }}>
-          {TABS.filter(tab => (tab.id !== 'coordinator' && tab.id !== 'er' && tab.id !== 'lab') || user?.role === 'admin').map(tab => {
+          {TABS.filter(tab => (tab.id !== 'coordinator' && tab.id !== 'er' && tab.id !== 'lab' && tab.id !== 'pharmacy') || user?.role === 'admin').map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
@@ -943,6 +947,7 @@ export const SettingsScreen: React.FC = () => {
       {activeTab === 'coordinator' && user?.role === 'admin' && <CoordinatorSettings />}
       {activeTab === 'er' && user?.role === 'admin' && <ErSettings />}
       {activeTab === 'lab' && user?.role === 'admin' && <LabSettings />}
+      {activeTab === 'pharmacy' && user?.role === 'admin' && <PharmacySettings />}
 
       {/* ===================== INTEGRATIONS ===================== */}
       {activeTab === 'integrations' && (

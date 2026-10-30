@@ -4254,3 +4254,12 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .lab-table th { position: relative; }
 .ph-stock-store { padding-left: 18px; }
 .table-scroll .lab-table td .ph-due { white-space: nowrap; }
+
+.ps-table { width: 100%; max-width: 760px; table-layout: fixed; border-collapse: collapse; font-size: var(--fs-sm); }
+.ps-table th, .ps-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+.ps-table thead th { color: var(--text-secondary); font-weight: 600; font-size: var(--fs-xs); }
+.ps-table tbody th { font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+.ps-notes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ps-table .ls-inputs .input-field { width: 72px; }
+@media (max-width: 480px) { .ps-table th, .ps-table td { padding: 6px 4px; } .ps-table .ls-inputs .input-field { width: 64px; } }
+@media (max-width: 480px) { .ps-table thead th:first-child, .ps-table tbody th { width: 60px; } }

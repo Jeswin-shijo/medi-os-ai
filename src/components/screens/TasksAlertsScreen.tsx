@@ -10,6 +10,8 @@ import { AiSparkle } from '../common/icons';
 import { AckDialog } from '../lab/LabCritical';
 import { LAB_TAB_KEY, canAckLab, canReadLab } from '../../utils/lab';
 import type { LabCriticalRow } from '../../types';
+import { QueryAnswerDialog } from '../pharmacy/QueryAnswerDialog';
+import { PHARMACY_TAB_KEY, canOrderPharmacy, canReadPharmacy } from '../../utils/pharmacy';
 import {
   createLucideIcon,
   Plus,
@@ -103,8 +105,10 @@ const isOpen = (t: TaskAlertItem) => t.status !== 'Completed';
 
 /** A Lab critical-result alert. It closes only when the result is acknowledged on the Lab page, so check this before `escalation`: an escalated critical takes over the line's own alert. */
 const isLabLine = (t: TaskAlertItem) => !!t.link?.startsWith('lab-line:');
+/** A pharmacy query alert. It closes only when the doctor answers the query, so it has no tick box and no plain Acknowledge. */
+const isPharmacyLine = (t: TaskAlertItem) => !!t.link?.startsWith('pharmacy-line:');
 /** A Coordinator escalation that closes with the plain Acknowledge (never a lab-critical one). */
-const plainEscalation = (t: TaskAlertItem) => !!t.escalation && !isLabLine(t);
+const plainEscalation = (t: TaskAlertItem) => !!t.escalation && !isLabLine(t) && !isPharmacyLine(t);
 
 const KPIS = [
   { tab: 'My Tasks', tint: 'sky', tile: '#d4e6fe', icon: ClipboardList, iconColor: 'var(--blue-text)', label: 'Pending Tasks', subColor: 'var(--text-secondary)' },
@@ -235,6 +239,28 @@ export const TasksAlertsScreen: React.FC = () => {
         Open in Lab Agent
       </button>
     ) : null;
+  // A pharmacy-line alert: Answer (admin, doctor) opens the query dialog in place; other Pharmacy roles go to the Queries tab.
+  const canAnswer = canOrderPharmacy(user?.role ?? '');
+  const canOpenPharmacy = canReadPharmacy(user?.role ?? '');
+  const [answerLine, setAnswerLine] = useState<string | null>(null);
+  const openPharmacyAgent = () => {
+    try {
+      sessionStorage.setItem(PHARMACY_TAB_KEY, 'queries');
+    } catch {
+      // The Pharmacy Agent opens on its last tab instead.
+    }
+    setActiveScreen('pharmacy-agent');
+  };
+  const pharmacyAction = (task: TaskAlertItem) =>
+    task.status === 'Completed' ? null : canAnswer ? (
+      <button type="button" className="btn-outline-blue cs-ack" style={{ height: 30, padding: '0 12px' }} aria-label={`Answer the pharmacy query: ${task.title}`} onClick={() => setAnswerLine(task.link!.slice('pharmacy-line:'.length))}>
+        Answer
+      </button>
+    ) : canOpenPharmacy ? (
+      <button type="button" className="text-link" style={{ fontSize: 12, whiteSpace: 'nowrap' }} onClick={openPharmacyAgent}>
+        Open in Pharmacy Agent
+      </button>
+    ) : null;
   const escalationLine = (task: TaskAlertItem) =>
     task.escalation ? (
       <>
@@ -290,7 +316,7 @@ export const TasksAlertsScreen: React.FC = () => {
 
   const q = search.toLowerCase();
   // Open escalations are pinned first; everything else keeps the server's order (newest first).
-  const openEscalation = (t: TaskAlertItem) => (!!t.escalation || isLabLine(t)) && t.status !== 'Completed';
+  const openEscalation = (t: TaskAlertItem) => (!!t.escalation || isLabLine(t) || isPharmacyLine(t)) && t.status !== 'Completed';
   const pinned = [...tasks.filter(openEscalation), ...tasks.filter((t) => !openEscalation(t))];
   const filteredTasks = pinned.filter((t) => {
     if (q && !t.title.toLowerCase().includes(q) && !t.patientName.toLowerCase().includes(q)) return false;
@@ -321,7 +347,7 @@ export const TasksAlertsScreen: React.FC = () => {
   const currentPage = Math.min(page, pageCount);
   const pageTasks = filteredTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   // Escalation alerts close only through Acknowledge (their toggle returns 409), so the bulk toggle skips them.
-  const toggleable = pageTasks.filter((t) => !t.escalation && !isLabLine(t));
+  const toggleable = pageTasks.filter((t) => !t.escalation && !isLabLine(t) && !isPharmacyLine(t));
   const allPageDone = toggleable.length > 0 && toggleable.every((t) => t.status === 'Completed');
 
   const toggleAllOnPage = async () => {
@@ -576,7 +602,7 @@ export const TasksAlertsScreen: React.FC = () => {
                     return (
                       <tr key={task.id} style={{ height: 54, opacity: isDone ? 0.6 : 1 }}>
                         <td style={{ ...cell, paddingLeft: 8 }}>
-                          {task.escalation || isLabLine(task) ? null : <input type="checkbox" style={checkbox} checked={isDone} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />}
+                          {task.escalation || isLabLine(task) || isPharmacyLine(task) ? null : <input type="checkbox" style={checkbox} checked={isDone} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />}
                         </td>
                         <td style={{ ...cell, paddingLeft: 8 }}>
                           <TypeIcon size={19} color={meta.color} style={{ display: 'block' }} />
@@ -587,6 +613,7 @@ export const TasksAlertsScreen: React.FC = () => {
                           {escalationLine(task)}
                           {plainEscalation(task) && <div style={{ marginTop: 6 }}>{ackButton(task)}</div>}
                           {isLabLine(task) && <div style={{ marginTop: 6 }}>{labAction(task)}</div>}
+                          {isPharmacyLine(task) && <div style={{ marginTop: 6 }}>{pharmacyAction(task)}</div>}
                         </td>
                         <td style={cell}>
                           <div style={line1}>{task.patientName}</div>
@@ -613,7 +640,7 @@ export const TasksAlertsScreen: React.FC = () => {
                         </td>
                         <td style={cell}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 22, paddingLeft: 6 }}>
-                            {isLabLine(task) || (plainEscalation(task) && !requestId(task)) ? null : rowAction(task)}
+                            {isLabLine(task) || isPharmacyLine(task) || (plainEscalation(task) && !requestId(task)) ? null : rowAction(task)}
                             <button style={{ color: 'var(--text-primary)', display: 'inline-flex', padding: 2 }} aria-label="More actions" onClick={() => showToast(`More actions for "${task.title}"`, 'info')}>
                               <EllipsisVertical size={16} />
                             </button>
@@ -652,7 +679,7 @@ export const TasksAlertsScreen: React.FC = () => {
                           <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                             <TypeIcon size={15} color={meta.color} style={{ flexShrink: 0, marginTop: 2 }} />
                             <span style={{ ...line1, flex: 1 }}>{task.title}</span>
-                            {!task.escalation && !isLabLine(task) && <input type="checkbox" style={checkbox} checked={task.status === 'Completed'} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />}
+                            {!task.escalation && !isLabLine(task) && !isPharmacyLine(task) && <input type="checkbox" style={checkbox} checked={task.status === 'Completed'} onChange={() => toggleTask(task.id)} aria-label={`Mark ${task.title} complete`} />}
                           </div>
                           <span style={line2}>
                             {task.patientName} • {task.dueDateTime}
@@ -660,6 +687,7 @@ export const TasksAlertsScreen: React.FC = () => {
                           {escalationLine(task)}
                           {plainEscalation(task) && <div>{ackButton(task)}</div>}
                           {isLabLine(task) && <div>{labAction(task)}</div>}
+                          {isPharmacyLine(task) && <div>{pharmacyAction(task)}</div>}
                           {requestId(task) && (
                             <button type="button" className="text-link" style={{ fontSize: 12, alignSelf: 'flex-start' }} onClick={() => openBedRequest(requestId(task)!)}>
                               Open request
@@ -783,6 +811,7 @@ export const TasksAlertsScreen: React.FC = () => {
                     </div>
                     {plainEscalation(ca.task) && ackButton(ca.task)}
                     {isLabLine(ca.task) && labAction(ca.task)}
+                    {isPharmacyLine(ca.task) && pharmacyAction(ca.task)}
                     {ca.request && (
                       <button type="button" className="text-link" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => openBedRequest(ca.request!)}>
                         Open request
@@ -848,6 +877,7 @@ export const TasksAlertsScreen: React.FC = () => {
           </div>
         </div>
       </div>
+      {answerLine && <QueryAnswerDialog lineId={answerLine} onClose={() => setAnswerLine(null)} onDone={() => void taskService.getTasks().then(setTasks).catch((err) => showToast(`Could not refresh alerts: ${errorMessage(err)}`, 'error'))} />}
       {labAck && <AckDialog row={labAck} onClose={() => setLabAck(null)} onDone={() => void taskService.getTasks().then(setTasks).catch((err) => showToast(`Could not refresh alerts: ${errorMessage(err)}`, 'error'))} />}
     </div>
   );
