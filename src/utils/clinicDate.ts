@@ -64,6 +64,9 @@ export const dobFromInput = (value: string) => {
   return m ? displayDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : '';
 };
 
+/** A stored day "2026-11-03" as "03 Nov 2026" (an expiry, a due day); the text itself when it is not a day. */
+export const displayDay = (value: string): string => dobFromInput(value) || value;
+
 /** Whole years from a date input's "1992-03-14" to the clinic's today; null when empty or in the future. */
 export const ageFromDobInput = (value: string): number | null => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);

@@ -1,10 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { CheckCheck, ClipboardList, MessageCircleQuestion, PackageMinus, ShieldCheck } from 'lucide-react';
 import type { CoordinatorEvent, PharmacyOrderView, PharmacyOverview as PharmacyOverviewData } from '../../types';
-import { displayTime, dobFromInput } from '../../utils/clinicDate';
+import { displayDay, displayTime } from '../../utils/clinicDate';
 
-/** "2026-11-03" as "03 Nov 2026" (the same day helper the date-of-birth field uses). */
-const expiryText = (day: string): string => dobFromInput(day) || day;
 import { tableMin } from '../../utils/layout';
 import {
   ORDER_FILTERS,
@@ -228,7 +226,7 @@ const StockAlertsCard: React.FC<{ alerts: PharmacyOverviewData['stockAlerts'] | 
           {alerts.nearExpiry.slice(0, ALERT_ROWS).map((b) => (
             <li key={`${b.product}:${b.store}:${b.batchNo}`} className="ph-alert-row">
               <span className="ph-alert-what">{b.label} <span className="er-hint">({b.store === 'er' ? 'ER' : 'Main'} · batch {b.batchNo})</span></span>
-              <span className="ph-alert-qty">{b.quantity} · expires {expiryText(b.expiry)}</span>
+              <span className="ph-alert-qty">{b.quantity} · expires {displayDay(b.expiry)}</span>
             </li>
           ))}
         </AlertGroup>
@@ -236,7 +234,7 @@ const StockAlertsCard: React.FC<{ alerts: PharmacyOverviewData['stockAlerts'] | 
           {alerts.expired.slice(0, ALERT_ROWS).map((b) => (
             <li key={`${b.product}:${b.store}:${b.batchNo}`} className="ph-alert-row">
               <span className="ph-alert-what">{b.label} <span className="er-hint">({b.store === 'er' ? 'ER' : 'Main'} · batch {b.batchNo})</span></span>
-              <span className="ph-alert-qty">{b.quantity} · expired {expiryText(b.expiry)}</span>
+              <span className="ph-alert-qty">{b.quantity} · expired {displayDay(b.expiry)}</span>
             </li>
           ))}
         </AlertGroup>

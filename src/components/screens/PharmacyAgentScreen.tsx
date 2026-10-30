@@ -2,12 +2,16 @@ import React, { useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { usePharmacy } from '../../hooks/usePharmacy';
-import { PHARMACY_TAB_KEY, canCheckPharmacy, canOrderPharmacy, canReadPharmacy } from '../../utils/pharmacy';
+import { usePharmacyStock } from '../../hooks/usePharmacyStock';
+import { PHARMACY_TAB_KEY, canCheckPharmacy, canOrderPharmacy, canReadPharmacy, canStockPharmacy } from '../../utils/pharmacy';
 import { ScreenHeader } from '../common/ScreenHeader';
 import { LivePill } from '../beds/LivePill';
 import { NewMedicineOrderDialog } from '../pharmacy/NewMedicineOrderDialog';
 import { PharmacyCheckQueue } from '../pharmacy/PharmacyCheckQueue';
+import { PharmacyIssueQueue } from '../pharmacy/PharmacyIssueQueue';
 import { PharmacyOverview } from '../pharmacy/PharmacyOverview';
+import { PharmacyQueries } from '../pharmacy/PharmacyQueries';
+import { PharmacyStock } from '../pharmacy/PharmacyStock';
 
 type Tab = 'overview' | 'to-check' | 'to-issue' | 'queries' | 'stock';
 
@@ -45,10 +49,11 @@ export const PharmacyAgentScreen: React.FC = () => {
 
 const PharmacyAgentPage: React.FC = () => {
   const pharmacy = usePharmacy();
-  const { user } = useApp();
+  const { user, refreshAlertCount } = useApp();
   const role = user?.role ?? '';
   const [ordering, setOrdering] = useState(false);
   const [tab, setTabState] = useState<Tab>(readTab);
+  const stockData = usePharmacyStock(tab === 'stock');
   const tabsId = useId();
   const tabRefs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
 
@@ -111,10 +116,12 @@ const PharmacyAgentPage: React.FC = () => {
           <PharmacyOverview overview={pharmacy.overview} orders={pharmacy.orders} orderLimit={pharmacy.orderLimit} error={pharmacy.error} lastEvent={pharmacy.lastEvent} onRetry={pharmacy.reload} />
         ) : tab === 'to-check' ? (
           <PharmacyCheckQueue lines={pharmacy.check} error={pharmacy.error} canCheck={canCheckPharmacy(role)} onRetry={pharmacy.reload} onChanged={pharmacy.reload} />
+        ) : tab === 'to-issue' ? (
+          <PharmacyIssueQueue lines={pharmacy.issue} error={pharmacy.error} canIssue={canCheckPharmacy(role)} onRetry={pharmacy.reload} onChanged={pharmacy.reload} />
+        ) : tab === 'queries' ? (
+          <PharmacyQueries lines={pharmacy.queries} error={pharmacy.error} canAnswer={canOrderPharmacy(role)} onRetry={pharmacy.reload} onChanged={pharmacy.reload} />
         ) : (
-          <section className="medios-card">
-            <p className="data-empty">Comes next.</p>
-          </section>
+          <PharmacyStock data={stockData} canStock={canStockPharmacy(role)} onChanged={() => void refreshAlertCount()} />
         )}
       </div>
 

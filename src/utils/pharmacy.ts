@@ -144,3 +144,27 @@ export function sortForCheck(lines: PharmacyLineView[]): PharmacyLineView[] {
 
 /** Red first, then amber; the order inside a colour is kept. */
 export const sortedFlags = (flags: PharmacyFlag[]): PharmacyFlag[] => [...flags.filter((f) => f.severity === 'red'), ...flags.filter((f) => f.severity !== 'red')];
+
+export type AnswerOutcome = 'change' | 'keep' | 'cancel' | 'stop' | 'switch' | 'wait';
+
+/**
+ * The outcomes that fit a line with an open query (the same rule as the API): a stock query offers switch, wait
+ * and cancel; an issued line offers change, keep and stop; any other line offers change, keep and cancel.
+ */
+export function answerOutcomes(l: Pick<PharmacyLineView, 'status' | 'query'>): AnswerOutcome[] {
+  if (l.query?.kind === 'stock') return ['switch', 'wait', 'cancel'];
+  if (l.status === 'issued') return ['change', 'keep', 'stop'];
+  return ['change', 'keep', 'cancel'];
+}
+
+/** The To issue groups, in the order the pharmacist walks them. */
+export type IssueGroup = 'ER' | 'Main pharmacy' | 'OPD counter';
+export const ISSUE_GROUPS: IssueGroup[] = ['ER', 'Main pharmacy', 'OPD counter'];
+
+/** ER lines go to the ER group, OPD lines to the OPD counter, every other line to the Main pharmacy. */
+export const issueGroupOf = (l: Pick<PharmacyLineView, 'setting'>): IssueGroup => (l.setting === 'ER' ? 'ER' : l.setting === 'OPD' ? 'OPD counter' : 'Main pharmacy');
+
+/** The batch number a USB scanner may type: letters, digits, "/" and "-" (the API's rule). */
+export const BATCH_NO = /^[A-Za-z0-9/-]{1,40}$/;
+
+export const ADJUST_REASON_LABEL: Record<string, string> = { damaged: 'Damaged', expired: 'Expired', 'count-correction': 'Count correction' };

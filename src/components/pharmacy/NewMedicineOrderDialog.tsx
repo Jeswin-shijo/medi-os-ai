@@ -6,6 +6,7 @@ import { errorMessage } from '../../services/api';
 import { useErAction } from '../er/useErAction';
 import type { Patient, PharmacyCatalogue, PharmacyCatalogueMedicine, PharmacyCheckResult, PharmacyFlag, PharmacyLineInput, PharmacyOrderView, PharmacyPriority } from '../../types';
 import { PRIORITY_LABEL } from '../../utils/pharmacy';
+import { redAllergy, toInput, type Row } from '../../utils/pharmacyOrder';
 import { LabDialogShell } from '../lab/LabDialogShell';
 import { FlagRows } from './PharmacyFlags';
 
@@ -17,20 +18,6 @@ const DEFAULT_DAYS = '5';
 
 type PatientLite = Pick<Patient, 'id' | 'name' | 'uhid'> & Partial<Pick<Patient, 'age' | 'gender' | 'allergies'>>;
 
-interface Row {
-  key: number;
-  medicine: string;
-  product: string;
-  dose: string;
-  route: string;
-  frequency: string;
-  days: string;
-  note: string;
-  /** The doctor knows about a red allergy on this line and says why. */
-  known: boolean;
-  reason: string;
-}
-
 interface NewMedicineOrderDialogProps {
   /** A fixed patient (an order from the patient's own page): the search is skipped. */
   initialPatient?: PatientLite;
@@ -38,22 +25,6 @@ interface NewMedicineOrderDialogProps {
   /** After an order is saved: the lists reload. */
   onOrdered(order: PharmacyOrderView): void;
 }
-
-/** The line as the API takes it, or null while a field is not yet valid (no check is sent then). */
-function toInput(r: Row, hasDuration: boolean): PharmacyLineInput | null {
-  const dose = Number(r.dose);
-  if (!r.dose.trim() || !Number.isFinite(dose) || dose <= 0 || dose > 100000) return null;
-  const line: PharmacyLineInput = { medicine: r.medicine, product: r.product, dose, route: r.route, frequency: r.frequency };
-  if (hasDuration) {
-    const days = Number(r.days);
-    if (!Number.isInteger(days) || days < 1 || days > 90) return null;
-    line.durationDays = days;
-  }
-  if (r.note.trim()) line.note = r.note.trim();
-  return line;
-}
-
-const redAllergy = (flags: PharmacyFlag[] | undefined) => (flags ?? []).some((f) => f.severity === 'red' && f.kind === 'allergy');
 
 /** Order medicines for a patient. Fixed rules flag each line live; a red allergy needs the doctor's reason. */
 export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ initialPatient, onClose, onOrdered }) => {
@@ -397,7 +368,7 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
   );
 };
 
-interface LineEditorProps {
+export interface LineEditorProps {
   uid: string;
   row: Row;
   medicine: PharmacyCatalogueMedicine | undefined;
@@ -406,10 +377,13 @@ interface LineEditorProps {
   flags: PharmacyFlag[] | undefined;
   onPatch(p: Partial<Row>): void;
   onProduct(key: string): void;
-  onRemove(): void;
+  /** Without it there is no Remove button (the Change answer edits one fixed line). */
+  onRemove?(): void;
+  /** Hide the line note (an answer keeps the note the line already has). */
+  hideNote?: boolean;
 }
 
-const LineEditor: React.FC<LineEditorProps> = ({ uid, row, medicine, catalogue, flags, onPatch, onProduct, onRemove }) => {
+export const LineEditor: React.FC<LineEditorProps> = ({ uid, row, medicine, catalogue, flags, onPatch, onProduct, onRemove, hideNote }) => {
   const product = medicine?.products.find((p) => p.key === row.product);
   const routes = product?.routes ?? [row.route];
   const withDuration = catalogue.frequencies.find((f) => f.key === row.frequency)?.hasDuration ?? row.frequency !== 'STAT';
@@ -453,10 +427,12 @@ const LineEditor: React.FC<LineEditorProps> = ({ uid, row, medicine, catalogue, 
           </div>
         )}
       </div>
-      <div>
-        <label className="form-label" htmlFor={`${uid}-note`}>Line note (optional)</label>
-        <input id={`${uid}-note`} className="input-field" maxLength={500} value={row.note} onChange={(e) => onPatch({ note: e.target.value })} />
-      </div>
+      {!hideNote && (
+        <div>
+          <label className="form-label" htmlFor={`${uid}-note`}>Line note (optional)</label>
+          <input id={`${uid}-note`} className="input-field" maxLength={500} value={row.note} onChange={(e) => onPatch({ note: e.target.value })} />
+        </div>
+      )}
 
       {flags && flags.length > 0 && <FlagRows flags={flags} />}
       {flags && flags.length === 0 && <p className="er-hint">No flags on this line.</p>}
@@ -472,12 +448,14 @@ const LineEditor: React.FC<LineEditorProps> = ({ uid, row, medicine, catalogue, 
           <p className="admit-hint"><span className="admit-count">{row.reason.length} / 300</span></p>
         </div>
       )}
-      <div className="ph-line-end">
-        <button type="button" className="btn-secondary btn-sm" onClick={onRemove}>
-          <Trash2 size={13} aria-hidden="true" />
-          Remove
-        </button>
-      </div>
+      {onRemove && (
+        <div className="ph-line-end">
+          <button type="button" className="btn-secondary btn-sm" onClick={onRemove}>
+            <Trash2 size={13} aria-hidden="true" />
+            Remove
+          </button>
+        </div>
+      )}
     </fieldset>
   );
 };

@@ -4223,3 +4223,32 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .ph-line-end { display: flex; justify-content: flex-end; }
 .ph-check-state { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
 .ph-check-fail { color: var(--red-dark); }
+
+/* ===== Pharmacy Agent: To issue, Queries and Stock ===== */
+.ph-wait { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.ph-batches { min-width: 0; }
+.ph-batch-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ph-batch { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 4px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-surface, #fff); font: inherit; font-size: var(--fs-sm); cursor: pointer; text-align: left; }
+.ph-batch:hover:not(:disabled) { background-color: var(--bg-hover); }
+.ph-batch.is-on { background-color: var(--blue-light); border-color: var(--blue-border); }
+.ph-issue-form { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ph-issue-qty .input-field { max-width: 160px; }
+.ph-issue-scan { min-width: 0; max-width: 420px; }
+.ph-issue-scan .form-label, .ph-issue-qty .form-label { display: block; margin-bottom: 4px; }
+.ph-ask { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ph-ask-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.ph-ask-med { margin: 0; overflow-wrap: anywhere; }
+.ph-ask-q { margin: 0; padding: 8px 12px; border-left: 3px solid var(--orange-border); background: var(--orange-light); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+.ph-q-text { max-width: 320px; overflow-wrap: anywhere; }
+.ph-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ph-level { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.ph-level-input { width: 90px; }
+.ph-batch-row > td { background: var(--bg-subtle, var(--blue-light)); }
+.ph-batch-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ph-batch-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; border-top: 1px solid var(--border-subtle); }
+.ph-batch-line:first-child { border-top: 0; }
+.ph-batch-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+.ph-in { color: var(--green-dark, var(--text-primary)); }
+.ph-out { color: var(--red-dark); }
+/* An sr-only label in a header cell is absolutely placed: the cell holds it, so the table's own scroll box clips it. */
+.lab-table th { position: relative; }
