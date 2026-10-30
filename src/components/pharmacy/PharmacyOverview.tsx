@@ -8,6 +8,7 @@ import {
   PRIORITY_LABEL,
   PRIORITY_TONE,
   STORE_LABEL,
+  expiryText,
   matchesOrderFilter,
   minutesText,
   orderStatus,
@@ -23,6 +24,8 @@ const ALERT_ROWS = 5;
 interface PharmacyOverviewProps {
   overview: PharmacyOverviewData | null;
   orders: PharmacyOrderView[] | null;
+  /** The most orders the list holds; a list that long may be cut off. */
+  orderLimit: number;
   error: string | null;
   lastEvent: CoordinatorEvent | null;
   onRetry(): void;
@@ -38,7 +41,7 @@ const Failed: React.FC<{ error: string; onRetry(): void }> = ({ error, onRetry }
 );
 
 /** The Overview tab: the cards, recent orders, the workflow, check time, stock alerts and performance. */
-export const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({ overview, orders, error, lastEvent, onRetry }) => (
+export const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({ overview, orders, orderLimit, error, lastEvent, onRetry }) => (
   <div className="bagent-overview lab-body">
     {error && overview && (
       <p className="bagent-banner" role="alert">
@@ -47,7 +50,7 @@ export const PharmacyOverview: React.FC<PharmacyOverviewProps> = ({ overview, or
     )}
     {overview ? <Cards cards={overview.cards} /> : error ? <div className="medios-card"><Failed error={error} onRetry={onRetry} /></div> : <div className="medios-card data-empty">Loading the pharmacy…</div>}
 
-    <RecentOrders orders={orders} error={error} onRetry={onRetry} />
+    <RecentOrders orders={orders} orderLimit={orderLimit} ordersToday={overview?.cards.ordersToday.value ?? null} error={error} onRetry={onRetry} />
 
     <div className="cols-2 bagent-grid er-lower">
       <section className="medios-card bagent-card er-side" aria-label="Workflow">
@@ -75,17 +78,25 @@ const Cards: React.FC<{ cards: PharmacyOverviewData['cards'] }> = ({ cards }) =>
   </div>
 );
 
-const RecentOrders: React.FC<{ orders: PharmacyOrderView[] | null; error: string | null; onRetry(): void }> = ({ orders, error, onRetry }) => {
+const RecentOrders: React.FC<{ orders: PharmacyOrderView[] | null; orderLimit: number; ordersToday: number | null; error: string | null; onRetry(): void }> = ({ orders, orderLimit, ordersToday, error, onRetry }) => {
   const [filter, setFilter] = useState<OrderFilter>('all');
   const all = useMemo(() => orders ?? [], [orders]);
   const shown = useMemo(() => all.filter((o) => matchesOrderFilter(o, filter)), [all, filter]);
-  const countOf = (f: OrderFilter) => all.filter((o) => matchesOrderFilter(o, f)).length;
+  // The list holds at most `orderLimit` orders. When it is full, more may exist: the counts then read "N+", and
+  // "All" uses the Orders today figure when that is higher.
+  const cut = all.length >= orderLimit;
+  const countOf = (f: OrderFilter) => {
+    const n = all.filter((o) => matchesOrderFilter(o, f)).length;
+    const total = f === 'all' && cut ? Math.max(n, ordersToday ?? 0) : n;
+    return cut ? `${total}+` : String(total);
+  };
+  const totalText = cut ? `${Math.max(shown.length, filter === 'all' ? (ordersToday ?? 0) : 0)} or more` : String(shown.length);
   return (
     <section className="medios-card bagent-card lab-card" aria-label="Recent orders">
       <div className="card-header-row">
         <div className="bagent-title-group">
           <h3 className="card-title">Recent orders</h3>
-          <span className="bagent-hint">Live, newest first</span>
+          <span className="bagent-hint">Live, newest first. The chips count orders; the cards above count medicine lines.</span>
         </div>
       </div>
       <div className="bagent-filters" role="group" aria-label="Filter orders">
@@ -138,7 +149,7 @@ const RecentOrders: React.FC<{ orders: PharmacyOrderView[] | null; error: string
               </tbody>
             </table>
           </div>
-          {shown.length > RECENT_ROWS && <p className="er-hint lab-more">Showing the latest {RECENT_ROWS} of {shown.length}.</p>}
+          {shown.length > RECENT_ROWS && <p className="er-hint lab-more">Showing the latest {RECENT_ROWS} of {totalText}.</p>}
         </>
       )}
     </section>
@@ -215,7 +226,7 @@ const StockAlertsCard: React.FC<{ alerts: PharmacyOverviewData['stockAlerts'] | 
           {alerts.nearExpiry.slice(0, ALERT_ROWS).map((b) => (
             <li key={`${b.product}:${b.store}:${b.batchNo}`} className="ph-alert-row">
               <span className="ph-alert-what">{b.label} <span className="er-hint">({b.store === 'er' ? 'ER' : 'Main'} · batch {b.batchNo})</span></span>
-              <span className="ph-alert-qty">{b.quantity} · expires {b.expiry}</span>
+              <span className="ph-alert-qty">{b.quantity} · expires {expiryText(b.expiry)}</span>
             </li>
           ))}
         </AlertGroup>
@@ -223,7 +234,7 @@ const StockAlertsCard: React.FC<{ alerts: PharmacyOverviewData['stockAlerts'] | 
           {alerts.expired.slice(0, ALERT_ROWS).map((b) => (
             <li key={`${b.product}:${b.store}:${b.batchNo}`} className="ph-alert-row">
               <span className="ph-alert-what">{b.label} <span className="er-hint">({b.store === 'er' ? 'ER' : 'Main'} · batch {b.batchNo})</span></span>
-              <span className="ph-alert-qty">{b.quantity} · expired {b.expiry}</span>
+              <span className="ph-alert-qty">{b.quantity} · expired {expiryText(b.expiry)}</span>
             </li>
           ))}
         </AlertGroup>

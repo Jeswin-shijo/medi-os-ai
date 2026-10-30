@@ -94,7 +94,7 @@ const PharmacyAgentPage: React.FC = () => {
 
       <div id={`${tabsId}-panel`} role="tabpanel" aria-labelledby={`${tabsId}-${tab}`} className="bagent-panel">
         {tab === 'overview' ? (
-          <PharmacyOverview overview={pharmacy.overview} orders={pharmacy.orders} error={pharmacy.error} lastEvent={pharmacy.lastEvent} onRetry={pharmacy.reload} />
+          <PharmacyOverview overview={pharmacy.overview} orders={pharmacy.orders} orderLimit={pharmacy.orderLimit} error={pharmacy.error} lastEvent={pharmacy.lastEvent} onRetry={pharmacy.reload} />
         ) : (
           <section className="medios-card">
             <p className="data-empty">Comes next.</p>

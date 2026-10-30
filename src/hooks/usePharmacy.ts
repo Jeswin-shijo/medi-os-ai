@@ -23,6 +23,8 @@ export interface UsePharmacy {
   /** The first load failed (or the latest did); `reload` tries again. */
   error: string | null;
   live: boolean;
+  /** The most orders `orders` can hold; at this length the list may be cut off. */
+  orderLimit: number;
   /** The latest Pharmacy event, for the diagram's pulse; null until one arrives. */
   lastEvent: CoordinatorEvent | null;
   /** Reload everything now (after an action of this person's own, or Try again). */
@@ -51,6 +53,7 @@ export function usePharmacy(): UsePharmacy {
   const [manual, setManual] = useState(0);
   const [lastEvent, setLastEvent] = useState<CoordinatorEvent | null>(null);
   const manualRef = useRef(false);
+  const bellTimers = useRef(new Set<number>());
   const { refreshAlertCount } = useApp();
 
   const onEvent = useCallback(
@@ -58,7 +61,11 @@ export function usePharmacy(): UsePharmacy {
       if (event.from === 'pharmacy') {
         setOwnEvents((n) => n + 1);
         setLastEvent(event);
-        window.setTimeout(() => void refreshAlertCount(), BELL_MS);
+        const t = window.setTimeout(() => {
+          bellTimers.current.delete(t);
+          void refreshAlertCount();
+        }, BELL_MS);
+        bellTimers.current.add(t);
       } else if (event.from === 'er' || event.from === 'bed') {
         setSideEvents((n) => n + 1);
       }
@@ -66,6 +73,15 @@ export function usePharmacy(): UsePharmacy {
     [refreshAlertCount]
   );
   const { sync, live } = useCoordinatorStream({ onEvent });
+
+  // A recount still waiting when the page closes is cancelled.
+  useEffect(() => {
+    const timers = bellTimers.current;
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
 
   // Everything refetches on a Pharmacy event, a stream catch-up or a manual reload.
   const mainVersion = sync + ownEvents + manual;
@@ -123,5 +139,5 @@ export function usePharmacy(): UsePharmacy {
     setManual((n) => n + 1);
   }, []);
 
-  return { overview, orders, check, issue, queries, error, live, lastEvent, reload };
+  return { overview, orders, check, issue, queries, error, live, orderLimit: ORDER_LIMIT, lastEvent, reload };
 }

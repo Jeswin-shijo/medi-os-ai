@@ -1,4 +1,5 @@
-import type { PharmacyLineStatus, PharmacyLineView, PharmacyOrderView, PharmacyPriority, PharmacyStore } from '../types';
+import type { PharmacyFlag, PharmacyLineStatus, PharmacyLineView, PharmacyOrderView, PharmacyPriority, PharmacyStore } from '../types';
+import { displayDate } from './clinicDate';
 
 // The same role sets as the API (pharmacy.controller.ts). Lab and front desk have no access.
 /** Every read, and Explain. */
@@ -92,3 +93,58 @@ export function doseText(l: Pick<PharmacyLineView, 'dose' | 'unit' | 'frequency'
 
 export const minutesText = (n: number | null): string => (n === null ? '— min' : `${n} min`);
 export const percentText = (n: number | null): string => (n === null ? '—%' : `${n}%`);
+
+/** The kinds a pharmacist can pick when querying the doctor (the same as the API's QUERY_KINDS). */
+export const QUERY_KIND_LABEL: Record<string, string> = {
+  allergy: 'Allergy',
+  clash: 'Medicine clash',
+  dose: 'Dose',
+  kidney: 'Kidney function',
+  stock: 'Stock',
+  other: 'Something else'
+};
+
+/** "2026-11-03" as "03 Nov 2026". Read as a plain day, so no time zone can move it. */
+export function expiryText(day: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  return m ? displayDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : day;
+}
+
+/** Whole minutes from `now` to a time (negative once it has passed). */
+export const minutesUntil = (iso: string, now: number): number => Math.floor((new Date(iso).getTime() - now) / 60_000);
+
+/** "12 min left", "Due now", "5 min late". */
+export function dueText(iso: string | null, now: number): { text: string; late: boolean } | null {
+  if (!iso) return null;
+  const m = minutesUntil(iso, now);
+  if (m > 0) return { text: m >= 120 ? `${Math.floor(m / 60)} h left` : `${m} min left`, late: false };
+  if (m === 0) return { text: 'Due now', late: true };
+  const late = -m;
+  return { text: late >= 120 ? `${Math.floor(late / 60)} h late` : `${late} min late`, late: true };
+}
+
+const redOf = (l: Pick<PharmacyLineView, 'flags'>) => l.flags.filter((f) => f.severity === 'red');
+
+/** Unconfirmed red allergy flags: only a doctor can confirm these, so the pharmacist cannot approve. */
+export const needsDoctorFlags = (l: Pick<PharmacyLineView, 'flags'>) => redOf(l).filter((f) => f.kind === 'allergy' && !f.confirmed);
+/** Other unconfirmed red flags: the pharmacist approves with a written reason. */
+export const needsReasonFlags = (l: Pick<PharmacyLineView, 'flags'>) => redOf(l).filter((f) => f.kind !== 'allergy' && !f.confirmed);
+/** Amber allergy flags not yet marked reviewed. */
+export const needsReviewFlags = (l: Pick<PharmacyLineView, 'flags'>) => l.flags.filter((f) => f.severity === 'amber' && f.kind === 'allergy' && !f.reviewed);
+
+const PRIORITY_RANK: Record<PharmacyPriority, number> = { stat: 0, urgent: 1, routine: 2 };
+
+/** The To check order: STAT first, then lines with a red flag, then urgent before routine, then the earliest due. */
+export function sortForCheck(lines: PharmacyLineView[]): PharmacyLineView[] {
+  const due = (l: PharmacyLineView) => (l.checkDueAt ? new Date(l.checkDueAt).getTime() : Number.MAX_SAFE_INTEGER);
+  return [...lines].sort(
+    (a, b) =>
+      Number(b.priority === 'stat') - Number(a.priority === 'stat') ||
+      Number(redOf(b).length > 0) - Number(redOf(a).length > 0) ||
+      PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
+      due(a) - due(b)
+  );
+}
+
+/** Red first, then amber; the order inside a colour is kept. */
+export const sortedFlags = (flags: PharmacyFlag[]): PharmacyFlag[] => [...flags.filter((f) => f.severity === 'red'), ...flags.filter((f) => f.severity !== 'red')];
