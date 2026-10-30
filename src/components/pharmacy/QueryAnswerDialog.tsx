@@ -187,15 +187,15 @@ export const QueryAnswerDialog: React.FC<QueryAnswerDialogProps> = ({ lineId, on
 
   // The live check of the new version (Change or Switch). The key holds everything the request needs.
   const input = row ? toInput(row, hasDuration(row.frequency)) : null;
-  const checkKey = line && input && (outcome === 'change' || outcome === 'switch') ? JSON.stringify([line.patient.id, input]) : '';
+  const checkKey = line && input && (outcome === 'change' || outcome === 'switch') ? JSON.stringify([line.patient.id, line.id, input]) : '';
   useEffect(() => {
     if (!checkKey) return;
-    const [patientId, one] = JSON.parse(checkKey) as [string, PharmacyLineInput];
+    const [patientId, replacingLineId, one] = JSON.parse(checkKey) as [string, string, PharmacyLineInput];
     let alive = true;
     const timer = window.setTimeout(() => {
       setChecking(true);
       pharmacyAgentService
-        .check({ patientId, lines: [one] })
+        .check({ patientId, replacingLineId, lines: [one] })
         .then((r) => {
           if (!alive) return;
           setFlags(r.lines[0]?.flags ?? []);
@@ -212,9 +212,7 @@ export const QueryAnswerDialog: React.FC<QueryAnswerDialogProps> = ({ lineId, on
   }, [checkKey]);
 
   const fresh = !!checkKey && checkedFor === checkKey && !checking && !checkError && flags !== null;
-  // The preview check does not know this line is being replaced, so it sees the line itself as a second copy of the
-  // same medicine. That "twice" flag is dropped here; the API's own check on the answer leaves the line out.
-  const liveFlags = fresh ? flags.filter((f) => !(f.kind === 'double' && row?.medicine === line?.medicine)) : undefined;
+  const liveFlags = fresh ? flags : undefined;
   const needsConfirm = !!row && redAllergy(liveFlags) && !(row.known && row.reason.trim());
 
   const isEdit = outcome === 'change' || outcome === 'switch';
@@ -332,7 +330,7 @@ export const QueryAnswerDialog: React.FC<QueryAnswerDialogProps> = ({ lineId, on
               <blockquote className="ph-ask-q">{query.question}</blockquote>
               <p className="er-hint">Asked by {query.by.name}.</p>
             </div>
-            <PharmacyFlags line={line} canExplain />
+            {!(isEdit && row) && <PharmacyFlags line={line} canExplain />}
 
             <fieldset className="admit-fieldset">
               <legend className="form-label">Your answer</legend>

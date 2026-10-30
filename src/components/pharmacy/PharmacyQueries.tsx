@@ -54,14 +54,13 @@ export const PharmacyQueries: React.FC<PharmacyQueriesProps> = ({ lines, error, 
         ) : open.length === 0 ? (
           <p className="data-empty">No query is waiting for an answer.</p>
         ) : (
-          <div className="table-scroll" style={tableMin(760)}>
+          <div className="table-scroll" style={tableMin(620)}>
             <table className="data-table lab-table">
               <thead>
                 <tr>
                   <th scope="col">About</th>
                   <th scope="col">Medicine</th>
                   <th scope="col">Patient</th>
-                  <th scope="col">Ordered by</th>
                   <th scope="col">Time left</th>
                   <th scope="col">
                     <span className="sr-only">Action</span>
@@ -88,8 +87,8 @@ export const PharmacyQueries: React.FC<PharmacyQueriesProps> = ({ lines, error, 
                       <td>
                         <span className="er-name">{l.patient.name}</span>
                         <span className="er-sub lab-block">{l.patient.uhid}</span>
+                        <span className="er-sub lab-block">Ordered by {l.orderedBy.name}</span>
                       </td>
-                      <td>{l.orderedBy.name}</td>
                       <td className={left?.late ? 'ph-due is-late' : undefined}>{left?.text ?? '—'}</td>
                       <td>
                         {canAnswer && (

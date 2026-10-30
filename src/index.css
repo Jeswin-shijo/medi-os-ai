@@ -4252,3 +4252,5 @@ button.co-row:focus-visible { outline: 2px solid var(--blue-primary); outline-of
 .ph-out { color: var(--red-dark); }
 /* An sr-only label in a header cell is absolutely placed: the cell holds it, so the table's own scroll box clips it. */
 .lab-table th { position: relative; }
+.ph-stock-store { padding-left: 18px; }
+.table-scroll .lab-table td .ph-due { white-space: nowrap; }

@@ -93,12 +93,11 @@ export const PharmacyStock: React.FC<PharmacyStockProps> = ({ data, canStock, on
         ) : rows.length === 0 ? (
           <p className="data-empty">{lowOnly ? 'No product is low.' : 'No stock matches.'}</p>
         ) : (
-          <div className="table-scroll" style={tableMin(720)}>
+          <div className="table-scroll" style={tableMin(600)}>
             <table className="data-table lab-table">
               <thead>
                 <tr>
-                  <th scope="col">Product</th>
-                  <th scope="col">Store</th>
+                  <th scope="col">Product and store</th>
                   <th scope="col">In stock</th>
                   <th scope="col">Reorder level</th>
                   <th scope="col">Status</th>
@@ -119,8 +118,8 @@ export const PharmacyStock: React.FC<PharmacyStockProps> = ({ data, canStock, on
                             {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                             <span className="er-name">{r.label}</span>
                           </button>
+                          <span className="er-sub lab-block ph-stock-store">{STORE_LABEL[r.store]}</span>
                         </td>
-                        <td>{STORE_LABEL[r.store]}</td>
                         <td className="lab-num">{r.usable}</td>
                         <td>
                           <LevelCell row={r} canStock={canStock} onSaved={done} />
@@ -143,7 +142,7 @@ export const PharmacyStock: React.FC<PharmacyStockProps> = ({ data, canStock, on
                       </tr>
                       {expanded && (
                         <tr className="ph-batch-row">
-                          <td colSpan={6}>
+                          <td colSpan={5}>
                             <BatchTable row={r} canStock={canStock} onAdjust={(batch) => setAdjusting({ row: r, batch })} onRemoved={done} />
                           </td>
                         </tr>
@@ -249,9 +248,11 @@ const LevelCell: React.FC<{ row: PharmacyStockRow; canStock: boolean; onSaved():
 
 const BatchTable: React.FC<{ row: PharmacyStockRow; canStock: boolean; onAdjust(b: PharmacyBatchView): void; onRemoved(): void }> = ({ row, canStock, onAdjust, onRemoved }) => {
   const { busy, error, run } = useErAction();
+  const [confirming, setConfirming] = useState<string | null>(null);
   const remove = async (b: PharmacyBatchView) => {
     const ok = await run(b.id, () => pharmacyAgentService.removeExpired(b.id));
     if (ok) onRemoved();
+    setConfirming(null);
   };
   return (
     <div className="ph-batch-table">
@@ -271,11 +272,22 @@ const BatchTable: React.FC<{ row: PharmacyStockRow; canStock: boolean; onAdjust(
                   <button type="button" className="btn-secondary btn-sm" aria-label={`Adjust batch ${b.batchNo} of ${row.label}`} disabled={busy !== null} onClick={() => onAdjust(b)}>
                     Adjust
                   </button>
-                  {b.expired && (
-                    <button type="button" className="btn-secondary btn-sm" aria-label={`Remove expired batch ${b.batchNo} of ${row.label}`} disabled={busy !== null} onClick={() => void remove(b)}>
-                      {busy === b.id ? 'Removing…' : 'Remove'}
-                    </button>
-                  )}
+                  {b.expired &&
+                    (confirming === b.id ? (
+                      <>
+                        <span className="er-hint">Remove all {b.quantity} expired?</span>
+                        <button type="button" className="btn-primary btn-sm" disabled={busy !== null} onClick={() => void remove(b)}>
+                          {busy === b.id ? 'Removing…' : 'Yes, remove'}
+                        </button>
+                        <button type="button" className="btn-secondary btn-sm" disabled={busy !== null} onClick={() => setConfirming(null)}>
+                          Keep
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="btn-secondary btn-sm" aria-label={`Remove expired batch ${b.batchNo} of ${row.label}`} disabled={busy !== null} onClick={() => setConfirming(b.id)}>
+                        Remove
+                      </button>
+                    ))}
                 </span>
               )}
             </li>

@@ -2005,6 +2005,8 @@ export interface PharmacyLineInput {
 export interface PharmacyCheckInput {
   patientId: string;
   lines: PharmacyLineInput[];
+  /** A line of this patient that the new lines would replace (an answer's preview): it is left out of the comparison. */
+  replacingLineId?: string;
 }
 export interface PharmacyOrderInput extends PharmacyCheckInput {
   priority: PharmacyPriority;
