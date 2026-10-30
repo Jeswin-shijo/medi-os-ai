@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { CheckCheck, ClipboardList, MessageCircleQuestion, PackageMinus, ShieldCheck } from 'lucide-react';
 import type { CoordinatorEvent, PharmacyOrderView, PharmacyOverview as PharmacyOverviewData } from '../../types';
-import { displayTime } from '../../utils/clinicDate';
+import { displayTime, dobFromInput } from '../../utils/clinicDate';
+
+/** "2026-11-03" as "03 Nov 2026" (the same day helper the date-of-birth field uses). */
+const expiryText = (day: string): string => dobFromInput(day) || day;
 import { tableMin } from '../../utils/layout';
 import {
   ORDER_FILTERS,
   PRIORITY_LABEL,
   PRIORITY_TONE,
   STORE_LABEL,
-  expiryText,
   matchesOrderFilter,
   minutesText,
   orderStatus,

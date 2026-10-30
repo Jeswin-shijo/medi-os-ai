@@ -2,11 +2,11 @@ import React, { useId, useMemo, useState } from 'react';
 import { pharmacyAgentService } from '../../services';
 import { useErAction } from '../er/useErAction';
 import type { PharmacyLineView } from '../../types';
-import { QUERY_KIND_LABEL, needsDoctorFlags, needsReasonFlags, needsReviewFlags, sortForCheck } from '../../utils/pharmacy';
+import { CHECK_QUERY_KINDS, QUERY_KIND_LABEL, needsDoctorFlags, needsReasonFlags, needsReviewFlags, sortForCheck } from '../../utils/pharmacy';
 import { PharmacyLineCard } from './PharmacyLineCard';
 
 const DOCTOR_TIP = 'A doctor must confirm this allergy: use Query doctor';
-const KINDS = Object.keys(QUERY_KIND_LABEL);
+const KINDS = CHECK_QUERY_KINDS;
 
 interface PharmacyCheckQueueProps {
   lines: PharmacyLineView[] | null;
@@ -103,7 +103,7 @@ const CheckActions: React.FC<{ line: PharmacyLineView; onChanged(): void }> = ({
     <div className="ph-actions">
       <div className="ph-action-row">
         <span data-tip={needsDoctor ? DOCTOR_TIP : undefined} className="ph-tip-wrap">
-          <button type="button" className="btn-primary btn-sm" disabled={needsDoctor || busy !== null} data-tip={needsDoctor ? DOCTOR_TIP : undefined} aria-describedby={needsDoctor ? `${uid}-doctor` : undefined} onClick={onApproveClick}>
+          <button type="button" className="btn-primary btn-sm" disabled={needsDoctor || busy !== null} aria-describedby={needsDoctor ? `${uid}-doctor` : undefined} onClick={onApproveClick}>
             {busy === 'approve' && !mode ? 'Approving…' : 'Approve'}
           </button>
         </span>

@@ -1965,6 +1965,7 @@ export interface PharmacyCatalogueProduct {
 export interface PharmacyCatalogueMedicine {
   key: string;
   name: string;
+  aliases: string[];
   unit: string;
   classKey: string;
   classLabel: string;

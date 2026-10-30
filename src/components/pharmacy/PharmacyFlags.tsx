@@ -51,7 +51,7 @@ const FlagRow: React.FC<{ flag: PharmacyFlag; lineId?: string; canExplain: boole
           <span className="ph-flag-sev">{red ? 'Red' : 'Amber'}</span> {flag.text}
         </span>
         {canExplain && lineId && (
-          <button type="button" className="btn-secondary btn-sm ph-flag-btn" onClick={() => void run()} disabled={busy} aria-expanded={!!explain}>
+          <button type="button" className="btn-secondary btn-sm ph-flag-btn" onClick={() => void run()} disabled={busy}>
             <Sparkles size={13} aria-hidden="true" />
             {busy ? 'Explaining…' : explain ? 'Explain again' : 'Explain'}
           </button>

@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Pill, Plus, Search, Trash2 } from 'lucide-react';
 import { useApp } from '../../context/appContextCore';
 import { pharmacyAgentService } from '../../services';
@@ -95,7 +95,15 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
   }, [loadTries]);
 
   const medicineOf = (key: string): PharmacyCatalogueMedicine | undefined => catalogue?.medicines.find((m) => m.key === key);
-  const hasDuration = (frequency: string) => catalogue?.frequencies.find((f) => f.key === frequency)?.hasDuration ?? frequency !== 'STAT';
+  const hasDuration = useCallback((frequency: string) => catalogue?.frequencies.find((f) => f.key === frequency)?.hasDuration ?? frequency !== 'STAT', [catalogue]);
+  /** A new patient or a new product: no allergy confirmation carries over, whoever or whatever it was written for. */
+  const choosePatient = (p: PatientLite | null) => {
+    setPatient(p);
+    setResult(null);
+    setCheckedFor('');
+    setCheckError(null);
+    setRows((rs) => rs.map((r) => ({ ...r, known: false, reason: '' })));
+  };
 
   const pq = patientQuery.trim().toLowerCase();
   const patientMatches = useMemo(
@@ -107,7 +115,7 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
   const medMatches = useMemo(() => {
     if (!catalogue || mq.length < 1) return [];
     return catalogue.medicines
-      .filter((m) => m.name.toLowerCase().includes(mq) || m.key.toLowerCase().includes(mq) || m.classLabel.toLowerCase().includes(mq) || m.products.some((p) => p.label.toLowerCase().includes(mq)))
+      .filter((m) => m.name.toLowerCase().includes(mq) || m.key.toLowerCase().includes(mq) || (m.aliases ?? []).some((a) => a.toLowerCase().includes(mq)) || m.classLabel.toLowerCase().includes(mq) || m.products.some((p) => p.label.toLowerCase().includes(mq)))
       .slice(0, MATCH_LIMIT);
   }, [catalogue, mq]);
 
@@ -128,21 +136,23 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
   const changeProduct = (r: Row, productKey: string) => {
     const p = medicineOf(r.medicine)?.products.find((x) => x.key === productKey);
     if (!p) return;
-    patchRow(r.key, { product: productKey, dose: String(p.strength), route: p.routes.includes(r.route) ? r.route : (p.routes[0] ?? r.route) });
+    patchRow(r.key, { known: false, reason: '', product: productKey, dose: String(p.strength), route: p.routes.includes(r.route) ? r.route : (p.routes[0] ?? r.route) });
   };
 
   // The lines the check sends. It is a string, so an unchanged form does not call again.
-  const inputs = useMemo(() => rows.map((r) => toInput(r, hasDuration(r.frequency))), [rows, catalogue]); // eslint-disable-line react-hooks/exhaustive-deps
+  const inputs = useMemo(() => rows.map((r) => toInput(r, hasDuration(r.frequency))), [rows, hasDuration]);
   const allValid = rows.length > 0 && inputs.every((l) => l !== null);
   const checkKey = patient && allValid ? JSON.stringify([patient.id, inputs]) : '';
 
   useEffect(() => {
-    if (!checkKey || !patient) return;
+    if (!checkKey) return;
+    // The key holds everything the request needs, so the effect depends on it alone.
+    const [patientId, lines] = JSON.parse(checkKey) as [string, PharmacyLineInput[]];
     let alive = true;
     const timer = window.setTimeout(() => {
       setChecking(true);
       pharmacyAgentService
-        .check({ patientId: patient.id, lines: inputs as PharmacyLineInput[] })
+        .check({ patientId, lines })
         .then((r) => {
           if (!alive) return;
           setResult(r);
@@ -156,8 +166,7 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
       alive = false;
       window.clearTimeout(timer);
     };
-    // checkKey holds everything that matters.
-  }, [checkKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [checkKey]);
 
   const fresh = !!checkKey && checkedFor === checkKey && !checking && !checkError && result !== null;
   const flagsOf = (i: number): PharmacyFlag[] | undefined => (fresh ? result.lines[i]?.flags : undefined);
@@ -179,7 +188,8 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
               ? `Confirm ${unconfirmed === 1 ? 'the red allergy' : `${unconfirmed} red allergies`} above to place the order.`
               : '';
 
-  const facts = fresh ? result.patient : null;
+  // The last answer's facts stay on screen while the next check runs.
+  const facts = result?.patient ?? null;
   const allergies = facts?.allergies ?? patient?.allergies;
 
   const submit = async (e: React.FormEvent) => {
@@ -230,7 +240,7 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
                     </div>
                   </div>
                   {!initialPatient && (
-                    <button type="button" className="btn-secondary btn-sm" onClick={() => { setPatient(null); setResult(null); }}>
+                    <button type="button" className="btn-secondary btn-sm" onClick={() => choosePatient(null)}>
                       Change
                     </button>
                   )}
@@ -270,7 +280,7 @@ export const NewMedicineOrderDialog: React.FC<NewMedicineOrderDialogProps> = ({ 
                       <ul>
                         {patientMatches.map((p) => (
                           <li key={p.id}>
-                            <button type="button" className="er-pick" onClick={() => setPatient(p)}>
+                            <button type="button" className="er-pick" onClick={() => choosePatient(p)}>
                               <span className="admit-patient-name">{p.name}</span>
                               <span className="admit-patient-detail">{p.uhid} · {p.age} yrs · {p.gender}</span>
                             </button>

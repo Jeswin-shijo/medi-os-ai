@@ -1,5 +1,4 @@
 import type { PharmacyFlag, PharmacyLineStatus, PharmacyLineView, PharmacyOrderView, PharmacyPriority, PharmacyStore } from '../types';
-import { displayDate } from './clinicDate';
 
 // The same role sets as the API (pharmacy.controller.ts). Lab and front desk have no access.
 /** Every read, and Explain. */
@@ -94,7 +93,7 @@ export function doseText(l: Pick<PharmacyLineView, 'dose' | 'unit' | 'frequency'
 export const minutesText = (n: number | null): string => (n === null ? '— min' : `${n} min`);
 export const percentText = (n: number | null): string => (n === null ? '—%' : `${n}%`);
 
-/** The kinds a pharmacist can pick when querying the doctor (the same as the API's QUERY_KINDS). */
+/** The query kinds and their words. A pharmacist picks any but `stock`, which only Out of stock opens. */
 export const QUERY_KIND_LABEL: Record<string, string> = {
   allergy: 'Allergy',
   clash: 'Medicine clash',
@@ -104,11 +103,8 @@ export const QUERY_KIND_LABEL: Record<string, string> = {
   other: 'Something else'
 };
 
-/** "2026-11-03" as "03 Nov 2026". Read as a plain day, so no time zone can move it. */
-export function expiryText(day: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
-  return m ? displayDate(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : day;
-}
+/** The kinds the To check Query doctor form offers. */
+export const CHECK_QUERY_KINDS = Object.keys(QUERY_KIND_LABEL).filter((k) => k !== 'stock');
 
 /** Whole minutes from `now` to a time (negative once it has passed). */
 export const minutesUntil = (iso: string, now: number): number => Math.floor((new Date(iso).getTime() - now) / 60_000);
