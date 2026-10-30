@@ -166,7 +166,7 @@ export const ISSUE_GROUPS: IssueGroup[] = ['ER', 'Main pharmacy', 'OPD counter']
 /** ER lines go to the ER group, OPD lines to the OPD counter, every other line to the Main pharmacy. */
 export const issueGroupOf = (l: Pick<PharmacyLineView, 'setting'>): IssueGroup => (l.setting === 'ER' ? 'ER' : l.setting === 'OPD' ? 'OPD counter' : 'Main pharmacy');
 
-/** The batch number a USB scanner may type: letters, digits, "/" and "-" (the API's rule). */
-export const BATCH_NO = /^[A-Za-z0-9/-]{1,40}$/;
+/** The batch number a USB scanner may type: letters, digits, ".", "/", "-" and inner spaces, trimmed (the API's rule). */
+export const BATCH_NO = /^[A-Za-z0-9./-](?:[A-Za-z0-9./ -]{0,38}[A-Za-z0-9./-])?$/;
 
 export const ADJUST_REASON_LABEL: Record<string, string> = { damaged: 'Damaged', expired: 'Expired', 'count-correction': 'Count correction' };

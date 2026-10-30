@@ -54,7 +54,7 @@ export const ReceiveDialog: React.FC<ReceiveDialogProps> = ({ initial, onClose, 
   const problem = !product
     ? 'Choose the product.'
     : !BATCH_NO.test(batch)
-      ? 'Enter the batch number: letters, digits, "/" or "-", up to 40 characters.'
+      ? 'Enter the batch number: letters, digits, ".", "/", "-" or inner spaces, up to 40 characters.'
       : !/^\d{4}-\d{2}-\d{2}$/.test(expiry)
         ? 'Enter the expiry date.'
         : expiry < day

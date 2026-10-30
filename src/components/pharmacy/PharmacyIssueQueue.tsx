@@ -237,7 +237,7 @@ const IssueActions: React.FC<{ line: PharmacyLineView; onChanged(): void }> = ({
                     onChange={(e) => { setBatchNo(e.target.value); setError(null); }}
                   />
                 </div>
-                {!batchOk && <p className="er-error" role="alert">A batch number has letters, digits, &quot;/&quot; or &quot;-&quot; only.</p>}
+                {!batchOk && <p className="er-error" role="alert">A batch number has letters, digits, &quot;.&quot;, &quot;/&quot;, &quot;-&quot; or inner spaces only.</p>}
               </div>
             )}
             <div className="ph-action-row">
