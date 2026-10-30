@@ -80,7 +80,7 @@ export const PharmacyQueries: React.FC<PharmacyQueriesProps> = ({ lines, error, 
                       <td>
                         <span className="er-name">{l.productLabel || l.medicineLabel}</span>
                         <span className="er-sub lab-block">
-                          {doseText(l)} · {l.orderNumber}{' '}
+                          {doseText(l, l.productLabel || l.medicineLabel)} · {l.orderNumber}{' '}
                           <span className={`status-pill sm ${PRIORITY_TONE[l.priority]}`}>{PRIORITY_LABEL[l.priority]}</span>
                         </span>
                       </td>
@@ -136,7 +136,7 @@ export const PharmacyQueries: React.FC<PharmacyQueriesProps> = ({ lines, error, 
                         <td>{QUERY_KIND_LABEL[l.query!.kind] ?? l.query!.kind}</td>
                         <td>
                           <span className="er-name">{l.productLabel || l.medicineLabel}</span>
-                          <span className="er-sub lab-block">{doseText(l)} · {l.orderNumber}</span>
+                          <span className="er-sub lab-block">{doseText(l, l.productLabel || l.medicineLabel)} · {l.orderNumber}</span>
                         </td>
                         <td>
                           <span className="er-name">{l.patient.name}</span>

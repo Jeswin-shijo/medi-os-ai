@@ -324,7 +324,7 @@ export const QueryAnswerDialog: React.FC<QueryAnswerDialogProps> = ({ lineId, on
                 )}
               </div>
               <p className="ph-ask-med">
-                <strong>{line.productLabel || line.medicineLabel}</strong> · {doseText(line)} · {PRIORITY_LABEL[line.priority]} · {line.orderNumber}
+                <strong>{line.productLabel || line.medicineLabel}</strong> · {doseText(line, line.productLabel || line.medicineLabel)} · {PRIORITY_LABEL[line.priority]} · {line.orderNumber}
                 {line.status === 'issued' ? ' · already issued' : ''}
               </p>
               <blockquote className="ph-ask-q">{query.question}</blockquote>

@@ -83,11 +83,13 @@ export function orderStatus(o: PharmacyOrderView): { label: string; tone: string
 }
 
 /** "300 mg STAT", "75 mg OD for 7 days"; a dose the checks could not read says so. */
-export function doseText(l: Pick<PharmacyLineView, 'dose' | 'unit' | 'frequency' | 'durationDays'>): string {
-  const dose = l.dose === null ? 'Dose not readable' : `${l.dose} ${l.unit}`.trim();
+export function doseText(l: Pick<PharmacyLineView, 'dose' | 'unit' | 'frequency' | 'durationDays'>, label?: string): string {
+  const full = l.dose === null ? 'Dose not readable' : `${l.dose} ${l.unit}`.trim();
+  // The product name often carries its strength ("Enoxaparin syringe 60 mg"): don't say it twice.
+  const dose = l.dose !== null && label && label.toLowerCase().includes(full.toLowerCase()) ? '' : full;
   const freq = l.frequency ? ` ${l.frequency}` : '';
   const days = l.durationDays ? ` for ${l.durationDays} ${l.durationDays === 1 ? 'day' : 'days'}` : '';
-  return `${dose}${freq}${days}`;
+  return `${dose}${freq}${days}`.trim();
 }
 
 export const minutesText = (n: number | null): string => (n === null ? '— min' : `${n} min`);

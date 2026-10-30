@@ -109,7 +109,7 @@ export const PharmacyPatientMedicines: React.FC<Props> = ({ patientId, since, pa
               <li key={line.id} className="lpt-row">
                 <span className="lpt-name">
                   {line.productLabel || line.medicineLabel}
-                  <span className="er-hint lpt-dose"> {doseText(line)}</span>
+                  <span className="er-hint lpt-dose"> {doseText(line, line.productLabel || line.medicineLabel)}</span>
                 </span>
                 <span className="lpt-tags">
                   <span className={`status-pill sm ${PRIORITY_TONE[line.priority]}`}>{PRIORITY_LABEL[line.priority]}</span>

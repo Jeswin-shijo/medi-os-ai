@@ -60,7 +60,7 @@ export const PharmacyLineCard: React.FC<PharmacyLineCardProps> = ({ line, action
       <div className="ph-med">
         <span className="ph-med-name">{line.productLabel || line.medicineLabel}</span>
         <span className="ph-med-dose">
-          {doseText(line)} · {ROUTE_LABEL[line.route] ?? line.route}
+          {doseText(line, line.productLabel || line.medicineLabel)} · {ROUTE_LABEL[line.route] ?? line.route}
           {line.quantity !== null ? ` · ${line.quantity} ${line.issueUnit}` : ''}
           {` · ${STORE_LABEL[line.defaultStore]}`}
         </span>
